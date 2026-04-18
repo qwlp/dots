@@ -1,6 +1,0 @@
-[WARN  Fri Mar 20 09:37:10 2026] ....local/share/nvim/lazy/nvim-metals/lua/metals/config.lua:321: Welcome to nvim-metals!
-It looks like you don't have Metals installed yet.
-
-You can do this using `:MetalsInstall`.
-
-If you need to set a specific version, you can set it in your settings table.
