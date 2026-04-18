@@ -65,8 +65,6 @@ vim.diagnostic.config({
 -- Keymaps {{{
 local has_compiled = false
 
--- test
-
 local function compile_or_recompile()
     if vim.bo.filetype == "typst" then
         vim.cmd("TypstPreview")
