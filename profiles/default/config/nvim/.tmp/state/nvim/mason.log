@@ -1,0 +1,6 @@
+[ERROR Fri Mar 20 09:37:10 2026] ...l/share/nvim/lazy/mason.nvim/lua/mason-registry/init.lua:31: Cannot find package "\"bash-debug-adapter\"".
+[ERROR Fri Mar 20 09:37:10 2026] .../share/nvim/lazy/mason.nvim/lua/mason-core/providers.lua:81: Provider "github" "get_latest_release" failed: spawn: wget failed with exit code 4 and signal 0. 
+[ERROR Fri Mar 20 09:37:11 2026] .../share/nvim/lazy/mason.nvim/lua/mason-core/providers.lua:81: Provider "github" "get_latest_release" failed: spawn: wget failed with exit code 4 and signal 0. 
+[ERROR Fri Mar 20 09:37:11 2026] .../share/nvim/lazy/mason.nvim/lua/mason-core/providers.lua:92: No provider implementation succeeded for github.get_latest_release
+[ERROR Fri Mar 20 09:37:11 2026] ...im/lazy/mason.nvim/lua/mason-registry/sources/github.lua:144: Failed to install registry GitHubRegistrySource(repo=mason-org/mason-registry). "Failed to fetch latest registry version from GitHub API."
+[ERROR Fri Mar 20 09:37:11 2026] ...l/share/nvim/lazy/mason.nvim/lua/mason-registry/init.lua:128: Failed to update registries. { "GitHubRegistrySource(repo=mason-org/mason-registry) failed to install: Failed to fetch latest registry version from GitHub API." }
