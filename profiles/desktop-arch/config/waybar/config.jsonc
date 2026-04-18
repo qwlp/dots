@@ -1,0 +1,48 @@
+{
+    "layer": "top",
+    "position": "bottom",
+    "height": 25,
+    "spacing": 0,
+    "margin-top": 0,
+    "margin-bottom": 5,
+    "margin-left": 5,
+    "margin-right": 5,
+    "reload_style_on_change": true,
+
+    "modules-left": ["clock"],
+    "modules-center": ["custom/task"],
+    "modules-right": ["group/media"],
+
+    "clock": {
+        "format": "{:%I:%M %p}"
+    },
+
+    "group/media": {
+        "orientation": "horizontal",
+        "modules": ["image#album-art", "custom/media-progress"]
+    },
+
+    "custom/task": {
+        "exec": "~/.config/waybar/scripts/task.sh",
+        "interval": 2,
+        "on-click": "kitty nvim /tmp/current_task.txt",
+        "return-type": "json",
+        "escape": false,
+        "tooltip": false
+    },
+
+    "image#album-art": {
+        "exec": "~/.config/waybar/scripts/album_art.sh",
+        "size": 26,
+        "interval": 2,
+        "tooltip": true
+    },
+
+    "custom/media-progress": {
+        "exec": "~/.config/waybar/scripts/media_progress.sh text",
+        "interval": 1,
+        "return-type": "json",
+        "escape": false,
+        "tooltip": true
+    }
+}

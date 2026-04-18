@@ -1,0 +1,229 @@
+// -*- mode: jsonc -*-
+{
+    "layer": "top",
+    "position": "right",
+    //"height"
+    "margin-top": 5,
+    "margin-bottom": 5,
+    "margin-left": 0,
+    "margin-right": 5,
+
+    "modules-left": [
+        "battery",
+        "cpu",
+        "memory",
+        "pulseaudio",
+        "network",
+        "custom/pd"
+    ],
+    "modules-center": [
+        "clock"
+        // "niri/window"
+    ],
+    "modules-right": [
+        "niri/workspaces",
+        "group/power"
+    ],
+
+    "custom/pd": {
+        "exec-if": "/home/tsp/projects/pd/pd status --require-daemon >/dev/null 2>&1",
+        "exec": "~/.config/waybar/scripts/pd-waybar.sh",
+        "return-type": "json",
+        "interval": 1,
+        "on-click": "/home/tsp/projects/pd/pd start",
+        "on-click-right": "/home/tsp/projects/pd/pd pause",
+        "on-click-middle": "/home/tsp/projects/pd/pd skip",
+        "tooltip": true
+    },
+
+    "clock": {
+        // "timezone": "America/New_York",
+        "tooltip-format": "<big>{:%Y %B}</big>\n<tt><small>{calendar}</small></tt>",
+        "format-alt": "{:%d\n%m\n%y}",
+        "format": "{:%I\n%M\n%p\n\n%m\n%d}",
+        "interval": 60
+    },
+
+
+
+    "pulseaudio": {
+        "format": "{volume}",
+        "format-muted": "m",
+        "format-source": "{volume}",
+        "on-click": "pactl set-sink-mute 0 toggle",
+        "tooltip": false,
+        "justify": "center",
+        "reverse-scrolling": true
+    },
+
+    "pulseaudio/slider": {
+        "min": 0,
+        "max": 100,
+        "orientation": "vertical"
+    },
+
+    "group/audio": {
+        "modules" : [
+            "pulseaudio",
+            "pulseaudio/slider"
+        ],
+        "orientation": "inherit",
+        "drawer": {
+            "transition-duration": 500,
+            "transition-left-to-right": true
+        }
+    },
+
+    "backlight": {
+        "format": "{percent}\n{icon}",
+        "format-icons": ["", "", "", "", "", "", "", "", ""],
+        "tooltip": false,
+        "justify": "center",
+        "reverse-scrolling": true
+    },
+
+    "backlight/slider": {
+        "min": 3,
+        "max": 100,
+        "orientation": "vertical",
+    },
+
+    "group/brightness": {
+        "modules" : [
+            "backlight",
+            "backlight/slider"
+        ],
+        "orientation": "inherit",
+        "drawer": {
+            "transition-duration": 500,
+            "transition-left-to-right": true
+        }
+    },
+
+    "battery": {
+        "states": {
+            "warning": 30,
+            "critical": 15
+        },
+        "format": "{capacity}",
+        "format-charging": "{capacity}+",
+        "format-plugged": "{capacity}+",
+        "tooltip-format": "{power} W, {timeTo}",
+        "justify": "center"
+    },
+
+    "cpu": {
+        "format": "{usage}",
+        "interval": 5,
+        "tooltip": true,
+    },
+
+    "memory": {
+        "format": "{percentage}",
+        "interval": 10,
+        "tooltip": true,
+    },
+
+    "niri/window": {
+        "tooltip": false,
+        "format": "{}",
+        "rotate": 270,
+        "rewrite": {
+            "^null$": "Desktop"
+        }
+    },
+
+    "custom/appmenu": {
+        "format": "󰀻",
+        "on-click": "niri msg action toggle-overview",
+        "tooltip": false
+    },
+
+    "wlr/taskbar": {
+        "format": "{icon}",
+        "on-click": "activate",
+        "on-click-right": "close"
+    },
+
+    "group/apps": {
+        "modules" : [
+            "custom/appmenu",
+            "wlr/taskbar"
+        ],
+        "orientation": "inherit",
+        "drawer": {
+            "transition-duration": 500,
+            "transition-left-to-right": false
+        }
+    },
+
+    "network": {
+        "format-wifi": "on",
+        "format-ethernet": "eth",
+        "tooltip-format": "{essid}: {ipaddr}",
+        "format-disconnected": "off",
+    },
+
+    "group/power": {
+        "modules": [
+            "custom/powerbutton",
+            "custom/reboot",
+            "custom/suspend",
+            "custom/lock",
+            "custom/idlekiller",
+            "user",
+        ],
+        "orientation": "inherit",
+        "drawer": {
+            "transition-duration": 500
+        }
+    },
+
+    "custom/powerbutton": {
+        "format": "⏻",
+        "on-click": "poweroff",
+        "tooltip-format": "Power Off"
+    },
+
+    "custom/reboot": {
+        "format": "󰜉",
+        "on-click": "reboot",
+        "tooltip-format": "Reboot"
+    },
+
+    "custom/suspend": {
+        "format": "",
+        "on-click": "systemctl suspend",
+        "tooltip-format": "Suspend"
+    },
+
+    "custom/lock": {
+        "format": "󰍁",
+        "on-click": "hyprlock",
+        "tooltip-format": "Lock"
+    },
+
+    "custom/idlekiller": {
+        "format": "",
+        "on-click": "pkill hypridle || hypridle",
+        "tooltip-format": "Inhibit Idle"
+    },
+
+    "user": {
+        "format": "{work_H}:{work_M}:{work_S} ↑",
+        "interval": 60,
+        "rotate": 270,
+    },
+
+    "custom/playpause": {
+        "format": "󰐎",
+        "on-click": "playerctl play-pause",
+        "tooltip": false
+    },
+
+    "custom/wallpaper": {
+        "format": "󰸉",
+        "on-click": "qs ipc call panelWindow toggleWallpaperSwitcher",
+        "tooltip": false
+    }
+}
