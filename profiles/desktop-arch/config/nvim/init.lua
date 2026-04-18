@@ -1,6 +1,5 @@
 -- Helpers {{{
 
---test 
 local function augroup(name)
     return vim.api.nvim_create_augroup("Tsp" .. name, { clear = true })
 end
