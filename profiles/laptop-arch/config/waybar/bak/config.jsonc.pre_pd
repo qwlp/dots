@@ -16,8 +16,7 @@
         "cpu",
         "memory",
         "pulseaudio",
-        "network",
-        "custom/pd"
+        "network"
     ],
     "modules-center": [
         "clock"
@@ -27,17 +26,6 @@
         "niri/workspaces",
         "group/power"
     ],
-
-    "custom/pd": {
-        "exec-if": "/home/tsp/projects/pd/pd status --require-daemon >/dev/null 2>&1",
-        "exec": "~/.config/waybar/scripts/pd-waybar.sh",
-        "return-type": "json",
-        "interval": 1,
-        "on-click": "/home/tsp/projects/pd/pd start",
-        "on-click-right": "/home/tsp/projects/pd/pd pause",
-        "on-click-middle": "/home/tsp/projects/pd/pd skip",
-        "tooltip": true
-    },
 
     "clock": {
         // "timezone": "America/New_York",

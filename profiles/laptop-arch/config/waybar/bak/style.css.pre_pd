@@ -309,35 +309,3 @@ window#waybar.empty #custom-powerbutton {
 #network.disconnected {
   background-color: @gruv-red;
 }
-
-#custom-pd {
-  padding: 10px 0px;
-  color: @text-white;
-  background: transparent;
-  /* box-shadow: inset 2px 0px #d79921; */
-}
-
-#custom-pd:hover {
-  background-color: @hover-black;
-}
-
-#custom-pd.running.focus {
-  color: #d65d0e;
-  /* box-shadow: inset 2px 0px #d65d0e; */
-}
-
-#custom-pd.running.short-break,
-#custom-pd.running.long-break {
-  color: #689d6a;
-  /* box-shadow: inset 2px 0px #689d6a; */
-}
-
-#custom-pd.paused,
-#custom-pd.stopped {
-  /* background-color: @mute-black; */
-}
-
-#custom-pd.error {
-  color: #fb4934;
-  /* box-shadow: inset 2px 0px #fb4934; */
-}

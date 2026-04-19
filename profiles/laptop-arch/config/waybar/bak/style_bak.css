@@ -1,15 +1,17 @@
+/* @define-color bg    #1a1b26; */
 @define-color bg    #000000;
-@define-color fg    #E4E4E4;
-@define-color blk   #181818;
-@define-color red   #F43841;
-@define-color grn   #73D936;
-@define-color ylw   #FFDD33;
-@define-color blu   #96A6C8;
-@define-color mag   #9E95C7;
-@define-color cyn   #95A99F;
-@define-color brblk #282828;
-@define-color wht   #F5F5F5;
+@define-color fg    #a9b1d6;
+@define-color blk   #32344a;
+@define-color red   #f7768e;
+@define-color grn   #9ece6a;
+@define-color ylw   #e0af68;
+@define-color blu   #7aa2f7;
+@define-color mag   #ad8ee6;
+@define-color cyn   #0db9d7;
+@define-color brblk #444b6a;
+@define-color wht   #ffffff;
 * {
+    /* font-family: "IosevkaTerm Nerd Font", monospace; */
     font-family: "Ioskeley Mono", monospace;
     font-size: 11px;
 }
