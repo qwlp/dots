@@ -183,7 +183,7 @@ local plugin_specs = {
     { src = "https://github.com/MeanderingProgrammer/render-markdown.nvim",   name = "render-markdown.nvim" },
 
     -- Navigation
-    { src = "https://github.com/stevearc/oil.nvim",                           name = "oil.nvim" },
+    { src = "https://github.com/nvim-mini/mini.files",                        name = "mini.files" },
     { src = "https://github.com/dmtrKovalenko/fff.nvim",                      name = "fff.nvim" },
     { src = "https://github.com/ThePrimeagen/harpoon",                        name = "harpoon" },
     { src = "https://github.com/nvim-mini/mini.jump2d",                       name = "mini.jump2d" },
@@ -196,13 +196,9 @@ local plugin_specs = {
     { src = "https://github.com/neovim/nvim-lspconfig",                       name = "nvim-lspconfig" },
     { src = "https://github.com/williamboman/mason.nvim",                     name = "mason.nvim" },
     { src = "https://github.com/williamboman/mason-lspconfig.nvim",           name = "mason-lspconfig.nvim" },
-    { src = "https://github.com/hrsh7th/cmp-nvim-lsp",                        name = "cmp-nvim-lsp" },
-    { src = "https://github.com/hrsh7th/cmp-buffer",                          name = "cmp-buffer" },
-    { src = "https://github.com/hrsh7th/cmp-path",                            name = "cmp-path" },
-    { src = "https://github.com/hrsh7th/cmp-cmdline",                         name = "cmp-cmdline" },
-    { src = "https://github.com/hrsh7th/nvim-cmp",                            name = "nvim-cmp" },
+    { src = "https://github.com/Saghen/blink.cmp",                            name = "blink.cmp" },
+    { src = "https://github.com/Saghen/blink.compat",                         name = "blink.compat" },
     { src = "https://github.com/L3MON4D3/LuaSnip",                            name = "LuaSnip" },
-    { src = "https://github.com/saadparwaiz1/cmp_luasnip",                    name = "cmp_luasnip" },
     { src = "https://github.com/j-hui/fidget.nvim",                           name = "fidget.nvim" },
 
     -- Treesitter
@@ -384,17 +380,16 @@ function lsp_common.on_attach(_, bufnr)
 end
 
 function lsp_common.build_capabilities()
-    local cmp_lsp = require("cmp_nvim_lsp")
-    local capabilities = vim.tbl_deep_extend(
-        "force",
-        {},
-        vim.lsp.protocol.make_client_capabilities(),
-        cmp_lsp.default_capabilities()
-    )
-
-    capabilities.textDocument.completion.completionItem.snippetSupport = true
-    capabilities.textDocument.signatureHelp = signature.capabilities
-    return capabilities
+    return require("blink.cmp").get_lsp_capabilities({
+        textDocument = {
+            completion = {
+                completionItem = {
+                    snippetSupport = true,
+                },
+            },
+            signatureHelp = signature.capabilities,
+        },
+    })
 end
 
 -- }}}
@@ -923,15 +918,32 @@ local function setup_navigation()
         })
     end
 
-    require("oil").setup({
-        columns = { "icon" },
-        view_options = {
-            show_hidden = true,
+    require("mini.files").setup({
+        mappings = {
+            go_in = "l",
+            go_in_plus = "L",
         },
-        skip_confirm_for_simple_edits = true,
     })
 
-    vim.keymap.set("n", "<leader>e", "<cmd>Oil<cr>", { desc = "Open file explorer" })
+    vim.api.nvim_create_autocmd("User", {
+        group = augroup("MiniFilesEnter"),
+        pattern = "MiniFilesBufferCreate",
+        callback = function(args)
+            vim.keymap.set("n", "<CR>", function()
+                MiniFiles.go_in({ close_on_file = true })
+            end, { buffer = args.data.buf_id, desc = "Go in entry and close on file" })
+        end,
+    })
+
+    vim.keymap.set("n", "<leader>e", function()
+        local path = vim.api.nvim_buf_get_name(0)
+        if path == "" then
+            MiniFiles.open()
+            return
+        end
+
+        MiniFiles.open(path)
+    end, { desc = "Open file explorer" })
 
     vim.g.fff = {
         lazy_sync = true,
@@ -1087,7 +1099,7 @@ end
 local function setup_lsp()
     local lsp_util = require("lspconfig.util")
     local mason_lspconfig = require("mason-lspconfig")
-    local cmp = require("cmp")
+    local blink = require("blink.cmp")
     local luasnip = require("luasnip")
     local capabilities = lsp_common.build_capabilities()
 
@@ -1135,6 +1147,8 @@ local function setup_lsp()
 
     require("mason").setup()
 
+    require("blink.compat").setup({})
+
     luasnip.setup({
         history = true,
         region_check_events = "InsertEnter",
@@ -1143,43 +1157,53 @@ local function setup_lsp()
 
     add_typst_snippets(luasnip)
 
-    cmp.setup({
+    blink.setup({
         enabled = function()
             return vim.bo.ft ~= "sql"
         end,
-        snippet = {
-            expand = function(args)
-                luasnip.lsp_expand(args.body)
+        snippets = {
+            preset = "luasnip",
+        },
+        keymap = {
+            preset = "none",
+            ["<C-p>"] = { "select_prev", "fallback_to_mappings" },
+            ["<C-n>"] = { "select_next", "fallback_to_mappings" },
+            ["<C-y>"] = { "select_and_accept", "fallback" },
+            ["<C-Space>"] = { "show", "show_documentation", "hide_documentation" },
+        },
+        completion = {
+            list = {
+                selection = {
+                    preselect = true,
+                    auto_insert = false,
+                },
+            },
+            accept = {
+                auto_brackets = {
+                    enabled = false,
+                },
+            },
+        },
+        sources = {
+            default = { "lsp", "snippets", "buffer" },
+        },
+        cmdline = {
+            keymap = {
+                preset = "cmdline",
+            },
+            sources = function()
+                local cmdtype = vim.fn.getcmdtype()
+                if cmdtype == "/" or cmdtype == "?" then
+                    return { "buffer" }
+                end
+
+                if cmdtype == ":" then
+                    return { "path", "cmdline" }
+                end
+
+                return {}
             end,
         },
-        mapping = cmp.mapping.preset.insert({
-            ["<C-p>"] = cmp.mapping.select_prev_item({ behavior = cmp.SelectBehavior.Select }),
-            ["<C-n>"] = cmp.mapping.select_next_item({ behavior = cmp.SelectBehavior.Select }),
-            ["<C-y>"] = cmp.mapping.confirm({ select = true }),
-            ["<C-Space>"] = cmp.mapping.complete(),
-        }),
-        sources = cmp.config.sources({
-            { name = "nvim_lsp" },
-            { name = "luasnip" },
-        }, {
-            { name = "buffer" },
-        }),
-    })
-
-    cmp.setup.cmdline("/", {
-        mapping = cmp.mapping.preset.cmdline(),
-        sources = {
-            { name = "buffer" },
-        },
-    })
-
-    cmp.setup.cmdline(":", {
-        mapping = cmp.mapping.preset.cmdline(),
-        sources = cmp.config.sources({
-            { name = "path" },
-        }, {
-            { name = "cmdline" },
-        }),
     })
 
     local servers = {
@@ -1416,7 +1440,7 @@ local function setup_extras()
                 "scratch/custom_rules/",
             },
             files = {},
-            source = "cmp",
+            source = "blink",
         },
         md_files = {
             "AGENT.md",
