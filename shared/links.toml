@@ -1,0 +1,9 @@
+[[entries]]
+origin = "Home"
+key = ".zshrc"
+profiles = ["desktop-arch", "laptop-arch"]
+
+[[entries]]
+origin = "XdgConfig"
+key = "nvim"
+profiles = ["desktop-arch", "laptop-arch"]
