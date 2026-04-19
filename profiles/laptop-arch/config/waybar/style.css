@@ -1,0 +1,85 @@
+@import url("music-colors.css");
+@import url("music-progress.css");
+
+* {
+    font-family: "IoskeleyMono Nerd Font", bold;
+    font-size: 20px;
+    border: none;
+    box-shadow: none;
+    text-shadow: none;
+}
+
+window#waybar {
+    background: transparent;
+    background-color: transparent;
+    border: none;
+    color: #f5f1ff;
+}
+
+window#waybar.empty {
+    background: transparent;
+    background-color: transparent;
+}
+
+#clock {
+    font-size: 17;
+}
+#custom-task,
+#image,
+#custom-media-progress {
+    margin-top: 2px;
+    margin-bottom: 0;
+}
+
+#media {
+    margin-top: 2px;
+    margin-left: 8px;
+    border-radius: 12px;
+    border-top: 1px solid @music_border;
+    border-left: 1px solid @music_border;
+    border-right: 1px solid @music_border;
+    border-bottom: none;
+    background-image:
+        linear-gradient(to right, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.96)),
+        linear-gradient(to right, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0.24)),
+        linear-gradient(to right, @music_bg, @music_bg);
+    background-position: left bottom, left bottom, left top;
+    background-repeat: no-repeat, no-repeat, no-repeat;
+}
+
+#custom-task {
+    min-width: 500px;
+    padding: 0 14px;
+    color: #fff6ff;
+    font-size: 20px;
+}
+
+#image {
+    min-width: 30px;
+    min-height: 30px;
+    padding: 2px 0 4px 2px;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 0;
+    border: none;
+    background: transparent;
+}
+
+#custom-media-progress {
+    min-width: 244px;
+    padding: 8px 8px 10px 8px;
+    margin-left: 0;
+    border: none;
+    border-radius: 0 12px 12px 0;
+    color: #f2f1ff;
+    font-size: 15px;
+    background: transparent;
+}
+
+#custom-media-progress.paused {
+    opacity: 0.7;
+}
+
+#custom-media-progress.stopped {
+    opacity: 0.92;
+}

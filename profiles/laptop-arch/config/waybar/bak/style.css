@@ -1,0 +1,346 @@
+/* @define-color gruv-blue         rgba(69, 133, 136, 0.8); */
+/* @define-color gruv-green        rgba(104, 157, 106, 0.8); */
+/* @define-color gruv-magenta      rgba(177, 98, 134, 0.8); */
+/* @define-color gruv-red          rgba(204, 36, 29, 0.8); */
+/* @define-color gruv-orange       rgba(214, 93, 14, 0.8); */
+/* @define-color gruv-yellow       rgba(215, 153, 33, 0.8); */
+/* @define-color gruv-lime         rgba(184, 187, 38, 0.8); */
+/* @define-color gruv-beige        rgba(235, 219, 178, 0.8); */
+/* @define-color gruv-grey         rgba(168, 153, 132, 0.8); */
+
+@define-color gruv-blue         rgba(0, 0, 0, 0);
+@define-color gruv-green        rgba(0, 0, 0, 0);
+@define-color gruv-magenta      rgba(0, 0, 0, 0);
+@define-color gruv-red          rgba(0, 0, 0, 0);
+@define-color gruv-orange       rgba(0, 0, 0, 0);
+@define-color gruv-yellow       rgba(0, 0, 0, 0);
+@define-color gruv-lime         rgba(0, 0, 0, 0);
+@define-color gruv-beige        rgba(0, 0, 0, 0);
+@define-color gruv-grey         rgba(0, 0, 0, 0);
+/* @define-color background-blue   rgba(13, 17, 23, 0.8); */
+@define-color background-blue   rgba(0,0,0,0);
+/* @define-color background-blue   rgba(43, 26, 40, 1); */
+@define-color text-white        rgba(255, 255, 255, 0.9);
+
+@define-color hover-black       rgba(0, 0, 0, 0);
+@define-color mute-black        rgba(0, 0, 0, 0);
+
+* {
+  font-family: "Ioskeley Mono NerdFont";
+  font-size: 12px;
+  /*border-radius: 0px;*/
+  transition: 0.5s ease-out;
+  border: none;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+window#waybar {
+  /* background: transparent; */
+  color: @text-white;
+  border: 0.8px solid #707070;
+}
+
+window#waybar.empty {
+  /*opacity: 0.0;*/
+  background-color: @hover-black;
+  transition-duration: 0.5s;
+}
+
+button {
+  border-radius: 0;
+}
+
+button:hover {
+  background: inherit;
+  box-shadow: inset 2px 0px @gruv-beige;
+}
+
+#custom-powerbutton,
+#custom-reboot,
+#custom-suspend,
+#custom-lock,
+#custom-idlekiller,
+#custom-playpause,
+#custom-wallpaper,
+#user,
+button,
+#window,
+#network,
+#custom-appmenu,
+#backlight,
+#backlight-slider,
+#pulseaudio,
+#pulseaudio-slider,
+#battery,
+#clock,
+#cpu,
+#memory {
+  padding: 10px 0px;
+  color: @text-white;
+  background: transparent;
+}
+
+#window {
+  margin: 20px 0px;
+}
+
+window#waybar.empty #window {
+  opacity: 0;
+}
+
+#clock {
+}
+
+#clock:hover {
+  color: @gruv-blue;
+  background-color: @hover-black;
+}
+
+window#waybar.empty #clock {
+  border-radius: 0 0 20px 0;
+}
+
+#pulseaudio,
+#pulseaudio-slider {
+}
+
+#pulseaudio.muted:hover,
+#pulseaudio:hover {
+  color: @gruv-magenta;
+  transition-duration: 0.5s;
+  background-color: @hover-black;
+}
+
+#pulseaudio.muted {
+  background-color: @mute-black;
+  color: @text-white;
+}
+
+#pulseaudio-slider slider {
+  min-height: 0px;
+  min-width: 0px;
+  opacity: 0;
+  background-image: none;
+  box-shadow: none;
+}
+
+#pulseaudio-slider trough {
+  min-height: 60px;
+  min-width: 10px;
+  border-radius: 5px;
+  background: @hover-black;
+}
+
+#pulseaudio-slider highlight {
+  min-width: 10px;
+  border-radius: 5px;
+  background: @text-white;
+}
+
+#pulseaudio-slider:hover highlight {
+  background: @gruv-magenta;
+}
+
+#backlight:hover {
+}
+
+#backlight,
+#backlight-slider {
+}
+
+#backlight-slider slider {
+  min-height: 0px;
+  min-width: 0px;
+  opacity: 0;
+  background-image: none;
+  box-shadow: none;
+}
+
+#backlight-slider trough {
+  min-height: 60px;
+  min-width: 10px;
+  border-radius: 5px;
+  background-color: @hover-black;
+}
+
+#backlight-slider highlight {
+  min-width: 10px;
+  border-radius: 5px;
+  background-color: @text-white;
+}
+
+#backlight-slider:hover highlight {
+  background: @gruv-orange;
+}
+
+#battery:hover,
+#battery.charging:hover,
+#battery.plugged:hover {
+  color: @gruv-green;
+  transition-duration: 0.5s;
+  background-color: @hover-black;
+}
+
+#battery,
+#battery.charging,
+#battery.plugged {
+}
+
+#cpu {
+}
+
+#memory {
+}
+
+#cpu:hover {
+}
+
+#memory:hover {
+}
+
+#window:hover {
+  color: @gruv-orange;
+  background-color: @hover-black;
+}
+
+#window {
+  box-shadow: inset 2px 0px @gruv-orange;
+}
+
+#taskbar button {
+  padding: 5px 0;
+}
+
+#taskbar button.active {
+  background: @mute-black;
+  box-shadow: inset 2px 0px @gruv-lime;
+}
+
+#custom-appmenu:hover {
+  color: @gruv-yellow;
+  background-color: @hover-black;
+}
+
+#custom-appmenu {
+  box-shadow: inset 2px 0px @gruv-yellow;
+}
+
+#custom-powerbutton:hover {
+}
+
+#custom-powerbutton {
+}
+
+window#waybar.empty #custom-powerbutton {
+  border-radius: 0 20px 0 0;
+}
+
+#custom-reboot:hover {
+  color: @gruv-yellow;
+  background-color: @hover-black;
+}
+
+#custom-reboot {
+}
+
+#custom-suspend:hover {
+  color: @gruv-grey;
+  background-color: @hover-black;
+}
+
+#custom-suspend {
+  box-shadow: inset 2px 0px @gruv-grey;
+}
+
+#custom-lock:hover {
+  color: @gruv-blue;
+  background-color: @hover-black;
+}
+
+#custom-lock {
+  box-shadow: inset 2px 0px @gruv-blue;
+}
+
+#custom-idlekiller:hover {
+  color: @gruv-magenta;
+  background-color: @hover-black;
+}
+
+#custom-idlekiller {
+  box-shadow: inset 2px 0px @gruv-magenta;
+}
+
+#user:hover {
+  color: @gruv-green;
+  background-color: @hover-black;
+}
+
+#user {
+  box-shadow: inset 2px 0px @gruv-green;
+}
+
+#taskbar,
+#workspaces {
+  background: transparent;
+  border-radius: 0px;
+  margin: 10px 0px;
+}
+
+#workspaces button {
+  font-size: 15px;
+}
+
+#workspaces button.active {
+}
+
+#workspaces button.active:hover {
+}
+
+#workspaces button:hover {
+}
+
+#workspaces button.focused {
+  font-style: italic;
+}
+
+#workspaces button.urgent {
+  background-color: @gruv-red;
+  border-radius: 10px;
+}
+
+#network.disconnected {
+  background-color: @gruv-red;
+}
+
+#custom-pd {
+  padding: 10px 0px;
+  color: @text-white;
+  background: transparent;
+  /* box-shadow: inset 2px 0px #d79921; */
+}
+
+#custom-pd:hover {
+  background-color: @hover-black;
+}
+
+#custom-pd.running.focus {
+  color: #d65d0e;
+  /* box-shadow: inset 2px 0px #d65d0e; */
+}
+
+#custom-pd.running.short-break,
+#custom-pd.running.long-break {
+  color: #689d6a;
+  /* box-shadow: inset 2px 0px #689d6a; */
+}
+
+#custom-pd.paused,
+#custom-pd.stopped {
+  /* background-color: @mute-black; */
+}
+
+#custom-pd.error {
+  color: #fb4934;
+  /* box-shadow: inset 2px 0px #fb4934; */
+}
