@@ -1,9 +1,23 @@
 [[entries]]
 origin = "Home"
 key = ".zshrc"
-profiles = ["desktop-arch", "laptop-arch"]
+profiles = [
+    "desktop-arch",
+    "laptop-arch",
+]
+
+[[entries]]
+origin = "XdgConfig"
+key = "kitty"
+profiles = [
+    "desktop-arch",
+    "laptop-arch",
+]
 
 [[entries]]
 origin = "XdgConfig"
 key = "nvim"
-profiles = ["desktop-arch", "laptop-arch"]
+profiles = [
+    "desktop-arch",
+    "laptop-arch",
+]

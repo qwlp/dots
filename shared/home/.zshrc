@@ -75,7 +75,7 @@ alias llt='eza -la --sort=modified --icons=always' # Long list, sorted by time
 alias lls='eza -la --sort=size --icons=always'     # Long list, sorted by size
 
 # tmux stuff
-alias tka='tmux kill-session'
+alias tka='kitty-kill-sessionizer'
 alias yay='paru'
 
 # --- 7. Functions & Hooks ---
@@ -96,20 +96,20 @@ my_zi_widget() {
     zle accept-line
 }
 
-tmux_sessionizer_widget() {
-    BUFFER="tmux-sessionizer"
+kitty_sessionizer_widget() {
+    BUFFER="kitty-sessionizer"
     zle accept-line
 }
 
 # Register the widget
 zle -N my_zi_widget
-zle -N tmux_sessionizer_widget
+zle -N kitty_sessionizer_widget
 
 # Bind to Ctrl+j
 bindkey -M viins "^j" my_zi_widget
 bindkey -M vicmd "^j" my_zi_widget
-bindkey -M viins "^f" tmux_sessionizer_widget
-bindkey -M vicmd "^f" tmux_sessionizer_widget
+bindkey -M viins "^f" kitty_sessionizer_widget
+bindkey -M vicmd "^f" kitty_sessionizer_widget
 
 
 # --- 8. Plugin Initializations ---
