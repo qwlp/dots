@@ -38,6 +38,7 @@ vim.opt.scrolloff = 8
 vim.opt.signcolumn = "yes"
 vim.opt.isfname:append("@-@")
 vim.opt.updatetime = 50
+vim.opt.colorcolumn = "80"
 
 vim.opt.foldmethod = "marker"
 vim.opt.foldmarker = "{{{,}}}"
@@ -929,9 +930,21 @@ local function setup_navigation()
         group = augroup("MiniFilesEnter"),
         pattern = "MiniFilesBufferCreate",
         callback = function(args)
+            local function mini_files_ui_open()
+                local path = (MiniFiles.get_fs_entry() or {}).path
+                if path == nil then
+                    vim.notify("Cursor is not on a valid file system entry", vim.log.levels.WARN)
+                    return
+                end
+
+                vim.ui.open(path)
+            end
+
             vim.keymap.set("n", "<CR>", function()
                 MiniFiles.go_in({ close_on_file = true })
             end, { buffer = args.data.buf_id, desc = "Go in entry and close on file" })
+            vim.keymap.set("n", "gx", mini_files_ui_open,
+                { buffer = args.data.buf_id, desc = "Open entry with system handler" })
         end,
     })
 
