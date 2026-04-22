@@ -374,8 +374,13 @@ function lsp_common.on_attach(_, bufnr)
     lsp_map("n", "<leader>vc", vim.lsp.buf.code_action, "Code action")
     lsp_map("n", "<leader>vrr", vim.lsp.buf.references, "References")
     lsp_map("n", "<leader>vrn", vim.lsp.buf.rename, "Rename symbol")
-    lsp_map("n", "[d", vim.diagnostic.goto_next, "Next diagnostic")
-    lsp_map("n", "]d", vim.diagnostic.goto_prev, "Previous diagnostic")
+    lsp_map("n", "[d", function()
+        vim.diagnostic.jump({ count = -1 })
+    end, "Previous diagnostic")
+
+    lsp_map("n", "]d", function()
+        vim.diagnostic.jump({ count = 1 })
+    end, "Next diagnostic")
 
     signature.attach(bufnr)
 end
