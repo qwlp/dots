@@ -181,7 +181,8 @@ local plugin_specs = {
     { src = "https://github.com/nvim-mini/mini.surround",                     name = "mini.surround" },
     { src = "https://github.com/catgoose/nvim-colorizer.lua",                 name = "nvim-colorizer.lua" },
     { src = "https://github.com/mbbill/undotree",                             name = "undotree" },
-    { src = "https://github.com/MeanderingProgrammer/render-markdown.nvim",   name = "render-markdown.nvim" },
+    { src = "https://github.com/OXY2DEV/markview.nvim",                       name = "markview.nvim" },
+
 
     -- Navigation
     { src = "https://github.com/nvim-mini/mini.files",                        name = "mini.files" },
@@ -900,11 +901,7 @@ local function setup_editor()
 
     vim.keymap.set("n", "<leader>u", "<cmd>UndotreeToggle<cr>", { desc = "Toggle undo tree" })
 
-    require("render-markdown").setup({
-        file_types = { "markdown" },
-        render_modes = { "n", "c", "t" },
-        anti_conceal = { enabled = false },
-    })
+    require("markview").setup({})
 end
 -- }}}
 
@@ -1352,6 +1349,7 @@ local function setup_treesitter()
             "scala",
             "markdown",
             "markdown_inline",
+            "typst",
             "query",
         },
         sync_install = false,
