@@ -901,7 +901,9 @@ local function setup_editor()
 
     vim.keymap.set("n", "<leader>u", "<cmd>UndotreeToggle<cr>", { desc = "Toggle undo tree" })
 
-    require("markview").setup({})
+    require("markview").setup({
+        typst = { enable = false }
+    })
 end
 -- }}}
 
