@@ -940,8 +940,12 @@ local function setup_navigation()
                     vim.notify("Cursor is not on a valid file system entry", vim.log.levels.WARN)
                     return
                 end
-
-                vim.ui.open(path)
+                if path:find(".pdf", 1, true) then
+                    print(path)
+                    vim.fn.system("kitty @ launch --location=vsplit tdf \"" .. path .. "\"")
+                else
+                    vim.ui.open(path)
+                end
             end
 
             vim.keymap.set("n", "<CR>", function()
