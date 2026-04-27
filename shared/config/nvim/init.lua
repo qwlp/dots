@@ -953,6 +953,9 @@ local function setup_navigation()
             end, { buffer = args.data.buf_id, desc = "Go in entry and close on file" })
             vim.keymap.set("n", "gx", mini_files_ui_open,
                 { buffer = args.data.buf_id, desc = "Open entry with system handler" })
+            vim.keymap.set("n", "<leader>w", function()
+                MiniFiles.synchronize()
+            end, { buffer = args.data.buf_id, desc = "Open entry with system handler" })
         end,
     })
 
