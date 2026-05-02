@@ -56,6 +56,10 @@
       "rev": "87b1a3506211538f460786c23f98ec63ad9af4e5",
       "src": "https://github.com/ThePrimeagen/harpoon"
     },
+    "img-clip": {
+      "rev": "35913f91f46317677a3e57cca86908deb1a9dd03",
+      "src": "https://github.com/timothyckl/tau.nvim"
+    },
     "img-clip.nvim": {
       "rev": "b6ddfb97b5600d99afe3452d707444afda658aca",
       "src": "https://github.com/HakonHarnes/img-clip.nvim"
@@ -163,6 +167,10 @@
     "render-markdown.nvim": {
       "rev": "e3c18ddd27a853f85a6f513a864cf4f2982b9f26",
       "src": "https://github.com/MeanderingProgrammer/render-markdown.nvim"
+    },
+    "tau.nvim": {
+      "rev": "35913f91f46317677a3e57cca86908deb1a9dd03",
+      "src": "https://github.com/timothyckl/tau.nvim"
     },
     "trouble.nvim": {
       "rev": "bd67efe408d4816e25e8491cc5ad4088e708a69a",

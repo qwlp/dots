@@ -1,5 +1,6 @@
 # --- 1. Environment & Paths ---
 export EDITOR="$HOME/.local/share/bob/nvim-bin/nvim"
+[[ -f ~/.zprofile ]] && . ~/.zprofile
 # Use array for PATH to avoid duplicates and handle spaces better
 typeset -U path # This makes PATH unique automatically
 path=(

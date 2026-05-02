@@ -7,6 +7,38 @@ end
 local function map(mode, lhs, rhs, opts)
     vim.keymap.set(mode, lhs, rhs, opts or {})
 end
+
+vim.api.nvim_create_autocmd("PackChanged", {
+    callback = function(ev)
+        local data = ev.data
+        if data.spec.name ~= "tau.nvim" then
+            return
+        end
+        if data.kind ~= "install" and data.kind ~= "update" then
+            return
+        end
+
+        local result = vim.system({ "bun", "run", "build" }, {
+            cwd = data.path .. "/cli",
+            text = true,
+        }):wait()
+
+        if result.code ~= 0 then
+            local output = vim.trim(
+                (result.stderr and result.stderr ~= "") and result.stderr or (result.stdout or "")
+            )
+            if output == "" then
+                output = ("bun run build exited with code %d"):format(result.code)
+            end
+            vim.notify(
+                ("tau.nvim: failed to build cli/tau\n%s"):format(output),
+                vim.log.levels.ERROR
+            )
+        end
+    end,
+})
+
+vim.pack.add({ tau_spec })
 -- }}}
 
 -- Options {{{
@@ -213,9 +245,9 @@ local plugin_specs = {
     { src = "https://github.com/kdheepak/lazygit.nvim",                       name = "lazygit.nvim" },
 
     -- Extras
-    { src = "https://github.com/ThePrimeagen/99",                             name = "99" },
     { src = "https://github.com/HakonHarnes/img-clip.nvim",                   name = "img-clip.nvim" },
     { src = "https://github.com/thePrimeagen/vim-be-good",                    name = "vim-be-good" },
+    { src = "https://github.com/timothyckl/tau.nvim",                         name = "tau.nvim" },
 
     -- Testing
     { src = "https://github.com/ej-shafran/compile-mode.nvim",                name = "compile-mode.nvim" },
@@ -1449,43 +1481,19 @@ end
 
 -- Extras {{{
 local function setup_extras()
-    local ai = require("99")
     local cwd = vim.uv.cwd()
     local basename = vim.fs.basename(cwd)
 
-    ai.setup({
-        logger = {
-            level = ai.DEBUG,
-            path = "/tmp/" .. basename .. ".99.debug",
-            print_on_error = true,
-        },
-        model = "fireworks-ai/accounts/fireworks/models/kimi-k2p5",
-        completion = {
-            custom_rules = {
-                "scratch/custom_rules/",
-            },
-            files = {},
-            source = "blink",
-        },
-        md_files = {
-            "AGENT.md",
-        },
-    })
-
-    vim.keymap.set("n", "<leader>.", function()
-        ai.vibe()
-    end, { desc = "99 vibe prompt" })
-
-    vim.keymap.set("v", "<leader>9", function()
-        ai.visual()
-    end, { desc = "99 visual prompt" })
-
-    vim.keymap.set("v", "<leader>9s", function()
-        ai.stop_all_requests()
-    end, { desc = "99 stop requests" })
-
     require("img-clip").setup({})
     vim.keymap.set("n", "<leader>ip", "<cmd>PasteImage<cr>", { desc = "Paste image from clipboard" })
+    require("tau").setup({
+        api_url = "https://openrouter.ai/api/v1",
+        api_key = vim.env.OPENROUTER_API_KEY,
+        model = "openai/gpt-4o",
+    })
+    vim.keymap.set("v", "<leader>t", ":Tau<CR>", { desc = "Tau: edit selection" })
+    vim.keymap.set("n", "<C-t>", ":TauContext<CR>", { desc = "Tau: context files" })
+    vim.keymap.set("n", "<leader>T", ":TauCancel<CR>", { desc = "Tau: cancel request" })
 end
 -- }}}
 
