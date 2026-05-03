@@ -1510,7 +1510,7 @@ local function setup_extras()
     require("tau").setup({
         api_url = "https://openrouter.ai/api/v1",
         api_key = vim.env.OPENROUTER_API_KEY,
-        model = "openai/gpt-4o",
+        model = "google/gemini-3.1-flash-lite-preview",
     })
     vim.keymap.set("v", "<leader>t", ":Tau<CR>", { desc = "Tau: edit selection" })
     vim.keymap.set("n", "<C-t>", ":TauContext<CR>", { desc = "Tau: context files" })
