@@ -49,7 +49,7 @@ vim.opt.nu = true
 vim.opt.relativenumber = true
 
 vim.opt.tabstop = 4
-vim.opt.softtabstop = 0
+vim.opt.softtabstop = -1
 vim.opt.shiftwidth = 4
 vim.opt.expandtab = true
 vim.opt.autoindent = true
@@ -193,9 +193,13 @@ vim.api.nvim_create_autocmd("FileType", {
     pattern = { "javascript", "typescript", "javascriptreact", "typescriptreact", "typst", "tex" },
     callback = function()
         vim.opt_local.tabstop = 2
+        vim.opt_local.softtabstop = -1
         vim.opt_local.shiftwidth = 2
         vim.opt_local.expandtab = true
-        vim.opt_local.autoindent = true
+
+        if vim.bo.filetype == "typst" then
+            vim.opt_local.indentkeys:remove({ "O", "o" })
+        end
     end,
 })
 -- }}}
@@ -207,6 +211,8 @@ local plugin_specs = {
     { src = "https://github.com/laytan/cloak.nvim",                           name = "cloak.nvim" },
     { src = "https://github.com/nvim-mini/mini.icons",                        name = "mini.icons" },
     { src = "https://github.com/lukas-reineke/indent-blankline.nvim",         name = "indent-blankline.nvim" },
+    { src = "https://github.com/3rd/image.nvim",                              name = "image.nvim" },
+
 
     -- Editing
     { src = "https://github.com/windwp/nvim-autopairs",                       name = "nvim-autopairs" },
@@ -899,6 +905,19 @@ local function setup_ui()
 
     require("mini.icons").setup({})
     require("ibl").setup({})
+    require("image").setup({
+        integrations = {
+            markdown = {
+                only_render_image_at_cursor = true,         -- defaults to false
+                only_render_image_at_cursor_mode = "popup", -- "popup" or "inline", defaults to "popup"
+            },
+            typst = {
+                only_render_image_at_cursor = true,         -- defaults to false
+                only_render_image_at_cursor_mode = "popup", -- "popup" or "inline", defaults to "popup"
+            }
+
+        }
+    })
 end
 -- }}}
 
