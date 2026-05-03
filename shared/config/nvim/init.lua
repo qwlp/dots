@@ -206,6 +206,7 @@ local plugin_specs = {
     { src = "https://github.com/qwlp/gruber-darker.nvim",                     name = "gruber-darker.nvim" },
     { src = "https://github.com/laytan/cloak.nvim",                           name = "cloak.nvim" },
     { src = "https://github.com/nvim-mini/mini.icons",                        name = "mini.icons" },
+    { src = "https://github.com/lukas-reineke/indent-blankline.nvim",         name = "indent-blankline.nvim" },
 
     -- Editing
     { src = "https://github.com/windwp/nvim-autopairs",                       name = "nvim-autopairs" },
@@ -897,6 +898,7 @@ local function setup_ui()
     })
 
     require("mini.icons").setup({})
+    require("ibl").setup({})
 end
 -- }}}
 
