@@ -114,6 +114,14 @@ local function compile_or_recompile()
     has_compiled = true
 end
 
+map("v", "<LeftRelease>", [["+ygv]], { silent = true, desc = "[P]Mouse select -> yank to system clipboard" })
+map(
+    "v",
+    "<2-LeftRelease>",
+    [["+ygv]],
+    { silent = true, desc = "[P]Mouse select (double) -> yank to system clipboard" }
+)
+
 map("v", "J", ":m '>+1<CR>gv=gv", { silent = true, desc = "Move selected lines down" })
 map("v", "K", ":m '<-2<CR>gv=gv", { silent = true, desc = "Move selected lines up" })
 
