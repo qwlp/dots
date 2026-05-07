@@ -1033,8 +1033,24 @@ local function setup_navigation()
 
     vim.g.fff = {
         lazy_sync = true,
-        debug = {
+        prompt = " > ",
+        preview = {
             enabled = true,
+            line_numbers = true,
+        },
+        layout = {
+            height = 0.9,
+            width = 0.9,
+            prompt_position = 'bottom', -- or 'top'
+            preview_position = 'right', -- 'left' | 'right' | 'top' | 'bottom'
+            preview_size = 0.5,
+            flex = { size = 130, wrap = 'top' },
+            show_scrollbar = false,
+            path_shorten_strategy = 'middle_number', -- 'middle_number' | 'middle' | 'end'
+            anchor = 'center',
+        },
+        debug = {
+            enabled = false,
             show_scores = true,
         },
     }
