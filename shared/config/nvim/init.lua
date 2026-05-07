@@ -1041,7 +1041,7 @@ local function setup_navigation()
         layout = {
             height = 0.9,
             width = 0.9,
-            prompt_position = 'bottom', -- or 'top'
+            prompt_position = 'top',    -- or 'top'
             preview_position = 'right', -- 'left' | 'right' | 'top' | 'bottom'
             preview_size = 0.5,
             flex = { size = 130, wrap = 'top' },
