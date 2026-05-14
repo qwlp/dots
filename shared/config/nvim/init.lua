@@ -1570,6 +1570,7 @@ local function setup_extras()
     -- })
     vim.keymap.set("v", "<leader>t", ":Tau<CR>", { desc = "Tau: edit selection" })
     vim.keymap.set("v", "<leader>a", ":TauAsk<CR>", { desc = "Tau: ask" })
+    vim.keymap.set({ "n", "v" }, "<leader>vt", ":TauVibe<CR>", { desc = "Tau: vibe" })
     vim.keymap.set("n", "<C-t>", ":TauContext<CR>", { desc = "Tau: context files" })
     vim.keymap.set("n", "<leader>T", ":TauCancel<CR>", { desc = "Tau: cancel request" })
 end
@@ -1615,7 +1616,7 @@ local function setup_testing()
         })
     end, { desc = "Run nearest test" })
 
-    vim.keymap.set("n", "<leader>tv", function()
+    vim.keymap.set("n", "<leader>te", function()
         require("neotest").summary.toggle()
     end, { desc = "Toggle test summary" })
 
