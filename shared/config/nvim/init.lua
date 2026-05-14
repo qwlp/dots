@@ -263,7 +263,7 @@ local plugin_specs = {
     -- Extras
     { src = "https://github.com/HakonHarnes/img-clip.nvim",                   name = "img-clip.nvim" },
     { src = "https://github.com/thePrimeagen/vim-be-good",                    name = "vim-be-good" },
-    { src = "https://github.com/timothyckl/tau.nvim",                         name = "tau.nvim" },
+    { src = "https://github.com/qwlp/tau.nvim",                               name = "tau.nvim" },
 
     -- Testing
     { src = "https://github.com/ej-shafran/compile-mode.nvim",                name = "compile-mode.nvim" },
@@ -1554,11 +1554,22 @@ local function setup_extras()
     require("img-clip").setup({})
     vim.keymap.set("n", "<leader>ip", "<cmd>PasteImage<cr>", { desc = "Paste image from clipboard" })
     require("tau").setup({
-        api_url = "https://openrouter.ai/api/v1",
-        api_key = vim.env.OPENROUTER_API_KEY,
-        model = "google/gemini-3.1-flash-lite-preview",
+        connector = "opencode",
+
+        -- optional
+        opencode_model = "openai/gpt-5.4-mini",
+        opencode_agent = "build",
+        opencode_args = {
+            "--thinking",
+        },
     })
+    -- require("tau").setup({
+    --     api_url = "https://openrouter.ai/api/v1",
+    --     api_key = vim.env.OPENROUTER_API_KEY,
+    --     model = "google/gemini-3.1-flash-lite-preview",
+    -- })
     vim.keymap.set("v", "<leader>t", ":Tau<CR>", { desc = "Tau: edit selection" })
+    vim.keymap.set("v", "<leader>a", ":TauAsk<CR>", { desc = "Tau: ask" })
     vim.keymap.set("n", "<C-t>", ":TauContext<CR>", { desc = "Tau: context files" })
     vim.keymap.set("n", "<leader>T", ":TauCancel<CR>", { desc = "Tau: cancel request" })
 end

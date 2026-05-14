@@ -177,8 +177,8 @@
       "src": "https://github.com/MeanderingProgrammer/render-markdown.nvim"
     },
     "tau.nvim": {
-      "rev": "35913f91f46317677a3e57cca86908deb1a9dd03",
-      "src": "https://github.com/timothyckl/tau.nvim"
+      "rev": "8dd542a6a92456a4d996df62e223bbfce0b04ecc",
+      "src": "https://github.com/qwlp/tau.nvim"
     },
     "trouble.nvim": {
       "rev": "bd67efe408d4816e25e8491cc5ad4088e708a69a",
