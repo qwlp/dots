@@ -985,8 +985,19 @@ local function setup_navigation()
 
     require("mini.files").setup({
         mappings = {
-            go_in = "l",
-            go_in_plus = "L",
+            close       = 'q',
+            go_in       = '<CR>',
+            go_in_plus  = 'L',
+            go_out      = '-',
+            go_out_plus = 'H',
+            mark_goto   = "'",
+            mark_set    = 'm',
+            reset       = '<BS>',
+            reveal_cwd  = '@',
+            show_help   = 'g?',
+            synchronize = '=',
+            trim_left   = '<',
+            trim_right  = '>',
         },
     })
 
@@ -1236,6 +1247,10 @@ local function setup_lsp()
     })
 
     vim.keymap.set("n", "<leader>f", function()
+        require("conform").format({ bufnr = 0 })
+    end, { desc = "Format buffer" })
+
+    vim.keymap.set("i", "<C-;>", function()
         require("conform").format({ bufnr = 0 })
     end, { desc = "Format buffer" })
 
