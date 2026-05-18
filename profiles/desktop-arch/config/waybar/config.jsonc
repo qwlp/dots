@@ -23,9 +23,9 @@
     },
 
     "custom/task": {
-        "exec": "~/.config/waybar/scripts/task.sh",
+        "exec": "~/.config/waybar/scripts/taskwarrior.sh",
         "interval": 2,
-        "on-click": "kitty nvim /tmp/current_task.txt",
+        // "on-click": "kitty nvim /tmp/current_task.txt",
         "return-type": "json",
         "escape": false,
         "tooltip": false
