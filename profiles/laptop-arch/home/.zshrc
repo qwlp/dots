@@ -128,3 +128,30 @@ fi
 # Starship replaces your manual prompt, so we initialize it last.
 eval "$(zoxide init zsh)"
 eval "$(starship init zsh)"
+
+# Taskwarrior wrapper: sync remote, run task, then push local changes.
+yt() {
+    if [[ -n "$(git -C "$HOME/.task" status --porcelain)" ]]; then
+        echo "yt: ~/.task has existing uncommitted changes; run task directly or sync them first." >&2
+        return 1
+    fi
+
+    git -C "$HOME/.task" pull --rebase || return $?
+
+    task "$@"
+    local task_status=$?
+
+    if (( task_status != 0 )); then
+        return $task_status
+    fi
+
+    if [[ -z "$(git -C "$HOME/.task" status --porcelain)" ]]; then
+        return 0
+    fi
+
+    git -C "$HOME/.task" add -A && \
+        git -C "$HOME/.task" commit -m "Sync Taskwarrior data" && \
+        git -C "$HOME/.task" push
+}
+
+compdef yt=task 2>/dev/null
