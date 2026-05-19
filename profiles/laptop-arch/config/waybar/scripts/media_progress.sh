@@ -3,7 +3,13 @@ set -eu
 
 MODE="${1:-text}"
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
-STATE_DIR="$RUNTIME_DIR/waybar-media-progress"
+CACHE_ROOT="$RUNTIME_DIR"
+
+if ! mkdir -p "$CACHE_ROOT" 2>/dev/null || [ ! -w "$CACHE_ROOT" ]; then
+    CACHE_ROOT="${TMPDIR:-/tmp}"
+fi
+
+STATE_DIR="$CACHE_ROOT/waybar-media-progress"
 STATE_FILE="$STATE_DIR/position-state"
 PROGRESS_FILE="/home/tsp/.config/waybar/music-progress.css"
 PLAYER_ID=""
@@ -35,6 +41,25 @@ resolve_player() {
             return 0
         fi
     done
+
+    while IFS= read -r candidate; do
+        status="$(playerctl -p "$candidate" status 2>/dev/null || true)"
+
+        if [ -z "$status" ]; then
+            continue
+        fi
+
+        if [ -z "$fallback_player" ]; then
+            fallback_player="$candidate"
+        fi
+
+        if [ "$status" = "Playing" ]; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+    done <<EOF
+$(playerctl -l 2>/dev/null || true)
+EOF
 
     if [ -n "$fallback_player" ]; then
         printf '%s' "$fallback_player"

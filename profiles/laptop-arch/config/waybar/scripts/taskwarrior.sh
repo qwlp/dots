@@ -4,7 +4,7 @@ json="$(task +ACTIVE export 2>/dev/null)"
 
 # If Taskwarrior returned nothing or an empty array, bail cleanly.
 if [ -z "$json" ] || [ "$json" = "[]" ]; then
-    echo "NTA"
+    jq -nc --arg text "NTA" '{text: $text, tooltip: $text}'
     exit 0
 fi
 

@@ -2,7 +2,13 @@
 set -eu
 
 RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
-CACHE_DIR="$RUNTIME_DIR/waybar-album-art"
+CACHE_ROOT="$RUNTIME_DIR"
+
+if ! mkdir -p "$CACHE_ROOT" 2>/dev/null || [ ! -w "$CACHE_ROOT" ]; then
+    CACHE_ROOT="${TMPDIR:-/tmp}"
+fi
+
+CACHE_DIR="$CACHE_ROOT/waybar-album-art"
 CACHE_FILE="$CACHE_DIR/current-cover"
 URL_FILE="$CACHE_DIR/current-url"
 PLACEHOLDER="/home/tsp/.config/waybar/music-placeholder.svg"
@@ -18,6 +24,32 @@ resolve_player() {
             return 0
         fi
     done
+
+    fallback_player=""
+
+    while IFS= read -r candidate; do
+        status="$(playerctl -p "$candidate" status 2>/dev/null || true)"
+
+        if [ -z "$status" ]; then
+            continue
+        fi
+
+        if [ -z "$fallback_player" ]; then
+            fallback_player="$candidate"
+        fi
+
+        if [ "$status" = "Playing" ]; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+    done <<EOF
+$(playerctl -l 2>/dev/null || true)
+EOF
+
+    if [ -n "$fallback_player" ]; then
+        printf '%s' "$fallback_player"
+        return 0
+    fi
 
     return 1
 }
@@ -73,7 +105,16 @@ if [ -f "$URL_FILE" ]; then
 fi
 
 if [ "$ART_URL" != "$PREV_URL" ] || [ ! -s "$CACHE_FILE" ]; then
-    if curl -Lsf "$ART_URL" -o "$CACHE_FILE.tmp"; then
+    if [ "${ART_URL#file://}" != "$ART_URL" ]; then
+        ART_FILE="${ART_URL#file://}"
+
+        if cp "$ART_FILE" "$CACHE_FILE.tmp" 2>/dev/null; then
+            mv "$CACHE_FILE.tmp" "$CACHE_FILE"
+            printf '%s\n' "$ART_URL" > "$URL_FILE"
+        else
+            rm -f "$CACHE_FILE.tmp"
+        fi
+    elif curl -Lsf "$ART_URL" -o "$CACHE_FILE.tmp"; then
         mv "$CACHE_FILE.tmp" "$CACHE_FILE"
         printf '%s\n' "$ART_URL" > "$URL_FILE"
     else
