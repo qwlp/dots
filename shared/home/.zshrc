@@ -70,6 +70,7 @@ alias lsa='eza -a --icons=always --group-directories-first'
 alias ll='eza -la --icons=always --group-directories-first'
 alias lt='eza --tree --icons=always --group-directories-first'
 alias poweroff="systemctl poweroff --no-wall"
+alias tpc="typst compile"
 
 # Helpful extras
 alias llt='eza -la --sort=modified --icons=always' # Long list, sorted by time
