@@ -77,6 +77,14 @@ vim.opt.foldmethod = "marker"
 vim.opt.foldmarker = "{{{,}}}"
 vim.opt.foldenable = true
 vim.opt.foldlevelstart = 0
+
+vim.api.nvim_create_autocmd("FileType", {
+    pattern = { "typst", "markdown", "text" },
+    callback = function()
+        vim.opt_local.textwidth = 80
+    end,
+})
+
 -- }}}
 
 -- Diagnostics {{{
@@ -132,6 +140,7 @@ map("n", "<C-u>", "<C-u>zz", { desc = "Half-page up centered" })
 map("n", "n", "nzzzv", { desc = "Next search result centered" })
 map("n", "N", "Nzzzv", { desc = "Previous search result centered" })
 map("n", "=ap", "ma=ap'a", { desc = "Reindent paragraph" })
+map('i', '<M-d>', '<BS>', { desc = 'Delete character to the left' })
 
 map("n", "<leader>q", "<cmd>q<cr>", { desc = "Quit window" })
 map("n", "<leader>w", "<cmd>w<cr><esc>", { desc = "Write buffer" })
