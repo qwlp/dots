@@ -1036,7 +1036,7 @@ local function setup_navigation()
                 end
                 if path:find(".pdf", 1, true) then
                     print(path)
-                    vim.fn.system("sioyek \"" .. path .. "\"")
+                    vim.fn.jobstart("sioyek \"" .. path .. "\"")
                 else
                     vim.ui.open(path)
                 end
