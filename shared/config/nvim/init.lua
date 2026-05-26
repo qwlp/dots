@@ -1028,11 +1028,27 @@ local function setup_navigation()
                 end
             end
 
+            local function mini_files_open_pdf_in_sioyek()
+                local path = (MiniFiles.get_fs_entry() or {}).path
+                if path == nil then
+                    vim.notify("Cursor is not on a valid file system entry", vim.log.levels.WARN)
+                    return
+                end
+                if path:find(".pdf", 1, true) then
+                    print(path)
+                    vim.fn.system("sioyek \"" .. path .. "\"")
+                else
+                    vim.ui.open(path)
+                end
+            end
+
             vim.keymap.set("n", "<CR>", function()
                 MiniFiles.go_in({ close_on_file = true })
             end, { buffer = args.data.buf_id, desc = "Go in entry and close on file" })
             vim.keymap.set("n", "gx", mini_files_ui_open,
                 { buffer = args.data.buf_id, desc = "Open entry with system handler" })
+            vim.keymap.set("n", "zx", mini_files_open_pdf_in_sioyek,
+                { buffer = args.data.buf_id, desc = "Open entry with sioyek" })
             vim.keymap.set("n", "<leader>w", function()
                 MiniFiles.synchronize()
             end, { buffer = args.data.buf_id, desc = "Open entry with system handler" })
