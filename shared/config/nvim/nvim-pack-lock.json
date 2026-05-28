@@ -48,10 +48,6 @@
       "rev": "fcea7ff883235d9024dc41e638f164a450c14ca2",
       "src": "https://github.com/folke/flash.nvim"
     },
-    "gruber-darker.nvim": {
-      "rev": "f8549efcd547f40c9c7af7a3d970215ed62a8e07",
-      "src": "https://github.com/qwlp/gruber-darker.nvim"
-    },
     "harpoon": {
       "rev": "87b1a3506211538f460786c23f98ec63ad9af4e5",
       "src": "https://github.com/ThePrimeagen/harpoon"
