@@ -79,7 +79,7 @@ alias lls='eza -la --sort=size --icons=always'     # Long list, sorted by size
 # tmux stuff
 alias tka='kitty-kill-sessionizer'
 alias yay='paru'
-alias yolo='git add . && git commit -m "yolo" && git push'
+alias yolo='git add -A && git commit -m "yolo" && git push'
 
 # --- 7. Functions & Hooks ---
 NEW_LINE_BEFORE_PROMPT=
