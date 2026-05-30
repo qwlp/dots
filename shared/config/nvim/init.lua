@@ -1237,7 +1237,7 @@ package.preload["colors.naysayer"] = function()
 
         background = "#062625",
         gutter = "#062625",
-        selection = "#0000ff",
+        selection = "#1a4040",
         text = "#d0b892",
         comment = "#53d549",
         punctuation = "#8cde94",
@@ -1366,6 +1366,7 @@ end
 
 local kitty_config = {
     config_path = vim.fn.expand("~/.config/kitty/kitty.conf"),
+    theme_path = vim.fn.expand("~/.config/kitty/theme.conf"),
     fallback_transparency_enabled = false,
     fallback_theme = "solarized_dark",
 }
@@ -1400,7 +1401,10 @@ read_kitty_config = function()
         theme = kitty_config.fallback_theme,
     }
 
-    local ok, lines = pcall(vim.fn.readfile, kitty_config.config_path)
+    local ok, lines = pcall(vim.fn.readfile, kitty_config.theme_path)
+    if not ok then
+        ok, lines = pcall(vim.fn.readfile, kitty_config.config_path)
+    end
     if not ok then
         return config
     end
@@ -1433,6 +1437,26 @@ local function load_preferred_theme()
 
     load_gruber_darker_theme()
     apply_theme_overrides(config)
+end
+
+vim.api.nvim_create_user_command("TspReloadTheme", load_preferred_theme, {})
+if vim.v.servername == "" then
+    pcall(vim.fn.serverstart)
+end
+
+do
+    local theme_watcher = vim.uv.new_fs_event()
+    if theme_watcher then
+        local theme_dir = vim.fs.dirname(kitty_config.theme_path)
+        theme_watcher:start(theme_dir, {}, function(_, filename)
+            if filename ~= vim.fs.basename(kitty_config.theme_path) then
+                return
+            end
+
+            vim.schedule(load_preferred_theme)
+        end)
+        _G.TspThemeWatcher = theme_watcher
+    end
 end
 
 map("v", "<LeftRelease>", [["+ygv]], { silent = true, desc = "[P]Mouse select -> yank to system clipboard" })
