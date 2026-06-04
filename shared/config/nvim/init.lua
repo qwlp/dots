@@ -2743,6 +2743,8 @@ local function setup_lsp()
                         SentenceCapitalization = true,
                         -- UnclosedQuotes = true,
                         WrongQuotes = false,
+                        PossessiveNoun = true,
+                        WrongApostrophe = false,
                         LongSentences = true,
                         RepeatedWords = true,
                         Spaces = true,
