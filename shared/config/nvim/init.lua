@@ -45,7 +45,6 @@ vim.pack.add({ tau_spec })
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
 vim.opt.guicursor = ""
-vim.o.shell = "/bin/zsh -i"
 
 vim.opt.nu = true
 vim.opt.relativenumber = true
