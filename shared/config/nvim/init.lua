@@ -1720,35 +1720,6 @@ signature.capabilities = {
     },
 }
 
-signature.opts = {
-    bind = true,
-    doc_lines = 10,
-    floating_window = true,
-    -- Keep the popup away from the command line when typing near the bottom.
-    floating_window_above_cur_line = true,
-    max_height = 8,
-    handler_opts = {
-        border = "rounded",
-    },
-    hint_enable = false,
-    extra_trigger_chars = { "(", "," },
-    always_trigger = false,
-    close_timeout = nil,
-    auto_close_after = nil,
-    toggle_key = "<C-h>",
-    toggle_key_flip_floatwin_setting = false,
-    timer_interval = 80,
-}
-
-function signature.attach(bufnr)
-    if vim.b[bufnr].tsp_signature_help_setup then
-        return
-    end
-
-    vim.b[bufnr].tsp_signature_help_setup = true
-    require("lsp_signature").on_attach(signature.opts, bufnr)
-end
-
 -- }}}
 
 -- LSP Common {{{
@@ -1774,7 +1745,7 @@ function lsp_common.on_attach(_, bufnr)
         vim.diagnostic.jump({ count = 1 })
     end, "Next diagnostic")
 
-    signature.attach(bufnr)
+    lsp_map({ "i", "n" }, "<C-h>", vim.lsp.buf.signature_help, "LSP signature help")
 end
 
 function lsp_common.build_capabilities()
@@ -2562,8 +2533,6 @@ local function setup_lsp()
     local blink = require("blink.cmp")
     local luasnip = require("luasnip")
     local capabilities = lsp_common.build_capabilities()
-
-    require("lsp_signature").setup(signature.opts)
 
     require("conform").setup({
         format_on_save = {
