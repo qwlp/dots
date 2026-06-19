@@ -21,3 +21,11 @@ profiles = [
     "desktop-arch",
     "laptop-arch",
 ]
+
+[[entries]]
+origin = "XdgConfig"
+key = "emacs"
+profiles = [
+    "desktop-arch",
+    "laptop-arch",
+]

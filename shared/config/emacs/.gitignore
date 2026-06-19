@@ -1,0 +1,10 @@
+elpa/
+eshell/
+eln-cache/
+auto-save-list/
+ido.last
+nov-places
+smex-items
+tramp
+transient/
+.mc-lists.el
