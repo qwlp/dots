@@ -1234,8 +1234,8 @@ package.preload["colors.naysayer"] = function()
         cyan = "#A1EFE4",
         violet = "#AE81FF",
 
-        background = "#062625",
-        gutter = "#062625",
+        background = "#062329",
+        gutter = "#062329",
         selection = "#1a4040",
         text = "#d0b892",
         comment = "#53d549",
