@@ -1,7 +1,9 @@
 elpa/
 eshell/
 eln-cache/
+auto-save/
 auto-save-list/
+backups/
 ido.last
 nov-places
 smex-items

@@ -1,121 +1,135 @@
+;;; init.el --- Personal Emacs config -*- lexical-binding: t; -*-
 
-;; make emacs more clean
+;;; UI
+
 (menu-bar-mode -1)
 (tool-bar-mode -1)
 (scroll-bar-mode -1)
 (tooltip-mode -1)
+
 (setq inhibit-startup-screen t)
 (setq-default truncate-lines t)
+
+;;; Custom
 
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 
 (when (file-exists-p custom-file)
   (load custom-file))
 
-;; remove backup files that i really dislike
-(setq make-backup-files nil)
+;;; Files
 
-;; remove tabs, use spaces
+;; Keep editing safety files out of project directories.
+(let ((backup-dir (expand-file-name "backups/" user-emacs-directory))
+      (auto-save-dir (expand-file-name "auto-save/" user-emacs-directory)))
+  (make-directory backup-dir t)
+  (make-directory auto-save-dir t)
+  (setq backup-directory-alist `(("." . ,backup-dir))
+        auto-save-file-name-transforms `((".*" ,auto-save-dir t))
+        create-lockfiles nil))
+
+;;; Editing
+
 (setq-default indent-tabs-mode nil)
 (setq-default tab-width 4)
 (setq c-basic-offset 4)
 
-;; zshrc things
+;;; Shell
+
 (setq shell-command-switch "-lc")
 
-;; init pack repo
+;;; Packages
+
 (require 'package)
+
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
 (package-initialize)
 
-(unless package-archive-contents
-  (package-refresh-contents))
+(unless (package-installed-p 'use-package)
+  (unless package-archive-contents
+    (package-refresh-contents))
+  (package-install 'use-package))
 
 (require 'use-package)
+(setq use-package-always-ensure t)
 
-;; naysayer theme cause why not
-(unless (package-installed-p 'naysayer-theme)
-  (package-install 'naysayer-theme))
+;;; Theme
 
-(load-theme 'naysayer t)
+(use-package naysayer-theme
+  :config
+  (load-theme 'naysayer t))
 
-
-;; w consolas
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(default ((t (:font "Consolas 15")))))
-
+;;; Editing Packages
 
 (use-package multiple-cursors
-  :ensure t
   :bind
   (("C-S-c C-S-c" . mc/edit-lines)
-   ("C->"         . mc/mark-next-like-this-word)
-   ("C-<"         . mc/mark-previous-like-this-word)
-   ("C-c n"       . ar/mc-mark-all-symbol-overlays)
-   ("C-c C-<"     . mc/mark-all-like-this)
-   ("C-'"         . mc/skip-to-next-like-this)      ; Alternative easier-to-bind key
-   ("C-;"         . mc/skip-to-previous-like-this))) ; Alternative easier-to-bind key
+   ("C->" . mc/mark-next-like-this-word)
+   ("C-<" . mc/mark-previous-like-this-word)
+   ("C-c C-<" . mc/mark-all-like-this)
+   ("C-'" . mc/skip-to-next-like-this)
+   ("C-;" . mc/skip-to-previous-like-this)))
 
 (use-package symbol-overlay
-  :ensure t
-  :bind (("M-i" . symbol-overlay-put)
-         ("M-n" . symbol-overlay-switch-forward)
-         ("M-p" . symbol-overlay-switch-backward)
-         ("<f7>" . symbol-overlay-mode)
-         ("<f8>" . symbol-overlay-remove-all)))
+  :bind
+  (("M-i" . symbol-overlay-put)
+   ("M-n" . symbol-overlay-switch-forward)
+   ("M-p" . symbol-overlay-switch-backward)
+   ("<f7>" . symbol-overlay-mode)
+   ("<f8>" . symbol-overlay-remove-all)))
 
 (use-package symbol-overlay-mc
-  :ensure t
-  :bind (("M-a" . symbol-overlay-mc-mark-all)))
+  :after symbol-overlay
+  :bind
+  (("M-a" . symbol-overlay-mc-mark-all)
+   ("C-c n" . symbol-overlay-mc-mark-all)))
 
-;; make dired better
+;;; Dired
+
 (use-package dired-x
+  :ensure nil
   :after dired
   :demand t
+  :hook (dired-mode . dired-omit-mode)
   :config
-  (setq dired-omit-files (concat dired-omit-files "\\|^\\..+$"))
+  (setq dired-omit-files (concat dired-omit-files "\\|^\\..+$")))
 
-  :hook (dired-mode . dired-omit-mode))
+;;; Completion
 
-;; ido
 (use-package ido
+  :ensure nil
   :init
   (ido-mode 1)
   (ido-everywhere 1))
 
 (use-package ido-completing-read+
-  :ensure t
   :after ido
   :config
   (ido-ubiquitous-mode 1))
 
 (use-package smex
-  :ensure t
   :after ido
-  :bind (("M-x" . smex)
-	 ("C-c C-c M-x" . execute-extended-command))
+  :bind
+  (("M-x" . smex)
+   ("C-c C-c M-x" . execute-extended-command))
   :init
   (smex-initialize))
 
-;; the juicer that is magit
+;;; Git
+
 (use-package magit
-  :ensure t
-  :bind (("C-x g" . magit-status)
-	 ("C-x M-g" . magit-dispatch))
+  :bind
+  (("C-x g" . magit-status)
+   ("C-x M-g" . magit-dispatch))
   :config
   (setq magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
 
-;; epubing
+;;; Readers
+
 (use-package nov
-  :ensure t
-  :init
   :mode ("\\.epub\\'" . nov-mode))
 
-;; langs
+;;; Languages
+
 (use-package go-mode
-  :ensure t
   :mode "\\.go\\'")
