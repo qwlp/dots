@@ -29,3 +29,11 @@ profiles = [
     "desktop-arch",
     "laptop-arch",
 ]
+
+[[entries]]
+origin = "XdgConfig"
+key = "helix"
+profiles = [
+    "desktop-arch",
+    "laptop-arch",
+]
