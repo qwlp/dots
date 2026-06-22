@@ -7,6 +7,7 @@ path=(
     "$HOME/go/bin"
     "$HOME/.local/share/coursier/bin"
     "$HOME/.bun/bin"
+    "$HOME/.local/share/nvim/mason/bin"
     $path
 )
 export PATH
@@ -71,6 +72,7 @@ alias ll='eza -la --icons=always --group-directories-first'
 alias lt='eza --tree --icons=always --group-directories-first'
 alias poweroff="systemctl poweroff --no-wall"
 alias tpc="typst compile"
+alias h="helix"
 
 # Helpful extras
 alias llt='eza -la --sort=modified --icons=always' # Long list, sorted by time
