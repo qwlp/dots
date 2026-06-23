@@ -129,6 +129,14 @@
 (use-package nov
   :mode ("\\.epub\\'" . nov-mode))
 
+;;; Exec from shell
+
+(use-package exec-path-from-shell
+  :ensure t
+  :config
+  (setq exec-path-from-shell-variables '("PATH" "MANPATH")) 
+  (exec-path-from-shell-initialize))
+
 ;;; Languages
 
 (use-package go-mode

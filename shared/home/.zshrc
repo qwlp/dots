@@ -79,7 +79,7 @@ alias llt='eza -la --sort=modified --icons=always' # Long list, sorted by time
 alias lls='eza -la --sort=size --icons=always'     # Long list, sorted by size
 
 # tmux stuff
-alias tka='kitty-kill-sessionizer'
+alias tka='tmux kill-session'
 alias yay='paru'
 alias yolo='git add -A && git commit -m "yolo" && git push'
 

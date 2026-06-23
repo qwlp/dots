@@ -1886,6 +1886,7 @@ local function setup_image()
     setup_once("image.nvim", function()
         ensure_pack("image.nvim")
         require("image").setup({
+            backend = "sixel",
             integrations = {
                 markdown = {
                     only_render_image_at_cursor = true,         -- defaults to false
