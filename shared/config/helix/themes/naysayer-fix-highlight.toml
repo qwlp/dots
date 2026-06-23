@@ -1,0 +1,4 @@
+inherits = "naysayer"
+
+[palette]
+selection = "#1a4040"

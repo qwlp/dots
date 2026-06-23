@@ -72,7 +72,7 @@ alias ll='eza -la --icons=always --group-directories-first'
 alias lt='eza --tree --icons=always --group-directories-first'
 alias poweroff="systemctl poweroff --no-wall"
 alias tpc="typst compile"
-alias h="helix"
+alias h="hx"
 
 # Helpful extras
 alias llt='eza -la --sort=modified --icons=always' # Long list, sorted by time
@@ -101,20 +101,20 @@ my_zi_widget() {
     zle accept-line
 }
 
-kitty_sessionizer_widget() {
-    BUFFER="kitty-sessionizer"
+tmux_sessionizer_widget() {
+    BUFFER="tmux-sessionizer"
     zle accept-line
 }
 
 # Register the widget
 zle -N my_zi_widget
-zle -N kitty_sessionizer_widget
+zle -N tmux_sessionizer_widget
 
 # Bind to Ctrl+j
 bindkey -M viins "^j" my_zi_widget
 bindkey -M vicmd "^j" my_zi_widget
-bindkey -M viins "^f" kitty_sessionizer_widget
-bindkey -M vicmd "^f" kitty_sessionizer_widget
+bindkey -M viins "^f" tmux_sessionizer_widget
+bindkey -M vicmd "^f" tmux_sessionizer_widget
 
 
 # --- 8. Plugin Initializations ---

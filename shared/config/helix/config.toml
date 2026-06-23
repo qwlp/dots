@@ -1,14 +1,38 @@
-theme = "naysayer"
+theme = "naysayer-fix-highlight"
 
 [editor]
 line-number = "relative"
 mouse = false
 
 [editor.cursor-shape]
-insert = "bar"
-normal = "block"
 select = "underline"
 
 [editor.file-picker]
 hidden = false
 
+[keys.normal.space]
+"u" = [
+  ':sh rm -f /tmp/unique-file',
+  ':insert-output yazi "%{buffer_name}" --chooser-file=/tmp/unique-file',
+  ':sh printf "\\x1b[?1049h\\x1b[?2004h" > /dev/tty',
+  ':open %sh{cat /tmp/unique-file}',
+  ':redraw',
+]
+
+[keys.normal]
+"A-d" = ["extend_search_next"]
+"A-j" = ["extend_to_line_bounds", "delete_selection", "paste_after"]
+"A-k" = ["extend_to_line_bounds", "delete_selection", "move_line_up", "paste_before"]
+"C-u" = ["page_cursor_half_up", "align_view_center"]
+"C-d" = ["page_cursor_half_down", "align_view_center"]
+
+[keys.select]
+"A-j" = ["extend_to_line_bounds", "delete_selection", "paste_after"]
+"A-k" = ["extend_to_line_bounds", "delete_selection", "move_line_up", "paste_before"]
+
+[keys.insert]
+C-y = "no_op"
+
+[editor.word-completion]
+enable = true
+trigger-length = 4

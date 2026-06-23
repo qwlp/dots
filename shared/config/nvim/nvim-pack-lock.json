@@ -144,10 +144,6 @@
       "rev": "0203a9608d63eda57679b01e69f33a7b4c34b0d1",
       "src": "https://github.com/neovim/nvim-lspconfig"
     },
-    "nvim-metals": {
-      "rev": "7ed47cd3095508e80423e30922385d5b9988f9d6",
-      "src": "https://github.com/scalameta/nvim-metals"
-    },
     "nvim-nio": {
       "rev": "21f5324bfac14e22ba26553caf69ec76ae8a7662",
       "src": "https://github.com/nvim-neotest/nvim-nio"

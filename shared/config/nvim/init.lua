@@ -8,6 +8,33 @@ local function map(mode, lhs, rhs, opts)
     vim.keymap.set(mode, lhs, rhs, opts or {})
 end
 
+local loaded_packs = {}
+local setup_once_state = {}
+
+local function ensure_pack(name)
+    if loaded_packs[name] then
+        return
+    end
+
+    vim.cmd("packadd " .. name)
+    loaded_packs[name] = true
+end
+
+local function ensure_packs(names)
+    for _, name in ipairs(names) do
+        ensure_pack(name)
+    end
+end
+
+local function setup_once(name, callback)
+    if setup_once_state[name] then
+        return
+    end
+
+    callback()
+    setup_once_state[name] = true
+end
+
 vim.api.nvim_create_autocmd("PackChanged", {
     callback = function(ev)
         local data = ev.data
@@ -38,13 +65,19 @@ vim.api.nvim_create_autocmd("PackChanged", {
     end,
 })
 
-vim.pack.add({ tau_spec })
+vim.pack.add({ tau_spec }, {
+    load = function() end,
+})
 -- }}}
 
 -- Options {{{
 vim.g.mapleader = " "
 vim.g.maplocalleader = " "
+vim.g.loaded_netrw = 1
+vim.g.loaded_netrwPlugin = 1
 vim.opt.guicursor = ""
+vim.opt.scrolloff = 0
+vim.opt.scrolljump = -50
 
 vim.opt.nu = true
 vim.opt.relativenumber = true
@@ -67,7 +100,7 @@ vim.opt.incsearch = true
 
 vim.opt.termguicolors = true
 
-vim.opt.scrolloff = 8
+-- vim.opt.scrolloff = 8
 vim.opt.signcolumn = "yes"
 vim.opt.isfname:append("@-@")
 vim.opt.updatetime = 50
@@ -1350,9 +1383,17 @@ local has_compiled = false
 
 local function compile_or_recompile()
     if vim.bo.filetype == "typst" then
+        setup_once("typst-preview.nvim", function()
+            ensure_pack("typst-preview.nvim")
+            require("typst-preview").setup({
+                invert_colors = "auto",
+            })
+        end)
         vim.cmd("TypstPreview")
         return
     end
+
+    ensure_packs({ "baleia.nvim", "compile-mode.nvim" })
 
     if has_compiled then
         vim.cmd.Recompile()
@@ -1555,6 +1596,66 @@ vim.api.nvim_create_autocmd("FileType", {
         end
     end,
 })
+
+local function close_mini_files()
+    local ok, minifiles = pcall(require, "mini.files")
+    if not ok or type(minifiles.close) ~= "function" then
+        return nil
+    end
+
+    local close_ok, did_close = pcall(minifiles.close)
+    if not close_ok then
+        vim.notify("mini.files close failed: " .. tostring(did_close), vim.log.levels.WARN)
+        return false
+    end
+
+    return did_close
+end
+
+local skip_mini_files_startup_quit = false
+
+local function with_mini_files_closed(callback)
+    if vim.bo.filetype == "minifiles" then
+        skip_mini_files_startup_quit = true
+    end
+
+    local did_close = close_mini_files()
+    if did_close == true then
+        vim.schedule(function()
+            callback()
+            skip_mini_files_startup_quit = false
+        end)
+        return
+    end
+
+    if did_close == false then
+        skip_mini_files_startup_quit = false
+        return
+    end
+
+    skip_mini_files_startup_quit = false
+    callback()
+end
+
+vim.api.nvim_create_autocmd("FileType", {
+    group = tsp_group,
+    pattern = {
+        "fff",
+        "TelescopePrompt",
+        "fzf",
+        "snacks_picker_input",
+    },
+    callback = function()
+        vim.schedule(close_mini_files)
+    end,
+})
+
+vim.api.nvim_create_autocmd("TermOpen", {
+    group = tsp_group,
+    callback = function()
+        vim.schedule(close_mini_files)
+    end,
+})
 -- }}}
 
 -- Plugin Specs {{{
@@ -1622,8 +1723,6 @@ local plugin_specs = {
     { src = "https://github.com/rcarriga/nvim-dap-ui",                        name = "nvim-dap-ui" },
     { src = "https://github.com/jay-babu/mason-nvim-dap.nvim",                name = "mason-nvim-dap.nvim" },
 
-    -- Languages
-    { src = "https://github.com/scalameta/nvim-metals",                       name = "nvim-metals" },
     { src = "https://github.com/chomosuke/typst-preview.nvim",                name = "typst-preview.nvim" },
 }
 
@@ -1696,14 +1795,8 @@ end
 local function install_plugins()
     vim.pack.add(plugin_specs, {
         confirm = false,
-        load = false,
+        load = function() end,
     })
-end
-
-local function load_plugins()
-    for _, spec in ipairs(plugin_specs) do
-        vim.cmd("packadd " .. spec.name)
-    end
 end
 -- }}}
 
@@ -1763,414 +1856,6 @@ end
 
 -- }}}
 
--- Metals CodeLens {{{
-local metals_codelens = {}
-
-local STATUS_PREFIX = {
-    passed = "✓ ",
-    failed = "✗ ",
-    running = "⟳ ",
-}
-
-local session_state = setmetatable({}, { __mode = "k" })
-local pending_runs = {}
-local lens_state = {}
-local handler_patched = false
-local dap_patched = false
-local on_win_patched = false
-
-local function strip_status(title)
-    if type(title) ~= "string" then
-        return ""
-    end
-
-    for _, prefix in pairs(STATUS_PREFIX) do
-        if vim.startswith(title, prefix) then
-            return title:sub(#prefix + 1)
-        end
-    end
-
-    return title
-end
-
-local function is_test_lens(command)
-    if type(command) ~= "table" then
-        return false
-    end
-
-    local title = strip_status(command.title or ""):lower()
-    if title:find("test", 1, true) then
-        return true
-    end
-
-    local arguments = command.arguments
-    return type(arguments) == "table"
-        and (arguments.requestData ~= nil or tostring(arguments.runType or ""):find("^test") ~= nil)
-end
-
-local function lens_key(row, command)
-    return table.concat({
-        tostring(row),
-        command.command or "",
-        strip_status(command.title or ""),
-    }, "\31")
-end
-
-local function get_provider()
-    for i = 1, 10 do
-        local name, value = debug.getupvalue(vim.lsp.codelens.get, i)
-        if name == "Provider" then
-            return value
-        end
-    end
-end
-
-local function set_lens_status(bufnr, client_id, lens, status)
-    if not (bufnr and client_id and lens and lens.command and status) then
-        return
-    end
-
-    lens_state[bufnr] = lens_state[bufnr] or {}
-    lens_state[bufnr][client_id] = lens_state[bufnr][client_id] or {}
-    lens_state[bufnr][client_id][lens_key(lens.range.start.line, lens.command)] = status
-end
-
-local function clear_lens_status(bufnr, client_id, lens)
-    local state = lens_state[bufnr] and lens_state[bufnr][client_id]
-    if not (state and lens and lens.command) then
-        return
-    end
-
-    state[lens_key(lens.range.start.line, lens.command)] = nil
-end
-
-local function apply_statuses(bufnr, client_id, row_lenses)
-    local state = lens_state[bufnr] and lens_state[bufnr][client_id]
-    if not state then
-        return
-    end
-
-    for _, lenses in pairs(row_lenses) do
-        for _, lens in ipairs(lenses) do
-            if lens.command then
-                lens.command.title = strip_status(lens.command.title or "")
-            end
-        end
-    end
-end
-
-local function lens_status(bufnr, client_id, lens)
-    local state = lens_state[bufnr] and lens_state[bufnr][client_id]
-    if not (state and lens and lens.command) then
-        return nil
-    end
-
-    return state[lens_key(lens.range.start.line, lens.command)]
-end
-
-local function status_highlight(status)
-    if status == "passed" then
-        return "TspMetalsCodelensPassed"
-    elseif status == "failed" then
-        return "TspMetalsCodelensFailed"
-    elseif status == "running" then
-        return "TspMetalsCodelensRunning"
-    end
-end
-
-local function setup_codelens_highlights()
-    vim.api.nvim_set_hl(0, "TspMetalsCodelensPassed", { link = "DiagnosticOk", default = true })
-    vim.api.nvim_set_hl(0, "TspMetalsCodelensFailed", { link = "DiagnosticError", default = true })
-    vim.api.nvim_set_hl(0, "TspMetalsCodelensRunning", { link = "DiagnosticWarn", default = true })
-end
-
-local function invalidate_row(bufnr, client_id, row)
-    local provider = get_provider()
-    local active = provider and provider.active and provider.active[bufnr]
-    local state = active and active.client_state and active.client_state[client_id]
-    if not (active and state) then
-        return
-    end
-
-    active.row_version[row] = nil
-    vim.api.nvim_buf_clear_namespace(bufnr, state.namespace, row, row + 1)
-    vim.api.nvim__redraw({ buf = bufnr, valid = true, flush = false })
-end
-
-local function current_test_lens(client, bufnr, command)
-    local row = vim.api.nvim_win_get_cursor(0)[1] - 1
-
-    for _, item in ipairs(vim.lsp.codelens.get({ bufnr = bufnr, client_id = client.id })) do
-        local lens = item.lens
-        if lens.range.start.line == row and lens.command and lens.command.command == command.command and is_test_lens(lens.command) then
-            return lens
-        end
-    end
-end
-
-local function finalize_session(session, status)
-    local run = session_state[session]
-    if not run then
-        return
-    end
-
-    session_state[session] = nil
-    set_lens_status(run.bufnr, run.client_id, run.lens, status)
-    invalidate_row(run.bufnr, run.client_id, run.lens.range.start.line)
-end
-
-local failure_patterns = {
-    "%f[%a]failures?[%f[%A]]",
-    "%f[%a]failed[%f[%A]]",
-    "test failed",
-    "assertionerror",
-    "comparisonfailure",
-    "exception",
-    "%*%*%* failed %*%*%*",
-}
-
-local function output_indicates_failure(output)
-    if type(output) ~= "string" then
-        return false
-    end
-
-    local text = output:lower()
-    for _, pattern in ipairs(failure_patterns) do
-        if text:find(pattern) then
-            return true
-        end
-    end
-
-    return false
-end
-
-local function install_dap_listeners()
-    if dap_patched then
-        return
-    end
-
-    local ok, dap = pcall(require, "dap")
-    if not ok then
-        return
-    end
-
-    local key = "tsp_metals_codelens"
-
-    dap.listeners.after.event_initialized[key] = function(session)
-        if not (session and session.config and session.config.type == "scala") then
-            return
-        end
-
-        local run = table.remove(pending_runs, 1)
-        if run then
-            run.saw_failure = false
-            session_state[session] = run
-        end
-    end
-
-    dap.listeners.before.event_output[key] = function(session, body)
-        local run = session_state[session]
-        if not run then
-            return
-        end
-
-        if output_indicates_failure(body and body.output) then
-            run.saw_failure = true
-        end
-    end
-
-    dap.listeners.before.event_stopped[key] = function(session, body)
-        local run = session_state[session]
-        if not run then
-            return
-        end
-
-        local reason = body and body.reason
-        if reason == "exception" then
-            run.saw_failure = true
-        end
-    end
-
-    dap.listeners.before.event_exited[key] = function(session, body)
-        local run = session_state[session]
-        if not run then
-            return
-        end
-
-        local exit_code = body and body.exitCode
-        if run.saw_failure then
-            finalize_session(session, "failed")
-        else
-            finalize_session(session, exit_code == 0 and "passed" or "failed")
-        end
-    end
-
-    dap.listeners.before.event_terminated[key] = function(session)
-        local run = session_state[session]
-        if not run then
-            return
-        end
-
-        if run.saw_failure then
-            finalize_session(session, "failed")
-        else
-            finalize_session(session, "passed")
-        end
-    end
-
-    dap_patched = true
-end
-
-local function patch_codelens_handler()
-    if handler_patched then
-        return
-    end
-
-    local provider = get_provider()
-    if not provider or not provider.handler then
-        return
-    end
-
-    local original = provider.handler
-    provider.handler = function(self, err, result, ctx)
-        original(self, err, result, ctx)
-        if not err then
-            local state = self.client_state and self.client_state[ctx.client_id]
-            if state then
-                apply_statuses(self.bufnr, ctx.client_id, state.row_lenses)
-            end
-        end
-    end
-
-    handler_patched = true
-end
-
-local function patch_codelens_on_win()
-    if on_win_patched then
-        return
-    end
-
-    local provider = get_provider()
-    if not provider or not provider.on_win then
-        return
-    end
-
-    provider.on_win = function(self, toprow, botrow)
-        local api = vim.api
-
-        for row = toprow, botrow do
-            if self.row_version[row] ~= self.version then
-                for client_id, state in pairs(self.client_state) do
-                    local bufnr = self.bufnr
-                    local namespace = state.namespace
-
-                    api.nvim_buf_clear_namespace(bufnr, namespace, row, row + 1)
-
-                    local lenses = state.row_lenses[row]
-                    if lenses then
-                        table.sort(lenses, function(a, b)
-                            return a.range.start.character < b.range.start.character
-                        end)
-
-                        local indent = api.nvim_buf_call(bufnr, function()
-                            return vim.fn.indent(row + 1)
-                        end)
-
-                        local virt_lines = { { { string.rep(" ", indent), "LspCodeLensSeparator" } } }
-                        local virt_text = virt_lines[1]
-                        for _, lens in ipairs(lenses) do
-                            if not lens.command then
-                                local client = assert(vim.lsp.get_client_by_id(client_id))
-                                self:resolve(client, lens)
-                            else
-                                local status = lens_status(bufnr, client_id, lens)
-                                local prefix = STATUS_PREFIX[status]
-                                local prefix_hl = status_highlight(status)
-                                if prefix and prefix_hl then
-                                    virt_text[#virt_text + 1] = { prefix, prefix_hl }
-                                end
-                                virt_text[#virt_text + 1] = { strip_status(lens.command.title), "LspCodeLens" }
-                                virt_text[#virt_text + 1] = { " | ", "LspCodeLensSeparator" }
-                            end
-                        end
-
-                        if #virt_text > 1 then
-                            virt_text[#virt_text] = nil
-                        else
-                            virt_text[#virt_text + 1] = { "...", "LspCodeLens" }
-                        end
-
-                        api.nvim_buf_set_extmark(bufnr, namespace, row, 0, {
-                            virt_lines = virt_lines,
-                            virt_lines_above = true,
-                            virt_lines_overflow = "scroll",
-                            hl_mode = "combine",
-                        })
-                    end
-                    self.row_version[row] = self.version
-                end
-            end
-        end
-
-        if botrow == api.nvim_buf_line_count(self.bufnr) - 1 then
-            for _, state in pairs(self.client_state) do
-                api.nvim_buf_clear_namespace(self.bufnr, state.namespace, botrow, -1)
-            end
-        end
-    end
-
-    on_win_patched = true
-end
-
-function metals_codelens.attach(client, bufnr)
-    if client._tsp_metals_codelens_attached then
-        return
-    end
-
-    setup_codelens_highlights()
-    patch_codelens_handler()
-    patch_codelens_on_win()
-    install_dap_listeners()
-
-    local run_command = client.commands["metals-run-session-start"]
-    local debug_command = client.commands["metals-debug-session-start"]
-
-    local function wrap(original)
-        return function(command, context)
-            if is_test_lens(command) then
-                local lens = current_test_lens(client, bufnr, command)
-                if lens then
-                    clear_lens_status(bufnr, client.id, lens)
-                    set_lens_status(bufnr, client.id, lens, "running")
-                    invalidate_row(bufnr, client.id, lens.range.start.line)
-                    for i = #pending_runs, 1, -1 do
-                        pending_runs[i] = nil
-                    end
-                    table.insert(pending_runs, {
-                        bufnr = bufnr,
-                        client_id = client.id,
-                        lens = lens,
-                    })
-                end
-            end
-
-            return original(command, context)
-        end
-    end
-
-    if run_command then
-        client.commands["metals-run-session-start"] = wrap(run_command)
-    end
-
-    if debug_command then
-        client.commands["metals-debug-session-start"] = wrap(debug_command)
-    end
-
-    client._tsp_metals_codelens_attached = true
-end
-
--- }}}
-
 -- Snippets {{{
 local function add_typst_snippets(luasnip)
     local s = luasnip.snippet
@@ -2197,8 +1882,29 @@ end
 
 -- Plugin Setup {{{
 -- UI {{{
+local function setup_image()
+    setup_once("image.nvim", function()
+        ensure_pack("image.nvim")
+        require("image").setup({
+            integrations = {
+                markdown = {
+                    only_render_image_at_cursor = true,         -- defaults to false
+                    only_render_image_at_cursor_mode = "popup", -- "popup" or "inline", defaults to "popup"
+                },
+                typst = {
+                    only_render_image_at_cursor = true,         -- defaults to false
+                    only_render_image_at_cursor_mode = "popup", -- "popup" or "inline", defaults to "popup"
+                }
+
+            }
+        })
+    end)
+end
+
 local function setup_ui()
     load_preferred_theme()
+
+    ensure_packs({ "cloak.nvim", "mini.icons", "indent-blankline.nvim" })
 
     require("cloak").setup({
         enabled = true,
@@ -2218,24 +1924,31 @@ local function setup_ui()
 
     require("mini.icons").setup({})
     require("ibl").setup({})
-    require("image").setup({
-        integrations = {
-            markdown = {
-                only_render_image_at_cursor = true,         -- defaults to false
-                only_render_image_at_cursor_mode = "popup", -- "popup" or "inline", defaults to "popup"
-            },
-            typst = {
-                only_render_image_at_cursor = true,         -- defaults to false
-                only_render_image_at_cursor_mode = "popup", -- "popup" or "inline", defaults to "popup"
-            }
 
-        }
+    vim.api.nvim_create_autocmd("FileType", {
+        group = augroup("Image"),
+        pattern = { "markdown", "typst" },
+        callback = setup_image,
     })
 end
 -- }}}
 
 -- Editor {{{
+local function setup_render_markdown()
+    setup_once("render-markdown.nvim", function()
+        ensure_pack("render-markdown.nvim")
+        require("render-markdown").setup({})
+    end)
+end
+
 local function setup_editor()
+    ensure_packs({
+        "nvim-autopairs",
+        "mini.ai",
+        "mini.surround",
+        "nvim-colorizer.lua",
+    })
+
     require("nvim-autopairs").setup({})
     require("mini.ai").setup({})
     require("mini.surround").setup({
@@ -2265,100 +1978,24 @@ local function setup_editor()
         },
     })
 
-    vim.keymap.set("n", "<leader>u", "<cmd>UndotreeToggle<cr>", { desc = "Toggle undo tree" })
+    vim.keymap.set("n", "<leader>u", function()
+        ensure_pack("undotree")
+        vim.cmd.UndotreeToggle()
+    end, { desc = "Toggle undo tree" })
 
-    require("render-markdown").setup({})
+    vim.api.nvim_create_autocmd("FileType", {
+        group = augroup("RenderMarkdown"),
+        pattern = { "markdown", "typst" },
+        callback = setup_render_markdown,
+    })
 end
 -- }}}
 
 -- Navigation {{{
 local function setup_navigation()
-    local fff = require("fff")
-
     local function current_cwd()
         return vim.uv.cwd()
     end
-
-    local function live_grep_query(query, title)
-        fff.live_grep({
-            cwd = current_cwd(),
-            query = query,
-            title = title,
-        })
-    end
-
-    require("mini.files").setup({
-        mappings = {
-            close       = 'q',
-            go_in       = '<CR>',
-            go_in_plus  = 'L',
-            go_out      = '-',
-            go_out_plus = 'H',
-            mark_goto   = "'",
-            mark_set    = 'm',
-            reset       = '<BS>',
-            reveal_cwd  = '@',
-            show_help   = 'g?',
-            synchronize = '=',
-            trim_left   = '<',
-            trim_right  = '>',
-        },
-    })
-
-    vim.api.nvim_create_autocmd("User", {
-        group = augroup("MiniFilesEnter"),
-        pattern = "MiniFilesBufferCreate",
-        callback = function(args)
-            local function mini_files_ui_open()
-                local path = (MiniFiles.get_fs_entry() or {}).path
-                if path == nil then
-                    vim.notify("Cursor is not on a valid file system entry", vim.log.levels.WARN)
-                    return
-                end
-                if path:find(".pdf", 1, true) then
-                    print(path)
-                    vim.fn.system("kitty @ launch --location=vsplit tdf \"" .. path .. "\"")
-                else
-                    vim.ui.open(path)
-                end
-            end
-
-            local function mini_files_open_pdf_in_sioyek()
-                local path = (MiniFiles.get_fs_entry() or {}).path
-                if path == nil then
-                    vim.notify("Cursor is not on a valid file system entry", vim.log.levels.WARN)
-                    return
-                end
-                if path:find(".pdf", 1, true) then
-                    print(path)
-                    vim.fn.jobstart("sioyek \"" .. path .. "\"")
-                else
-                    vim.ui.open(path)
-                end
-            end
-
-            vim.keymap.set("n", "<CR>", function()
-                MiniFiles.go_in({ close_on_file = true })
-            end, { buffer = args.data.buf_id, desc = "Go in entry and close on file" })
-            vim.keymap.set("n", "gx", mini_files_ui_open,
-                { buffer = args.data.buf_id, desc = "Open entry with system handler" })
-            vim.keymap.set("n", "zx", mini_files_open_pdf_in_sioyek,
-                { buffer = args.data.buf_id, desc = "Open entry with sioyek" })
-            vim.keymap.set("n", "<leader>w", function()
-                MiniFiles.synchronize()
-            end, { buffer = args.data.buf_id, desc = "Open entry with system handler" })
-        end,
-    })
-
-    vim.keymap.set("n", "<leader>e", function()
-        local path = vim.api.nvim_buf_get_name(0)
-        if path == "" then
-            MiniFiles.open()
-            return
-        end
-
-        MiniFiles.open(path)
-    end, { desc = "Open file explorer" })
 
     vim.g.fff = {
         lazy_sync = true,
@@ -2384,6 +2021,95 @@ local function setup_navigation()
         },
     }
 
+    local function setup_mini_files()
+        setup_once("mini.files", function()
+            ensure_pack("mini.files")
+            require("mini.files").setup({
+                mappings = {
+                    close       = 'q',
+                    go_in       = '<CR>',
+                    go_in_plus  = 'L',
+                    go_out      = '-',
+                    go_out_plus = 'H',
+                    mark_goto   = "'",
+                    mark_set    = 'm',
+                    reset       = '<BS>',
+                    reveal_cwd  = '@',
+                    show_help   = 'g?',
+                    synchronize = '=',
+                    trim_left   = '<',
+                    trim_right  = '>',
+                },
+            })
+
+            vim.api.nvim_create_autocmd("User", {
+                group = augroup("MiniFilesEnter"),
+                pattern = "MiniFilesBufferCreate",
+                callback = function(args)
+                    local function mini_files_ui_open()
+                        local path = (MiniFiles.get_fs_entry() or {}).path
+                        if path == nil then
+                            vim.notify("Cursor is not on a valid file system entry", vim.log.levels.WARN)
+                            return
+                        end
+                        if path:find(".pdf", 1, true) then
+                            print(path)
+                            vim.fn.system("kitty @ launch --location=vsplit tdf \"" .. path .. "\"")
+                        else
+                            vim.ui.open(path)
+                        end
+                    end
+
+                    local function mini_files_open_pdf_in_sioyek()
+                        local path = (MiniFiles.get_fs_entry() or {}).path
+                        if path == nil then
+                            vim.notify("Cursor is not on a valid file system entry", vim.log.levels.WARN)
+                            return
+                        end
+                        if path:find(".pdf", 1, true) then
+                            print(path)
+                            vim.fn.jobstart("sioyek \"" .. path .. "\"")
+                        else
+                            vim.ui.open(path)
+                        end
+                    end
+
+                    vim.keymap.set("n", "<CR>", function()
+                        MiniFiles.go_in({ close_on_file = true })
+                    end, { buffer = args.data.buf_id, desc = "Go in entry and close on file" })
+                    vim.keymap.set("n", "gx", mini_files_ui_open,
+                        { buffer = args.data.buf_id, desc = "Open entry with system handler" })
+                    vim.keymap.set("n", "zx", mini_files_open_pdf_in_sioyek,
+                        { buffer = args.data.buf_id, desc = "Open entry with sioyek" })
+                    vim.keymap.set("n", "<leader>w", function()
+                        MiniFiles.synchronize()
+                    end, { buffer = args.data.buf_id, desc = "Open entry with system handler" })
+                end,
+            })
+        end)
+    end
+
+    local function setup_fff()
+        setup_once("fff.nvim", function()
+            ensure_pack("fff.nvim")
+
+            vim.schedule(function()
+                local download = require("fff.download")
+                download.ensure_downloaded({}, function(success, err)
+                    if success then
+                        return
+                    end
+
+                    vim.schedule(function()
+                        vim.notify("fff.nvim binary is unavailable: " .. tostring(err), vim.log.levels.WARN)
+                    end)
+                end)
+            end)
+        end)
+
+        return require("fff")
+    end
+
     vim.api.nvim_create_autocmd("PackChanged", {
         group = augroup("Fff"),
         callback = function(ev)
@@ -2402,31 +2128,109 @@ local function setup_navigation()
         end,
     })
 
-    vim.schedule(function()
-        local download = require("fff.download")
-        download.ensure_downloaded({}, function(success, err)
-            if success then
+    local function live_grep_query(query, title)
+        with_mini_files_closed(function()
+            setup_fff().live_grep({
+                cwd = current_cwd(),
+                query = query,
+                title = title,
+            })
+        end)
+    end
+
+    vim.keymap.set("n", "<leader>e", function()
+        setup_mini_files()
+
+        local path = vim.api.nvim_buf_get_name(0)
+        if path == "" then
+            MiniFiles.open()
+            return
+        end
+
+        MiniFiles.open(path)
+    end, { desc = "Open file explorer" })
+
+    vim.api.nvim_create_autocmd("VimEnter", {
+        group = augroup("MiniFilesStartup"),
+        callback = function()
+            if vim.fn.argc() ~= 1 then
                 return
             end
 
-            vim.schedule(function()
-                vim.notify("fff.nvim binary is unavailable: " .. tostring(err), vim.log.levels.WARN)
-            end)
-        end)
-    end)
+            local path = vim.fn.argv(0)
+            if vim.fn.isdirectory(path) == 0 then
+                return
+            end
+
+            path = vim.fn.fnamemodify(path, ":p")
+            vim.cmd.cd(vim.fn.fnameescape(path))
+
+            local current_buf = vim.api.nvim_get_current_buf()
+            setup_mini_files()
+            vim.b[current_buf].mini_files_startup_target = true
+            MiniFiles.open(path, false)
+
+            local startup_close_group = augroup("MiniFilesStartupClose")
+            local function quit_if_only_startup_target_remains()
+                vim.schedule(function()
+                    if skip_mini_files_startup_quit then
+                        skip_mini_files_startup_quit = false
+                        return
+                    end
+
+                    for _, win_id in ipairs(vim.api.nvim_list_wins()) do
+                        local bufnr = vim.api.nvim_win_get_buf(win_id)
+                        if vim.bo[bufnr].filetype == "minifiles" then
+                            return
+                        end
+                    end
+
+                    pcall(function()
+                        if not vim.api.nvim_buf_is_valid(current_buf) then
+                            return
+                        end
+
+                        local listed_bufs = vim.tbl_filter(function(bufnr)
+                            return vim.bo[bufnr].buflisted
+                        end, vim.api.nvim_list_bufs())
+
+                        if #listed_bufs == 1 and listed_bufs[1] == current_buf then
+                            vim.cmd.quit()
+                        end
+                    end)
+                end)
+            end
+
+            vim.api.nvim_create_autocmd("User", {
+                group = startup_close_group,
+                pattern = "MiniFilesExplorerClose",
+                once = true,
+                callback = quit_if_only_startup_target_remains,
+            })
+
+            vim.api.nvim_create_autocmd("WinClosed", {
+                group = startup_close_group,
+                callback = quit_if_only_startup_target_remains,
+            })
+        end,
+    })
 
     vim.keymap.set("n", "<leader>pf", function()
-        fff.find_files({
-            cwd = current_cwd(),
-            title = "Files",
-        })
+        with_mini_files_closed(function()
+            setup_fff().find_files({
+                cwd = current_cwd(),
+                title = "Files",
+            })
+        end)
     end, { desc = "Find files" })
 
     vim.keymap.set("n", "<leader>g", function()
-        fff.find_files({
-            cwd = current_cwd(),
-            title = "Files (hidden)",
-        })
+        with_mini_files_closed(function()
+            setup_fff().find_files({
+                cwd = current_cwd(),
+                title = "Files (hidden)",
+            })
+        end)
     end, { desc = "Find files not ignored by Git" })
 
     vim.keymap.set("n", "<leader>pws", function()
@@ -2455,79 +2259,120 @@ local function setup_navigation()
         vim.cmd.help(subject)
     end, { desc = "Help tags" })
 
-    local harpoon = require("harpoon")
-    harpoon:setup()
+    local function get_harpoon()
+        setup_once("harpoon", function()
+            ensure_packs({ "plenary.nvim", "harpoon" })
+            require("harpoon"):setup()
+        end)
+
+        return require("harpoon")
+    end
 
     vim.keymap.set("n", "<leader>A", function()
+        local harpoon = get_harpoon()
         harpoon:list():prepend()
     end, { desc = "Harpoon prepend file" })
 
     vim.keymap.set("n", "<leader>a", function()
+        local harpoon = get_harpoon()
         harpoon:list():add()
     end, { desc = "Harpoon add file" })
 
     vim.keymap.set("n", "<C-e>", function()
+        local harpoon = get_harpoon()
         harpoon.ui:toggle_quick_menu(harpoon:list())
     end, { desc = "Harpoon quick menu" })
 
     vim.keymap.set("n", "<C-j>", function()
+        local harpoon = get_harpoon()
         harpoon:list():select(1)
     end, { desc = "Harpoon file 1" })
 
     vim.keymap.set("n", "<C-k>", function()
+        local harpoon = get_harpoon()
         harpoon:list():select(2)
     end, { desc = "Harpoon file 2" })
 
     vim.keymap.set("n", "<C-l>", function()
+        local harpoon = get_harpoon()
         harpoon:list():select(3)
     end, { desc = "Harpoon file 3" })
 
     vim.keymap.set("n", "<C-;>", function()
+        local harpoon = get_harpoon()
         harpoon:list():select(4)
     end, { desc = "Harpoon file 4" })
 
     vim.keymap.set("n", "<leader><C-j>", function()
+        local harpoon = get_harpoon()
         harpoon:list():replace_at(1)
     end, { desc = "Harpoon replace file 1" })
 
     vim.keymap.set("n", "<leader><C-k>", function()
+        local harpoon = get_harpoon()
         harpoon:list():replace_at(2)
     end, { desc = "Harpoon replace file 2" })
 
     vim.keymap.set("n", "<leader><C-l>", function()
+        local harpoon = get_harpoon()
         harpoon:list():replace_at(3)
     end, { desc = "Harpoon replace file 3" })
 
     vim.keymap.set("n", "<leader><C-;>", function()
+        local harpoon = get_harpoon()
         harpoon:list():replace_at(4)
     end, { desc = "Harpoon replace file 4" })
 
-    require("trouble").setup({
-        icons = false,
-    })
+    local function get_trouble()
+        setup_once("trouble.nvim", function()
+            ensure_pack("trouble.nvim")
+            require("trouble").setup({
+                icons = false,
+            })
+        end)
+
+        return require("trouble")
+    end
 
     vim.keymap.set("n", "<leader>tt", function()
-        require("trouble").toggle()
+        get_trouble().toggle()
     end, { desc = "Toggle trouble" })
 
     vim.keymap.set("n", "[t", function()
-        require("trouble").next({ skip_groups = true, jump = true })
+        get_trouble().next({ skip_groups = true, jump = true })
     end, { desc = "Next trouble item" })
 
     vim.keymap.set("n", "]t", function()
-        require("trouble").previous({ skip_groups = true, jump = true })
+        get_trouble().previous({ skip_groups = true, jump = true })
     end, { desc = "Previous trouble item" })
 
-    require("flash").setup({})
+    local function flash_jump()
+        setup_once("flash.nvim", function()
+            ensure_pack("flash.nvim")
+            require("flash").setup({})
+        end)
 
-    local flash = require("flash")
-    vim.keymap.set({ "n", "x", "o" }, "s", flash.jump, { desc = "Flash" })
+        require("flash").jump()
+    end
+
+    vim.keymap.set({ "n", "x", "o" }, "s", flash_jump, { desc = "Flash" })
 end
 
 -- }}}
 
 -- LSP Setup {{{
 local function setup_lsp()
+    ensure_packs({
+        "conform.nvim",
+        "nvim-lspconfig",
+        "mason.nvim",
+        "mason-lspconfig.nvim",
+        "blink.cmp",
+        "blink.compat",
+        "LuaSnip",
+        "fidget.nvim",
+    })
+
     local lsp_util = require("lspconfig.util")
     local mason_lspconfig = require("mason-lspconfig")
     local blink = require("blink.cmp")
@@ -2572,11 +2417,7 @@ local function setup_lsp()
         require("conform").format({ bufnr = 0 })
     end, { desc = "Format buffer" })
 
-    require("fidget").setup({
-        progress = {
-            ignore = { "metals" },
-        },
-    })
+    require("fidget").setup({})
 
     require("mason").setup()
 
@@ -2768,6 +2609,12 @@ end
 
 -- Treesitter {{{
 local function setup_treesitter()
+    ensure_packs({
+        "nvim-treesitter",
+        "nvim-treesitter-textobjects",
+        "nvim-treesitter-context",
+    })
+
     require("nvim-treesitter.configs").setup({
         ensure_installed = {
             "vim",
@@ -2877,37 +2724,72 @@ end
 
 -- Git {{{
 local function setup_git()
-    vim.keymap.set("n", "<leader>lg", "<cmd>LazyGit<cr>", { desc = "Open LazyGit" })
+    vim.keymap.set("n", "<leader>lg", function()
+        ensure_packs({ "plenary.nvim", "lazygit.nvim" })
+        vim.cmd.LazyGit()
+    end, { desc = "Open LazyGit" })
 end
 -- }}}
 
 -- Extras {{{
 local function setup_extras()
-    local cwd = vim.uv.cwd()
-    local basename = vim.fs.basename(cwd)
+    local function setup_img_clip()
+        setup_once("img-clip.nvim", function()
+            ensure_pack("img-clip.nvim")
+            require("img-clip").setup({})
+        end)
+    end
 
-    require("img-clip").setup({})
-    vim.keymap.set("n", "<leader>ip", "<cmd>PasteImage<cr>", { desc = "Paste image from clipboard" })
-    require("tau").setup({
-        connector = "opencode",
+    local function setup_tau()
+        setup_once("tau.nvim", function()
+            ensure_pack("tau.nvim")
+            require("tau").setup({
+                connector = "opencode",
 
-        -- optional
-        opencode_model = "openai/gpt-5.4-mini",
-        opencode_agent = "build",
-        opencode_args = {
-            "--thinking",
-        },
-    })
+                -- optional
+                opencode_model = "openai/gpt-5.4-mini",
+                opencode_agent = "build",
+                opencode_args = {
+                    "--thinking",
+                },
+            })
+        end)
+    end
+
+    vim.keymap.set("n", "<leader>ip", function()
+        setup_img_clip()
+        vim.cmd.PasteImage()
+    end, { desc = "Paste image from clipboard" })
+
     -- require("tau").setup({
     --     api_url = "https://openrouter.ai/api/v1",
     --     api_key = vim.env.OPENROUTER_API_KEY,
     --     model = "google/gemini-3.1-flash-lite-preview",
     -- })
-    vim.keymap.set("v", "<leader>t", ":Tau<CR>", { desc = "Tau: edit selection" })
-    vim.keymap.set("v", "<leader>a", ":TauAsk<CR>", { desc = "Tau: ask" })
-    vim.keymap.set({ "n", "v" }, "<leader>vt", ":TauVibe<CR>", { desc = "Tau: vibe" })
-    vim.keymap.set("n", "<C-t>", ":TauContext<CR>", { desc = "Tau: context files" })
-    vim.keymap.set("n", "<leader>T", ":TauCancel<CR>", { desc = "Tau: cancel request" })
+    vim.keymap.set("v", "<leader>t", function()
+        setup_tau()
+        vim.cmd("'<,'>Tau")
+    end, { desc = "Tau: edit selection" })
+    vim.keymap.set("v", "<leader>a", function()
+        setup_tau()
+        vim.cmd("'<,'>TauAsk")
+    end, { desc = "Tau: ask" })
+    vim.keymap.set("n", "<leader>vt", function()
+        setup_tau()
+        vim.cmd.TauVibe()
+    end, { desc = "Tau: vibe" })
+    vim.keymap.set("v", "<leader>vt", function()
+        setup_tau()
+        vim.cmd("'<,'>TauVibe")
+    end, { desc = "Tau: vibe" })
+    vim.keymap.set("n", "<C-t>", function()
+        setup_tau()
+        vim.cmd.TauContext()
+    end, { desc = "Tau: context files" })
+    vim.keymap.set("n", "<leader>T", function()
+        setup_tau()
+        vim.cmd.TauCancel()
+    end, { desc = "Tau: cancel request" })
 end
 -- }}}
 
@@ -2936,34 +2818,48 @@ local function setup_testing()
         focus_compilation_buffer = true,
     }
 
-    require("neotest").setup({
-        adapters = {
-            require("neotest-golang")({
-                dap = { justMyCode = false },
-            }),
-        },
-    })
+    local function setup_neotest()
+        setup_once("neotest", function()
+            ensure_packs({
+                "plenary.nvim",
+                "nvim-nio",
+                "FixCursorHold.nvim",
+                "neotest",
+                "neotest-golang",
+            })
+
+            require("neotest").setup({
+                adapters = {
+                    require("neotest-golang")({
+                        dap = { justMyCode = false },
+                    }),
+                },
+            })
+        end)
+
+        return require("neotest")
+    end
 
     vim.keymap.set("n", "<leader>tn", function()
-        require("neotest").run.run({
+        setup_neotest().run.run({
             suite = false,
             testify = true,
         })
     end, { desc = "Run nearest test" })
 
     vim.keymap.set("n", "<leader>te", function()
-        require("neotest").summary.toggle()
+        setup_neotest().summary.toggle()
     end, { desc = "Toggle test summary" })
 
     vim.keymap.set("n", "<leader>ts", function()
-        require("neotest").run.run({
+        setup_neotest().run.run({
             suite = true,
             testify = true,
         })
     end, { desc = "Run test suite" })
 
     vim.keymap.set("n", "<leader>td", function()
-        require("neotest").run.run({
+        setup_neotest().run.run({
             suite = false,
             testify = true,
             strategy = "dap",
@@ -2971,264 +2867,219 @@ local function setup_testing()
     end, { desc = "Debug nearest test" })
 
     vim.keymap.set("n", "<leader>to", function()
-        require("neotest").output.open()
+        setup_neotest().output.open()
     end, { desc = "Open test output" })
 
     vim.keymap.set("n", "<leader>ta", function()
-        require("neotest").run.run(vim.fn.getcwd())
+        setup_neotest().run.run(vim.fn.getcwd())
     end, { desc = "Run all tests in cwd" })
 end
 -- }}}
 
 -- DAP {{{
 local function setup_dap()
-    local dap_group = augroup("Dap")
+    local toggle_debug_ui
 
-    local function focus_matching_buffer(args)
-        local target_buf = args.buf
+    local function setup_dap_runtime()
+        setup_once("dap", function()
+            ensure_packs({
+                "nvim-dap",
+                "nvim-nio",
+                "nvim-dap-ui",
+                "mason.nvim",
+                "mason-nvim-dap.nvim",
+                "nvim-dap-go",
+            })
 
-        vim.schedule(function()
-            for _, win_id in ipairs(vim.api.nvim_list_wins()) do
-                if vim.api.nvim_win_is_valid(win_id) and vim.api.nvim_win_get_buf(win_id) == target_buf then
-                    vim.api.nvim_set_current_win(win_id)
-                    return
-                end
+            local dap_group = augroup("Dap")
+
+            local function focus_matching_buffer(args)
+                local target_buf = args.buf
+
+                vim.schedule(function()
+                    for _, win_id in ipairs(vim.api.nvim_list_wins()) do
+                        if vim.api.nvim_win_is_valid(win_id) and vim.api.nvim_win_get_buf(win_id) == target_buf then
+                            vim.api.nvim_set_current_win(win_id)
+                            return
+                        end
+                    end
+                end)
             end
-        end)
-    end
 
-    require("dap").set_log_level("DEBUG")
+            local dap = require("dap")
+            local dapui = require("dapui")
+
+            dap.set_log_level("DEBUG")
+
+            local function layout(name)
+                return {
+                    elements = {
+                        { id = name },
+                    },
+                    enter = true,
+                    size = 40,
+                    position = "right",
+                }
+            end
+
+            local name_to_layout = {
+                repl = { layout = layout("repl"), index = 0 },
+                stacks = { layout = layout("stacks"), index = 0 },
+                scopes = { layout = layout("scopes"), index = 0 },
+                console = { layout = layout("console"), index = 0 },
+                watches = { layout = layout("watches"), index = 0 },
+                breakpoints = { layout = layout("breakpoints"), index = 0 },
+            }
+
+            local layouts = {}
+            for name, config in pairs(name_to_layout) do
+                table.insert(layouts, config.layout)
+                name_to_layout[name].index = #layouts
+            end
+
+            toggle_debug_ui = function(name)
+                dapui.close()
+                local layout_config = name_to_layout[name]
+                if not layout_config then
+                    error("Unknown DAP layout: " .. name)
+                end
+
+                local ui = vim.api.nvim_list_uis()[1]
+                if ui then
+                    layout_config.layout.size = ui.width
+                end
+
+                pcall(dapui.toggle, layout_config.index)
+            end
+
+            vim.api.nvim_create_autocmd("BufEnter", {
+                group = dap_group,
+                pattern = "*dap-repl*",
+                callback = function()
+                    vim.wo.wrap = true
+                end,
+            })
+
+            vim.api.nvim_create_autocmd("BufWinEnter", {
+                group = dap_group,
+                pattern = { "*dap-repl*", "*DAP Watches*" },
+                callback = focus_matching_buffer,
+            })
+
+            dapui.setup({
+                layouts = layouts,
+                enter = true,
+            })
+
+            dap.listeners.before.event_terminated.tsp_dapui = function()
+                dapui.close()
+            end
+
+            dap.listeners.before.event_exited.tsp_dapui = function()
+                dapui.close()
+            end
+
+            require("mason-nvim-dap").setup({
+                ensure_installed = {
+                    "delve",
+                },
+                automatic_installation = true,
+                handlers = {
+                    function(config)
+                        require("mason-nvim-dap").default_setup(config)
+                    end,
+                    delve = function(config)
+                        table.insert(config.configurations, 1, {
+                            args = function()
+                                return vim.split(vim.fn.input("args> "), " ")
+                            end,
+                            type = "delve",
+                            name = "file",
+                            request = "launch",
+                            program = "${file}",
+                            outputMode = "remote",
+                        })
+
+                        table.insert(config.configurations, 1, {
+                            args = function()
+                                return vim.split(vim.fn.input("args> "), " ")
+                            end,
+                            type = "delve",
+                            name = "file args",
+                            request = "launch",
+                            program = "${file}",
+                            outputMode = "remote",
+                        })
+
+                        require("mason-nvim-dap").default_setup(config)
+                    end,
+                },
+            })
+
+            require("dap-go").setup()
+        end)
+
+        return require("dap")
+    end
 
     vim.keymap.set("n", "<F8>", function()
-        require("dap").continue()
+        setup_dap_runtime().continue()
     end, { desc = "Debug continue" })
     vim.keymap.set("n", "<F10>", function()
-        require("dap").step_over()
+        setup_dap_runtime().step_over()
     end, { desc = "Debug step over" })
     vim.keymap.set("n", "<F11>", function()
-        require("dap").step_into()
+        setup_dap_runtime().step_into()
     end, { desc = "Debug step into" })
     vim.keymap.set("n", "<F12>", function()
-        require("dap").step_out()
+        setup_dap_runtime().step_out()
     end, { desc = "Debug step out" })
     vim.keymap.set("n", "<leader>b", function()
-        require("dap").toggle_breakpoint()
+        setup_dap_runtime().toggle_breakpoint()
     end, { desc = "Toggle breakpoint" })
     vim.keymap.set("n", "<leader>B", function()
-        require("dap").set_breakpoint(vim.fn.input("Breakpoint condition: "))
+        setup_dap_runtime().set_breakpoint(vim.fn.input("Breakpoint condition: "))
     end, { desc = "Set conditional breakpoint" })
 
-    local dap = require("dap")
-    local dapui = require("dapui")
-
-    local function layout(name)
-        return {
-            elements = {
-                { id = name },
-            },
-            enter = true,
-            size = 40,
-            position = "right",
-        }
-    end
-
-    local name_to_layout = {
-        repl = { layout = layout("repl"), index = 0 },
-        stacks = { layout = layout("stacks"), index = 0 },
-        scopes = { layout = layout("scopes"), index = 0 },
-        console = { layout = layout("console"), index = 0 },
-        watches = { layout = layout("watches"), index = 0 },
-        breakpoints = { layout = layout("breakpoints"), index = 0 },
-    }
-
-    local layouts = {}
-    for name, config in pairs(name_to_layout) do
-        table.insert(layouts, config.layout)
-        name_to_layout[name].index = #layouts
-    end
-
-    local function toggle_debug_ui(name)
-        dapui.close()
-        local layout_config = name_to_layout[name]
-        if not layout_config then
-            error("Unknown DAP layout: " .. name)
-        end
-
-        local ui = vim.api.nvim_list_uis()[1]
-        if ui then
-            layout_config.layout.size = ui.width
-        end
-
-        pcall(dapui.toggle, layout_config.index)
+    local function open_debug_ui(name)
+        setup_dap_runtime()
+        toggle_debug_ui(name)
     end
 
     vim.keymap.set("n", "<leader>dr", function()
-        toggle_debug_ui("repl")
+        open_debug_ui("repl")
     end, { desc = "Toggle DAP REPL" })
     vim.keymap.set("n", "<leader>ds", function()
-        toggle_debug_ui("stacks")
+        open_debug_ui("stacks")
     end, { desc = "Toggle DAP stacks" })
     vim.keymap.set("n", "<leader>dw", function()
-        toggle_debug_ui("watches")
+        open_debug_ui("watches")
     end, { desc = "Toggle DAP watches" })
     vim.keymap.set("n", "<leader>db", function()
-        toggle_debug_ui("breakpoints")
+        open_debug_ui("breakpoints")
     end, { desc = "Toggle DAP breakpoints" })
     vim.keymap.set("n", "<leader>dS", function()
-        toggle_debug_ui("scopes")
+        open_debug_ui("scopes")
     end, { desc = "Toggle DAP scopes" })
     vim.keymap.set("n", "<leader>dc", function()
-        toggle_debug_ui("console")
+        open_debug_ui("console")
     end, { desc = "Toggle DAP console" })
-
-    vim.api.nvim_create_autocmd("BufEnter", {
-        group = dap_group,
-        pattern = "*dap-repl*",
-        callback = function()
-            vim.wo.wrap = true
-        end,
-    })
-
-    vim.api.nvim_create_autocmd("BufWinEnter", {
-        group = dap_group,
-        pattern = { "*dap-repl*", "*DAP Watches*" },
-        callback = focus_matching_buffer,
-    })
-
-    dapui.setup({
-        layouts = layouts,
-        enter = true,
-    })
-
-    dap.listeners.before.event_terminated.tsp_dapui = function()
-        dapui.close()
-    end
-
-    dap.listeners.before.event_exited.tsp_dapui = function()
-        dapui.close()
-    end
-
-    require("mason-nvim-dap").setup({
-        ensure_installed = {
-            "delve",
-        },
-        automatic_installation = true,
-        handlers = {
-            function(config)
-                require("mason-nvim-dap").default_setup(config)
-            end,
-            delve = function(config)
-                table.insert(config.configurations, 1, {
-                    args = function()
-                        return vim.split(vim.fn.input("args> "), " ")
-                    end,
-                    type = "delve",
-                    name = "file",
-                    request = "launch",
-                    program = "${file}",
-                    outputMode = "remote",
-                })
-
-                table.insert(config.configurations, 1, {
-                    args = function()
-                        return vim.split(vim.fn.input("args> "), " ")
-                    end,
-                    type = "delve",
-                    name = "file args",
-                    request = "launch",
-                    program = "${file}",
-                    outputMode = "remote",
-                })
-
-                require("mason-nvim-dap").default_setup(config)
-            end,
-        },
-    })
-
-    require("dap-go").setup()
 end
 -- }}}
 
 -- Languages {{{
 local function setup_languages()
-    local metals = require("metals")
-    local group = augroup("Metals")
-    local metals_config = metals.bare_config()
-
-    metals_config.settings = {
-        autoImportBuild = "all",
-        verboseCompilation = false,
-        serverProperties = { "-Xms256m", "-Xmx4g" },
-    }
-    metals_config.capabilities = lsp_common.build_capabilities()
-    metals_config.init_options.statusBarProvider = "on"
-    metals_config.on_attach = function(client, attached_bufnr)
-        lsp_common.on_attach(client, attached_bufnr)
-        local dap_ok, dap_err = pcall(metals.setup_dap)
-        if not dap_ok then
-            vim.notify("Metals DAP setup failed: " .. tostring(dap_err), vim.log.levels.WARN)
-        end
-
-        vim.lsp.codelens.enable(true, { bufnr = attached_bufnr })
-        metals_codelens.attach(client, attached_bufnr)
-
-        vim.api.nvim_create_autocmd({ "BufEnter", "BufWritePost" }, {
-            buffer = attached_bufnr,
-            callback = function()
-                if vim.api.nvim_buf_is_valid(attached_bufnr) then
-                    vim.lsp.codelens.enable(true, { bufnr = attached_bufnr })
-                end
-            end,
-        })
-
-        vim.keymap.set("n", "<leader>cl", vim.lsp.codelens.run, {
-            buffer = attached_bufnr,
-            desc = "Run CodeLens",
-        })
-        vim.keymap.set("n", "<leader>mc", metals.commands, {
-            buffer = attached_bufnr,
-            desc = "Metals commands",
-        })
-    end
-
-    local function attach_if_scala(bufnr)
-        local filetype = vim.bo[bufnr].filetype
-        if filetype ~= "scala" and filetype ~= "sbt" and filetype ~= "java" then
-            return
-        end
-
-        vim.api.nvim_buf_call(bufnr, function()
-            metals.initialize_or_attach(metals_config)
-        end)
-    end
-
     vim.api.nvim_create_autocmd("FileType", {
-        group = group,
-        pattern = { "scala", "sbt", "java" },
-        callback = function(args)
-            attach_if_scala(args.buf)
-        end,
-    })
-
-    for _, bufnr in ipairs(vim.api.nvim_list_bufs()) do
-        if vim.api.nvim_buf_is_loaded(bufnr) then
-            attach_if_scala(bufnr)
-        end
-    end
-
-    vim.api.nvim_create_autocmd("VimLeavePre", {
-        group = group,
+        group = augroup("TypstPreview"),
+        pattern = "typst",
         callback = function()
-            for _, client in ipairs(vim.lsp.get_clients()) do
-                if client.name == "metals" then
-                    client.stop()
-                end
-            end
+            setup_once("typst-preview.nvim", function()
+                ensure_pack("typst-preview.nvim")
+                require("typst-preview").setup({
+                    invert_colors = "auto",
+                })
+            end)
         end,
-    })
-
-    require("typst-preview").setup({
-        invert_colors = "auto",
     })
 end
 -- }}}
@@ -3238,7 +3089,6 @@ end
 register_pack_commands()
 register_pack_hooks()
 install_plugins()
-load_plugins()
 
 setup_ui()
 setup_editor()
