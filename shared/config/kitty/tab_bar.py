@@ -24,7 +24,7 @@ opts = get_options()
 
 ICON: str = " LEI "
 ICON_LENGTH: int = len(ICON)
-ICON_FG: int = as_rgb(color_as_int(opts.color16))
+ICON_FG: int = as_rgb(color_as_int(opts.color15))
 ICON_BG: int = as_rgb(color_as_int(opts.color8))
 
 CLOCK_FG = 1
@@ -32,7 +32,7 @@ CLOCK_BG = as_rgb(color_as_int(opts.color11))
 BATTERY_FG = 1
 BATTERY_BG = as_rgb(color_as_int(opts.color12))
 DATE_FG = 3
-DATE_BG = as_rgb(color_as_int(opts.color16))
+DATE_BG = as_rgb(color_as_int(opts.color8))
 
 BATTERY_CACHE_TTL = 30.0
 BATTERY_SYSFS = Path("/sys/class/power_supply")
