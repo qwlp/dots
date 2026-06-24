@@ -34,6 +34,23 @@
 (setq-default tab-width 4)
 (setq c-basic-offset 4)
 
+
+;;; Org mode stuff
+;; Enable cleaner outline indentation
+(setq org-startup-indented t)
+(setq org-hide-leading-stars t)
+
+;; Use beautiful UTF-8 bullets instead of asterisks
+(use-package org-superstar
+  :ensure t
+  :hook (org-mode . org-superstar-mode)
+  :config
+  ;; Customize the bullet icons to your liking
+  (setq org-superstar-headline-bullets-list '("◉" "○" "✸" "✿" "♦")))
+
+;; (Optional) Make markup markers (like *bold*, /italics/) render cleanly without showing the slashes/asterisks
+(setq org-hide-emphasis-markers t)
+
 ;;; Shell
 
 (setq shell-command-switch "-lc")
@@ -139,5 +156,11 @@
 
 ;;; Languages
 
+;; go
+
 (use-package go-mode
   :mode "\\.go\\'")
+
+(use-package odin-mode
+  :vc (:url "https://github.com/mattt-b/odin-mode")
+  :mode "\\.odin\\'")
