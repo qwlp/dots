@@ -7,6 +7,26 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "terminal": {
+    "font_size": 18.0
+  },
+  "project_panel": {
+    "dock": "left"
+  },
+  "outline_panel": {
+    "dock": "left"
+  },
+  "collaboration_panel": {
+    "dock": "left"
+  },
+  "agent": {
+    "dock": "right",
+    "favorite_models": [],
+    "model_parameters": []
+  },
+  "git_panel": {
+    "dock": "left"
+  },
   "cursor_shape": "block",
   "instrumentation": {
     "performance_profiler": {
@@ -46,7 +66,7 @@
     "metrics": false,
     "anthropic_retention": false
   },
-  "ui_font_size": 16,
+  "ui_font_size": 17.0,
   "buffer_font_size": 15,
   "theme": "Naysayer",
 }
