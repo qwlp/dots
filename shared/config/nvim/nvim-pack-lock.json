@@ -112,6 +112,10 @@
       "rev": "d205d1741d1fcc1f3117b4e839bf00f74ad72fa2",
       "src": "https://github.com/nvim-mini/mini.surround"
     },
+    "multiple-cursors.nvim": {
+      "rev": "eae76d4c5f7ede2d45746dc2affb5e7a139e4aa8",
+      "src": "https://github.com/brenton-leighton/multiple-cursors.nvim"
+    },
     "neotest": {
       "rev": "deadfb1af5ce458742671ad3a013acb9a6b41178",
       "src": "https://github.com/nvim-neotest/neotest"

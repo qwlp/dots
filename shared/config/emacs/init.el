@@ -9,6 +9,7 @@
 
 (setq inhibit-startup-screen t)
 (setq-default truncate-lines t)
+(setq next-line-add-newlines t)
 
 ;;; Custom
 

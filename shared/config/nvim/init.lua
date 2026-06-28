@@ -8,6 +8,10 @@ local function map(mode, lhs, rhs, opts)
     vim.keymap.set(mode, lhs, rhs, opts or {})
 end
 
+if vim.nonnil then
+    vim.F.if_nil = vim.nonnil
+end
+
 local loaded_packs = {}
 local setup_once_state = {}
 
@@ -1393,7 +1397,7 @@ local function compile_or_recompile()
         return
     end
 
-    ensure_packs({ "baleia.nvim", "compile-mode.nvim" })
+    ensure_packs({ "plenary.nvim", "baleia.nvim", "compile-mode.nvim" })
 
     if has_compiled then
         vim.cmd.Recompile()
@@ -1402,6 +1406,15 @@ local function compile_or_recompile()
 
     vim.cmd.Compile()
     has_compiled = true
+end
+
+local function multiple_cursors(command)
+    setup_once("multiple-cursors.nvim", function()
+        ensure_pack("multiple-cursors.nvim")
+        require("multiple-cursors").setup()
+    end)
+
+    vim.cmd(command)
 end
 
 local kitty_config = {
@@ -1511,7 +1524,6 @@ map("v", "J", ":m '>+1<CR>gv=gv", { silent = true, desc = "Move selected lines d
 map("v", "K", ":m '<-2<CR>gv=gv", { silent = true, desc = "Move selected lines up" })
 
 map("n", "J", "mzJ`z", { desc = "Join lines and keep cursor centered" })
-map("n", "<C-d>", "<C-d>zz", { desc = "Half-page down centered" })
 map("n", "<C-u>", "<C-u>zz", { desc = "Half-page up centered" })
 map("n", "n", "nzzzv", { desc = "Next search result centered" })
 map("n", "N", "Nzzzv", { desc = "Previous search result centered" })
@@ -1546,6 +1558,43 @@ map("n", "<leader>x", "<cmd>!chmod +x %<cr>", { silent = true, desc = "Make curr
 map("n", "<M-t>", "<cmd>vnew | terminal<cr>", { desc = "Open vertical terminal" })
 map("n", "<M-;>", "<cmd>split<cr>", { desc = "Horizonal split" })
 
+map({ "n", "x" }, "<C-M-Down>", function()
+    multiple_cursors("MultipleCursorsAddDown")
+end, { desc = "Multiple cursors: add cursor below" })
+map({ "n", "x" }, "<C-M-Up>", function()
+    multiple_cursors("MultipleCursorsAddUp")
+end, { desc = "Multiple cursors: add cursor above" })
+map("n", "<C-Space>", function()
+    multiple_cursors("MultipleCursorsAddDelete")
+end, { desc = "Multiple cursors: add/delete cursor" })
+map({ "n", "i" }, "<M-LeftMouse>", function()
+    multiple_cursors("MultipleCursorsMouseAddDelete")
+end, { desc = "Multiple cursors: add/delete cursor with mouse" })
+map("x", "<M-I>", function()
+    multiple_cursors("MultipleCursorsAddVisualArea")
+end, { desc = "Multiple cursors: add cursors to line ends" })
+map({ "n", "x" }, "<C-S-l>", function()
+    multiple_cursors("MultipleCursorsAddMatches")
+end, { desc = "Multiple cursors: select all occurrences" })
+map({ "n", "x" }, "<leader>mW", function()
+    multiple_cursors("MultipleCursorsAddMatchesV")
+end, { desc = "Multiple cursors: add matches in previous area" })
+map({ "n", "x" }, "<M-d>", function()
+    multiple_cursors("MultipleCursorsAddJumpNextMatch")
+end, { desc = "Multiple cursors: add next occurrence" })
+map({ "n", "x" }, "<leader>mN", function()
+    multiple_cursors("MultipleCursorsJumpNextMatch")
+end, { desc = "Multiple cursors: jump next" })
+map({ "n", "x" }, "<leader>mp", function()
+    multiple_cursors("MultipleCursorsAddJumpPrevMatch")
+end, { desc = "Multiple cursors: add and jump previous" })
+map({ "n", "x" }, "<leader>mP", function()
+    multiple_cursors("MultipleCursorsJumpPrevMatch")
+end, { desc = "Multiple cursors: jump previous" })
+map({ "n", "x" }, "<leader>ml", function()
+    multiple_cursors("MultipleCursorsLock")
+end, { desc = "Multiple cursors: toggle lock" })
+
 map({ "n", "t" }, "<M-h>", [[<C-\><C-n><C-w>h]], { desc = "Go to left window" })
 map({ "n", "t" }, "<M-j>", [[<C-\><C-n><C-w>j]], { desc = "Go to lower window" })
 map({ "n", "t" }, "<M-k>", [[<C-\><C-n><C-w>k]], { desc = "Go to upper window" })
@@ -1569,7 +1618,7 @@ vim.filetype.add({
 vim.api.nvim_create_autocmd("TextYankPost", {
     group = yank_group,
     callback = function()
-        vim.hl.on_yank({
+        vim.hl.hl_op({
             higroup = "IncSearch",
             timeout = 40,
         })
@@ -1672,6 +1721,7 @@ local plugin_specs = {
     { src = "https://github.com/nvim-mini/mini.ai",                           name = "mini.ai" },
     { src = "https://github.com/nvim-mini/mini.surround",                     name = "mini.surround" },
     { src = "https://github.com/catgoose/nvim-colorizer.lua",                 name = "nvim-colorizer.lua" },
+    { src = "https://github.com/brenton-leighton/multiple-cursors.nvim",      name = "multiple-cursors.nvim" },
     { src = "https://github.com/mbbill/undotree",                             name = "undotree" },
     { src = "https://github.com/MeanderingProgrammer/render-markdown.nvim",   name = "render-markdown.nvim" },
 
