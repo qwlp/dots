@@ -1,0 +1,52 @@
+// Zed settings
+//
+// For information on how to configure Zed, see the Zed
+// documentation: https://zed.dev/docs/configuring-zed
+//
+// To see all of Zed's default settings without changing your
+// custom settings, run `zed: open default settings` from the
+// command palette (cmd-shift-p / ctrl-shift-p)
+{
+  "cursor_shape": "block",
+  "instrumentation": {
+    "performance_profiler": {
+      
+    }
+  },
+  "base_keymap": "Emacs",
+  "git": {
+    "inline_blame": {
+      "show_commit_summary": false
+    }
+  },
+  "zoomed_padding": true,
+  "diagnostics": {
+    "inline": {
+      
+    }
+  },
+  "gutter": {
+    "folds": false,
+    "bookmarks": false,
+    "runnables": false,
+    "breakpoints": false,
+    "line_numbers": false
+  },
+  "vim": {
+    "toggle_relative_line_numbers": false
+  },
+  "window_decorations": "client",
+  "ui_font_family": "IoskeleyMonoTerm Nerd Font",
+  "buffer_font_family": "FiraCode Nerd Font Mono",
+  "helix_mode": false,
+  "proxy": "",
+  "disable_ai": true,
+  "telemetry": {
+    "diagnostics": false,
+    "metrics": false,
+    "anthropic_retention": false
+  },
+  "ui_font_size": 16,
+  "buffer_font_size": 15,
+  "theme": "Naysayer",
+}
