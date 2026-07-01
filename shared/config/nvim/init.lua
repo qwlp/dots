@@ -2097,15 +2097,36 @@ local function setup_navigation()
                 group = augroup("MiniFilesEnter"),
                 pattern = "MiniFilesBufferCreate",
                 callback = function(args)
+                    local function open_pdf_in_tdf(path)
+                        if vim.fn.executable("tdf") ~= 1 then
+                            vim.notify("tdf is not executable", vim.log.levels.WARN)
+                            vim.ui.open(path)
+                            return
+                        end
+
+                        if vim.env.TMUX ~= nil and vim.fn.executable("tmux") == 1 then
+                            vim.fn.jobstart({ "tmux", "split-window", "-h", "tdf", path }, { detach = true })
+                            return
+                        end
+
+                        if (vim.env.KITTY_LISTEN_ON ~= nil or vim.env.TERM == "xterm-kitty")
+                            and vim.fn.executable("kitty") == 1
+                        then
+                            vim.fn.jobstart({ "kitty", "@", "launch", "--location=vsplit", "tdf", path }, { detach = true })
+                            return
+                        end
+
+                        vim.fn.jobstart({ "tdf", path }, { detach = true })
+                    end
+
                     local function mini_files_ui_open()
                         local path = (MiniFiles.get_fs_entry() or {}).path
                         if path == nil then
                             vim.notify("Cursor is not on a valid file system entry", vim.log.levels.WARN)
                             return
                         end
-                        if path:find(".pdf", 1, true) then
-                            print(path)
-                            vim.fn.system("kitty @ launch --location=vsplit tdf \"" .. path .. "\"")
+                        if vim.fn.fnamemodify(path, ":e"):lower() == "pdf" then
+                            open_pdf_in_tdf(path)
                         else
                             vim.ui.open(path)
                         end
