@@ -2112,7 +2112,8 @@ local function setup_navigation()
                         if (vim.env.KITTY_LISTEN_ON ~= nil or vim.env.TERM == "xterm-kitty")
                             and vim.fn.executable("kitty") == 1
                         then
-                            vim.fn.jobstart({ "kitty", "@", "launch", "--location=vsplit", "tdf", path }, { detach = true })
+                            vim.fn.jobstart({ "kitty", "@", "launch", "--location=vsplit", "tdf", path },
+                                { detach = true })
                             return
                         end
 

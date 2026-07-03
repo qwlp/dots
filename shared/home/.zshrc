@@ -130,6 +130,6 @@ fi
 # source /usr/share/nvm/init-nvm.sh
 
 # --- 9. Final Init ---
-# Starship replaces your manual prompt, so we initialize it last.
 eval "$(zoxide init zsh)"
-eval "$(starship init zsh)"
+# Starship disabled; fish uses a custom prompt and Codex runs with TERM=dumb.
+# eval "$(starship init zsh)"
