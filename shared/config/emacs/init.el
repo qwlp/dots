@@ -1,5 +1,23 @@
 ;;; init.el --- Personal Emacs config -*- lexical-binding: t; -*-
 
+;;; Performance
+
+(setq gc-cons-threshold (* 64 1024 1024)
+      read-process-output-max (* 1024 1024)
+      process-adaptive-read-buffering nil
+      bidi-inhibit-bpa t
+      inhibit-compacting-font-caches t
+      redisplay-skip-fontification-on-input t
+      fast-but-imprecise-scrolling t)
+
+(setq-default bidi-display-reordering 'left-to-right
+              bidi-paragraph-direction 'left-to-right
+              cursor-in-non-selected-windows nil)
+
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (setq gc-cons-threshold (* 16 1024 1024))))
+
 ;;; UI
 
 (menu-bar-mode -1)
@@ -18,6 +36,21 @@
 (when (file-exists-p custom-file)
   (load custom-file))
 
+;;; Packages
+
+(require 'package)
+
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+(package-initialize)
+
+(unless (package-installed-p 'use-package)
+  (unless package-archive-contents
+    (package-refresh-contents))
+  (package-install 'use-package))
+
+(require 'use-package)
+(setq use-package-always-ensure t)
+
 ;;; Files
 
 ;; Keep editing safety files out of project directories.
@@ -35,41 +68,32 @@
 (setq-default tab-width 4)
 (setq c-basic-offset 4)
 
+(global-so-long-mode 1)
+
 
 ;;; Org mode stuff
-;; Enable cleaner outline indentation
-(setq org-startup-indented t)
-(setq org-hide-leading-stars t)
+;; Keep Org buffers cheap to redisplay. Pretty bullets/indentation are the
+;; usual source of lag in large outlines.
+(setq org-startup-indented nil
+      org-hide-leading-stars nil
+      org-hide-emphasis-markers nil
+      org-startup-folded 'show2levels
+      org-cycle-separator-lines 0
+      org-fontify-quote-and-verse-blocks nil
+      org-fontify-whole-heading-line nil
+      org-fontify-done-headline nil
+      org-src-fontify-natively nil
+      org-src-tab-acts-natively nil)
 
-;; Use beautiful UTF-8 bullets instead of asterisks
 (use-package org-superstar
   :ensure t
-  :hook (org-mode . org-superstar-mode)
+  :commands org-superstar-mode
   :config
-  ;; Customize the bullet icons to your liking
   (setq org-superstar-headline-bullets-list '("◉" "○" "✸" "✿" "♦")))
-
-;; (Optional) Make markup markers (like *bold*, /italics/) render cleanly without showing the slashes/asterisks
-(setq org-hide-emphasis-markers t)
 
 ;;; Shell
 
 (setq shell-command-switch "-lc")
-
-;;; Packages
-
-(require 'package)
-
-(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
-(package-initialize)
-
-(unless (package-installed-p 'use-package)
-  (unless package-archive-contents
-    (package-refresh-contents))
-  (package-install 'use-package))
-
-(require 'use-package)
-(setq use-package-always-ensure t)
 
 ;;; Theme
 
