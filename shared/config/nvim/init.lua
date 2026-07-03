@@ -2450,10 +2450,24 @@ local function setup_lsp()
     local blink = require("blink.cmp")
     local luasnip = require("luasnip")
     local capabilities = lsp_common.build_capabilities()
+    local prettier_formatters = { "prettierd", "prettier", stop_after_first = true }
+
+    local function root_pattern(...)
+        local matcher = lsp_util.root_pattern(...)
+
+        return function(bufnr, on_dir)
+            local filename = vim.api.nvim_buf_get_name(bufnr)
+            local root_dir = matcher(filename)
+
+            if root_dir then
+                on_dir(root_dir)
+            end
+        end
+    end
 
     require("conform").setup({
         format_on_save = {
-            timeout_ms = 500,
+            timeout_ms = 1500,
             lsp_format = "fallback",
         },
         formatters_by_ft = {
@@ -2461,11 +2475,11 @@ local function setup_lsp()
             cpp = { "clang-format" },
             lua = { "stylua" },
             go = { "gofmt" },
-            javascript = { "prettier" },
-            javascriptreact = { "prettier" },
-            typescript = { "prettier" },
-            typescriptreact = { "prettier" },
-            css = { "prettier" },
+            javascript = prettier_formatters,
+            javascriptreact = prettier_formatters,
+            typescript = prettier_formatters,
+            typescriptreact = prettier_formatters,
+            css = prettier_formatters,
             elixir = { "mix" },
             python = { "ruff_format" },
             typst = { "typstyle" },
@@ -2595,9 +2609,34 @@ local function setup_lsp()
         rust_analyzer = {},
         tailwindcss = {
             filetypes = { "html", "css", "scss", "javascript", "javascriptreact", "typescript", "typescriptreact", "vue", "svelte", "heex" },
+            root_dir = root_pattern(
+                "tailwind.config.js",
+                "tailwind.config.cjs",
+                "tailwind.config.mjs",
+                "tailwind.config.ts",
+                "postcss.config.js",
+                "postcss.config.cjs",
+                "postcss.config.mjs",
+                "postcss.config.ts"
+            ),
         },
         texlab = {},
-        ts_ls = {},
+        vtsls = {
+            root_dir = root_pattern("tsconfig.json", "jsconfig.json", "package.json", ".git"),
+            single_file_support = false,
+            settings = {
+                typescript = {
+                    preferences = {
+                        importModuleSpecifier = "non-relative",
+                    },
+                },
+                javascript = {
+                    preferences = {
+                        importModuleSpecifier = "non-relative",
+                    },
+                },
+            },
+        },
         zls = {
             root_dir = lsp_util.root_pattern(".git", "build.zig", "zls.json"),
             settings = {
@@ -2659,7 +2698,7 @@ local function setup_lsp()
             "rust_analyzer",
             "tailwindcss",
             "texlab",
-            "ts_ls",
+            "vtsls",
             "zls",
             "harper_ls",
             "tinymist",
