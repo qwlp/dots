@@ -9,7 +9,9 @@
                    ido-completing-read+ kitty-graphics magit
                    naysayer-theme nov odin-mode org-superstar smex
                    symbol-overlay-mc telega typst-ts-mode verb ytr))
- '(package-vc-selected-packages '((odin-mode :url "https://github.com/mattt-b/odin-mode"))))
+ '(package-vc-selected-packages
+   '((ytr :url "https://github.com/xenodium/ytr")
+     (odin-mode :url "https://github.com/mattt-b/odin-mode"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
