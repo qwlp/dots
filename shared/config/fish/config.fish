@@ -32,6 +32,7 @@ end
 
 fish_add_path --global --move \
     "$HOME/go/bin" \
+    "$HOME/.local/bin/" \
     "$HOME/.local/share/coursier/bin" \
     "$HOME/.bun/bin" \
     "$HOME/.local/share/nvim/mason/bin"

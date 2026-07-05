@@ -5,10 +5,10 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   '(exec-path-from-shell ghostel go-mode ido-completing-read+ magit
-                          naysayer-theme nov odin-mode org-superstar
-                          pdf-tools smex symbol-overlay-mc typst-mode
-                          typst-ts-mode))
+   '(all-the-icons exec-path-from-shell ghostel go-mode
+                   ido-completing-read+ kitty-graphics magit
+                   naysayer-theme nov odin-mode org-superstar smex
+                   symbol-overlay-mc telega typst-ts-mode verb ytr))
  '(package-vc-selected-packages '((odin-mode :url "https://github.com/mattt-b/odin-mode"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.

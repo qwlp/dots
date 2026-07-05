@@ -4,9 +4,14 @@ eln-cache/
 auto-save/
 auto-save-list/
 backups/
+games/
+image-dired/
+multisession/
 ido.last
 nov-places
 smex-items
 tramp
 transient/
+tree-sitter/
+ytr/
 .mc-lists.el
