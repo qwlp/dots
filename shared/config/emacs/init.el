@@ -449,6 +449,12 @@ Call ORIGINAL for strings that do not contain Khmer."
   ;; Enable the native Elisp metadata reader for faster track tagging
   (require 'emms-info-native)
   (setq emms-info-functions '(emms-info-native))
+  ;; Load the volume modules
+  (require 'emms-volume)
+  (require 'emms-volume-mpv)
+  
+  ;; Tell EMMS to use mpv for volume control
+  (setq emms-volume-change-function 'emms-volume-mpv-change)
 
   ;; Optional: Enable global minor mode for the status line info
   (emms-mode-line 1)
