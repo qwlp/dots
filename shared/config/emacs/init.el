@@ -121,6 +121,14 @@
 ;; Large outlines retain the cheap redisplay settings below.
 (defconst my/org-visual-buffer-limit (* 512 1024))
 
+(defun my/org-mode-setup ()
+  "Custom setup for Org mode."
+  (setq fill-column 80)
+  (auto-fill-mode 1))
+
+(add-hook 'org-mode-hook #'my/org-mode-setup)
+(add-hook 'org-mode-hook #'display-fill-column-indicator-mode)
+
 (defun my/org-enable-visuals ()
   "Enable the pleasant but more expensive parts of Org in small buffers."
   (when (< (buffer-size) my/org-visual-buffer-limit)
@@ -402,14 +410,49 @@ Call ORIGINAL for strings that do not contain Khmer."
     (advice-add 'telega-fmt-eval-eliding
                 :around #'my/telega-khmer-aware-eliding)))
 (telega-notifications-mode 1)
+(setcdr (assq t org-file-apps-gnu) 'browse-url-xdg-open)
+
+(setq telega-open-file-function 'org-open-file)
 
 ;;; Exec from shell
 
 (use-package exec-path-from-shell
   :ensure t
   :config
-  (setq exec-path-from-shell-variables '("PATH" "MANPATH")) 
+  (setq exec-path-from-shell-variables '("PATH" "MANPATH"))
   (exec-path-from-shell-initialize))
+
+;;; Emms
+
+(use-package emms
+  :ensure t
+  :bind (("C-c e g" . emms-playlist-mode-go)
+         ("C-c e b" . emms-browser)
+         ("C-c e s" . emms-start)
+         ("C-c e x" . emms-stop)
+         ("C-c e p" . emms-pause)
+         ("C-c e n" . emms-next)
+         ("C-c e r" . emms-previous))
+  :custom
+  ;; Define your music directory path (change this to your actual path)
+  (emms-source-file-default-directory "~/pCloudDrive/My Music/")
+  ;; Cache the track metadata asynchronously to speed up loading
+  (emms-browser-covers #'emms-browser-cache-thumbnail-async)
+  :config
+  ;; Load all default, stable EMMS features
+  (require 'emms-setup)
+  (emms-all)
+
+  ;; Specify your backend engine. MPV is highly recommended.
+  (setq emms-player-list '(emms-player-mpv))
+
+  ;; Enable the native Elisp metadata reader for faster track tagging
+  (require 'emms-info-native)
+  (setq emms-info-functions '(emms-info-native))
+
+  ;; Optional: Enable global minor mode for the status line info
+  (emms-mode-line 1)
+  (emms-playing-time 1))
 
 ;;; Languages
 
