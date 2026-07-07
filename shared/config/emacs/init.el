@@ -407,26 +407,6 @@ Call ORIGINAL for strings that do not contain Khmer."
 
 (setq telega-open-file-function 'org-open-file)
 
-;;; AI
-
-(defun my/gptel-openai-oauth-login ()
-  "Log in to the ChatGPT subscription backend for gptel."
-  (interactive)
-  (require 'gptel)
-  (call-interactively #'gptel-openai-oauth-login))
-
-(use-package gptel
-  :commands (gptel gptel-menu gptel-send gptel-openai-oauth-login)
-  :bind
-  (("C-c g g" . gptel)
-   ("C-c g m" . gptel-menu)
-   ("C-c g s" . gptel-send)
-   ("C-c g l" . my/gptel-openai-oauth-login))
-  :config
-  (require 'gptel-openai-oauth)
-  (setq gptel-backend (gptel-make-openai-oauth "ChatGPT Subscription")
-        gptel-model 'gpt-5.3-codex))
-
 ;;; Exec from shell
 
 (use-package exec-path-from-shell
