@@ -1,4 +1,5 @@
 elpa/
+.cache/
 emms/
 eshell/
 eln-cache/
@@ -15,4 +16,5 @@ tramp
 transient/
 tree-sitter/
 ytr/
+url/
 .mc-lists.el

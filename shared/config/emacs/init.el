@@ -268,24 +268,17 @@
 
 ;;; Completion
 
-(use-package ido
-  :ensure nil
+(use-package vertico
+  :ensure t
   :init
-  (ido-mode 1)
-  (ido-everywhere 1))
+  (vertico-mode))
 
-(use-package ido-completing-read+
-  :after ido
-  :config
-  (ido-ubiquitous-mode 1))
-
-(use-package smex
-  :after ido
-  :bind
-  (("M-x" . smex)
-   ("C-c C-c M-x" . execute-extended-command))
+(use-package marginalia
+  :ensure t
+  :bind (:map minibuffer-local-map
+         ("M-A" . marginalia-cycle))
   :init
-  (smex-initialize))
+  (marginalia-mode))
 
 ;;; Git
 
@@ -414,6 +407,26 @@ Call ORIGINAL for strings that do not contain Khmer."
 
 (setq telega-open-file-function 'org-open-file)
 
+;;; AI
+
+(defun my/gptel-openai-oauth-login ()
+  "Log in to the ChatGPT subscription backend for gptel."
+  (interactive)
+  (require 'gptel)
+  (call-interactively #'gptel-openai-oauth-login))
+
+(use-package gptel
+  :commands (gptel gptel-menu gptel-send gptel-openai-oauth-login)
+  :bind
+  (("C-c g g" . gptel)
+   ("C-c g m" . gptel-menu)
+   ("C-c g s" . gptel-send)
+   ("C-c g l" . my/gptel-openai-oauth-login))
+  :config
+  (require 'gptel-openai-oauth)
+  (setq gptel-backend (gptel-make-openai-oauth "ChatGPT Subscription")
+        gptel-model 'gpt-5.3-codex))
+
 ;;; Exec from shell
 
 (use-package exec-path-from-shell
@@ -435,7 +448,7 @@ Call ORIGINAL for strings that do not contain Khmer."
          ("C-c e r" . emms-previous))
   :custom
   ;; Define your music directory path (change this to your actual path)
-  (emms-source-file-default-directory "~/pCloudDrive/My Music/")
+  (emms-source-file-default-directory "~/pCloud/My Music/")
   ;; Cache the track metadata asynchronously to speed up loading
   (emms-browser-covers #'emms-browser-cache-thumbnail-async)
   :config
