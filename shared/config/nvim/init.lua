@@ -1524,6 +1524,7 @@ map("v", "J", ":m '>+1<CR>gv=gv", { silent = true, desc = "Move selected lines d
 map("v", "K", ":m '<-2<CR>gv=gv", { silent = true, desc = "Move selected lines up" })
 
 map("n", "J", "mzJ`z", { desc = "Join lines and keep cursor centered" })
+map("n", "<C-d>", "<C-d>zz", { desc = "Half-page down centered" })
 map("n", "<C-u>", "<C-u>zz", { desc = "Half-page up centered" })
 map("n", "n", "nzzzv", { desc = "Next search result centered" })
 map("n", "N", "Nzzzv", { desc = "Previous search result centered" })

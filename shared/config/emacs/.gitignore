@@ -10,11 +10,15 @@ games/
 image-dired/
 multisession/
 ido.last
-nov-places
+history
+places
+projects
+recentf
 smex-items
 tramp
 transient/
 tree-sitter/
-ytr/
 url/
 .mc-lists.el
+multiple-cursors-lists.el
+*.elc

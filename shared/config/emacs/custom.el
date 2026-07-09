@@ -6,8 +6,7 @@
  ;; If there is more than one, they won't work right.
  '(package-selected-packages nil)
  '(package-vc-selected-packages
-   '((ytr :url "https://github.com/xenodium/ytr")
-     (odin-mode :url "https://github.com/mattt-b/odin-mode"))))
+   '((odin-mode :url "https://github.com/mattt-b/odin-mode"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
