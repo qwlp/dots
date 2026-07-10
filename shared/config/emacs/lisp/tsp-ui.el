@@ -16,6 +16,23 @@
       display-time-interval 60)
 (display-time-mode 1)
 
+(require 'battery)
+
+(defun tsp/battery-available-p ()
+  "Return non-nil when Emacs can read a real battery percentage."
+  (and battery-status-function
+       (let* ((data (ignore-errors (funcall battery-status-function)))
+              (percentage (cdr (assq ?p data))))
+         (and (stringp percentage)
+              (string-match-p "\\`[0-9]+\\(?:\\.[0-9]+\\)?\\'"
+                              percentage)))))
+
+(setq battery-mode-line-format " %b%p%%"
+      battery-update-interval 60)
+
+(when (tsp/battery-available-p)
+  (display-battery-mode 1))
+
 (defconst tsp/script-fonts
   '((khmer . "Noto Sans Khmer")
     (thai . "Noto Sans Thai")

@@ -72,12 +72,12 @@ cluttering up my config directory.
 (require 'use-package)
 (setq use-package-always-ensure t)
 
-(require 'tsp-core)
-(require 'tsp-ui)
-(require 'tsp-completion)
-(require 'tsp-org)
-(require 'tsp-apps)
-(require 'tsp-prog)
+(load "tsp-core")
+(load "tsp-ui")
+(load "tsp-completion")
+(load "tsp-org")
+(load "tsp-apps")
+(load "tsp-prog")
 
 ;;; init.el ends here
 #+end_src
@@ -182,17 +182,33 @@ cluttering up my config directory.
 (save-place-mode 1)
 (recentf-mode 1)
 
-(defun tsp/reload-config ()
-  "Reload the Emacs init file."
-  (interactive)
-  (load-file (or user-init-file
-                 (expand-file-name "init.el" user-emacs-directory))))
+(defun tsp/config-file (file)
+  "Return FILE under `user-emacs-directory'."
+  (expand-file-name file user-emacs-directory))
 
 (defun tsp/tangle-config ()
   "Tangle the literate Emacs configuration."
   (interactive)
-  (require 'org)
-  (org-babel-tangle-file (expand-file-name "config.org" user-emacs-directory)))
+  (let ((config (tsp/config-file "config.org")))
+    (when-let ((buffer (find-buffer-visiting config)))
+      (with-current-buffer buffer
+        (when (buffer-modified-p)
+          (save-buffer))))
+    (require 'org)
+    (org-babel-tangle-file config)))
+
+(defun tsp/reload-config ()
+  "Tangle and reload the Emacs config.
+
+This reloads the generated init file with `load' instead of relying on
+`require', so already-loaded local modules are evaluated again in daemon
+sessions."
+  (interactive)
+  (let ((init-file (or user-init-file (tsp/config-file "init.el"))))
+    (tsp/tangle-config)
+    (load init-file nil nil t)
+    (force-mode-line-update t)
+    (message "Reloaded Emacs config from %s" init-file)))
 
 (keymap-global-set "C-c r" #'tsp/reload-config)
 
@@ -219,6 +235,23 @@ cluttering up my config directory.
       display-time-default-load-average nil
       display-time-interval 60)
 (display-time-mode 1)
+
+(require 'battery)
+
+(defun tsp/battery-available-p ()
+  "Return non-nil when Emacs can read a real battery percentage."
+  (and battery-status-function
+       (let* ((data (ignore-errors (funcall battery-status-function)))
+              (percentage (cdr (assq ?p data))))
+         (and (stringp percentage)
+              (string-match-p "\\`[0-9]+\\(?:\\.[0-9]+\\)?\\'"
+                              percentage)))))
+
+(setq battery-mode-line-format " %b%p%%"
+      battery-update-interval 60)
+
+(when (tsp/battery-available-p)
+  (display-battery-mode 1))
 
 (defconst tsp/script-fonts
   '((khmer . "Noto Sans Khmer")
@@ -447,62 +480,15 @@ cluttering up my config directory.
 ;;; tsp-org.el ends here
 #+end_src
 
-* Apps
-#+begin_src emacs-lisp :tangle lisp/tsp-apps.el
-;;; tsp-apps.el --- Applications -*- lexical-binding: t; -*-
+* Telega font fixes
+#+begin_src emacs-lisp :tangle lisp/tsp-telega-font.el
+;;; tsp-telega-font.el --- Telega font fixes -*- lexical-binding: t; -*-
 ;;; Code:
 
 ;; This file is tangled from ../config.org. Edit that file instead.
 
-(use-package ghostel
-  :ensure t
-  :commands ghostel
-  :init
-  (setq ghostel-module-auto-install 'download)
-  (setq-default ghostel-glyph-scale-floor 1.0))
-
-(use-package multiple-cursors
-  :ensure t
-  :init
-  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el"))
-  :bind
-  (("C-S-c C-S-c" . mc/edit-lines)
-   ("C->" . mc/mark-next-like-this)
-   ("C-<" . mc/mark-previous-like-this)
-   ("C-c C-<" . mc/mark-all-like-this)
-   ("C-'" . mc/skip-to-next-like-this)
-   ("C-;" . mc/skip-to-previous-like-this)))
-
-(use-package symbol-overlay
-  :ensure t
-  :bind
-  (("M-i" . symbol-overlay-put)
-   ("M-n" . symbol-overlay-switch-forward)
-   ("M-p" . symbol-overlay-switch-backward)
-   ("<f7>" . symbol-overlay-mode)
-   ("<f8>" . symbol-overlay-remove-all)))
-
-(use-package symbol-overlay-mc
-  :ensure t
-  :after symbol-overlay
-  :bind
-  (("M-a" . symbol-overlay-mc-mark-all)
-   ("C-c n" . symbol-overlay-mc-mark-all)))
-
-(use-package dired-x
-  :ensure nil
-  :after dired
-  :hook (dired-mode . dired-omit-mode)
-  :config
-  (setq dired-omit-files (concat dired-omit-files "\\|^\\..+$")))
-
-(use-package magit
-  :ensure t
-  :bind
-  (("C-x g" . magit-status)
-   ("C-x M-g" . magit-dispatch))
-  :config
-  (setq magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+(defvar telega-symbol-eliding)
+(declare-function telega-window-string-width "telega-util")
 
 (defun tsp/telega-khmer-string-p (string)
   "Return non-nil when STRING contains Khmer characters."
@@ -589,6 +575,67 @@ Call ORIGINAL for strings that do not contain Khmer."
              string))
           string)))))
 
+(provide 'tsp-telega-font)
+;;; tsp-telega-font.el ends here
+#+end_src
+
+* Apps
+#+begin_src emacs-lisp :tangle lisp/tsp-apps.el
+;;; tsp-apps.el --- Applications -*- lexical-binding: t; -*-
+;;; Code:
+
+;; This file is tangled from ../config.org. Edit that file instead.
+
+(use-package ghostel
+  :ensure t
+  :commands ghostel
+  :init
+  (setq ghostel-module-auto-install 'download)
+  (setq-default ghostel-glyph-scale-floor 1.0))
+
+(use-package multiple-cursors
+  :ensure t
+  :init
+  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el"))
+  :bind
+  (("C-S-c C-S-c" . mc/edit-lines)
+   ("C->" . mc/mark-next-like-this)
+   ("C-<" . mc/mark-previous-like-this)
+   ("C-c C-<" . mc/mark-all-like-this)
+   ("C-'" . mc/skip-to-next-like-this)
+   ("C-;" . mc/skip-to-previous-like-this)))
+
+(use-package symbol-overlay
+  :ensure t
+  :bind
+  (("M-i" . symbol-overlay-put)
+   ("M-n" . symbol-overlay-switch-forward)
+   ("M-p" . symbol-overlay-switch-backward)
+   ("<f7>" . symbol-overlay-mode)
+   ("<f8>" . symbol-overlay-remove-all)))
+
+(use-package symbol-overlay-mc
+  :ensure t
+  :after symbol-overlay
+  :bind
+  (("M-a" . symbol-overlay-mc-mark-all)
+   ("C-c n" . symbol-overlay-mc-mark-all)))
+
+(use-package dired-x
+  :ensure nil
+  :after dired
+  :hook (dired-mode . dired-omit-mode)
+  :config
+  (setq dired-omit-files (concat dired-omit-files "\\|^\\..+$")))
+
+(use-package magit
+  :ensure t
+  :bind
+  (("C-x g" . magit-status)
+   ("C-x M-g" . magit-dispatch))
+  :config
+  (setq magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
+
 (use-package telega
   :ensure t
   :commands telega
@@ -600,6 +647,7 @@ Call ORIGINAL for strings that do not contain Khmer."
         telega-symbol-width 1
         telega-open-file-function 'org-open-file)
   :config
+  (require 'tsp-telega-font)
   (unless (advice-member-p #'tsp/telega-khmer-aware-eliding
                            'telega-fmt-eval-eliding)
     (advice-add 'telega-fmt-eval-eliding

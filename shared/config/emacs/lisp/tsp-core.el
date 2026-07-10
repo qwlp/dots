@@ -96,17 +96,33 @@
 (save-place-mode 1)
 (recentf-mode 1)
 
-(defun tsp/reload-config ()
-  "Reload the Emacs init file."
-  (interactive)
-  (load-file (or user-init-file
-                 (expand-file-name "init.el" user-emacs-directory))))
+(defun tsp/config-file (file)
+  "Return FILE under `user-emacs-directory'."
+  (expand-file-name file user-emacs-directory))
 
 (defun tsp/tangle-config ()
   "Tangle the literate Emacs configuration."
   (interactive)
-  (require 'org)
-  (org-babel-tangle-file (expand-file-name "config.org" user-emacs-directory)))
+  (let ((config (tsp/config-file "config.org")))
+    (when-let ((buffer (find-buffer-visiting config)))
+      (with-current-buffer buffer
+        (when (buffer-modified-p)
+          (save-buffer))))
+    (require 'org)
+    (org-babel-tangle-file config)))
+
+(defun tsp/reload-config ()
+  "Tangle and reload the Emacs config.
+
+This reloads the generated init file with `load' instead of relying on
+`require', so already-loaded local modules are evaluated again in daemon
+sessions."
+  (interactive)
+  (let ((init-file (or user-init-file (tsp/config-file "init.el"))))
+    (tsp/tangle-config)
+    (load init-file nil nil t)
+    (force-mode-line-update t)
+    (message "Reloaded Emacs config from %s" init-file)))
 
 (keymap-global-set "C-c r" #'tsp/reload-config)
 

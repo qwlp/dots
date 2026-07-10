@@ -26,11 +26,11 @@
 (require 'use-package)
 (setq use-package-always-ensure t)
 
-(require 'tsp-core)
-(require 'tsp-ui)
-(require 'tsp-completion)
-(require 'tsp-org)
-(require 'tsp-apps)
-(require 'tsp-prog)
+(load "tsp-core")
+(load "tsp-ui")
+(load "tsp-completion")
+(load "tsp-org")
+(load "tsp-apps")
+(load "tsp-prog")
 
 ;;; init.el ends here
