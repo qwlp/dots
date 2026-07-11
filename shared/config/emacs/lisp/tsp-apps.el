@@ -81,29 +81,82 @@
 (use-package emms
   :ensure t
   :commands (emms emms-playlist-mode-go emms-browser emms-start emms-stop
-                  emms-pause emms-next emms-previous)
+                  emms-pause emms-next emms-previous tsp/emms-refresh-library)
   :bind (("C-c e g" . emms-playlist-mode-go)
          ("C-c e b" . emms-browser)
+         ("C-c e u" . tsp/emms-refresh-library)
          ("C-c e s" . emms-start)
          ("C-c e x" . emms-stop)
          ("C-c e p" . emms-pause)
          ("C-c e n" . emms-next)
-         ("C-c e r" . emms-previous))
+         ("C-c e r" . emms-previous)
+         ("C-c e +" . emms-volume-raise)
+         ("C-c e -" . emms-volume-lower)
+         ("C-c e R" . emms-toggle-repeat-playlist)
+         ("C-c e S" . emms-shuffle))
   :init
-  (setq emms-directory (tsp/emacs-state-file "emms/"))
+  (setq emms-directory (tsp/emacs-state-file "emms/")
+        emms-mode-line-format " [%s]"
+        emms-show-format "Now playing: %s")
   :custom
   (emms-directory (tsp/emacs-state-file "emms/"))
   (emms-source-file-default-directory "~/pCloud/My Music/")
   (emms-browser-covers #'emms-browser-cache-thumbnail-async)
+  (emms-volume-change-amount 5)
   :config
   (require 'emms-setup)
   (emms-all)
   (setq emms-player-list '(emms-player-mpv))
   (require 'emms-info-native)
   (setq emms-info-functions '(emms-info-native))
+  (setq emms-browser-info-title-format "%i%T. %t"
+        emms-browser-playlist-info-title-format "%i%T. %t")
   (require 'emms-volume)
   (require 'emms-volume-mpv)
   (setq emms-volume-change-function 'emms-volume-mpv-change)
+  (require 'emms-history)
+  (emms-history-load)
+
+  (defvar tsp/emms-library-refresh-timer nil)
+
+  (defun tsp/emms-refresh-library (&optional quiet)
+    "Rescan the music directory and refresh the EMMS browser.
+When QUIET is non-nil, avoid status messages for automatic refreshes."
+    (interactive)
+    (let ((library (expand-file-name emms-source-file-default-directory)))
+      (if (not (file-directory-p library))
+          (unless quiet
+            (message "EMMS library is not mounted: %s" library))
+        (unless quiet
+          (message "Refreshing EMMS library from %s..." library))
+        ;; Populate the cache without adding the entire library to the user's queue.
+        (with-temp-buffer
+          (setq emms-playlist-buffer-p t
+                emms-playlist-insert-track-function
+                #'emms-playlist-mode-insert-track)
+          (let ((emms-playlist-buffer (current-buffer)))
+            (emms-add-directory-tree library)))
+        ;; Older cache files may contain the printer's truncation marker,
+        ;; which hides properties appearing after it (notably track titles).
+        (maphash (lambda (path track)
+                   (setcdr track (delq (intern "...") (cdr track)))
+                   (when (and (emms-track-file-p track)
+                              (file-in-directory-p path library))
+                     (emms-info-native track)))
+                 emms-cache-db)
+        (emms-cache-sync t)
+        (let (print-length print-level)
+          (emms-cache-save))
+        (when (buffer-live-p emms-browser-buffer)
+          (with-current-buffer emms-browser-buffer
+            (emms-browse-by emms-browser-default-browse-type)))
+        (unless quiet
+          (message "EMMS library refresh complete")))))
+
+  (when (timerp tsp/emms-library-refresh-timer)
+    (cancel-timer tsp/emms-library-refresh-timer))
+  (setq tsp/emms-library-refresh-timer
+        (run-with-idle-timer 60 600 #'tsp/emms-refresh-library t))
   (emms-mode-line-mode 1)
   (emms-playing-time-mode 1))
 

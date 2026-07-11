@@ -71,6 +71,21 @@
 
 (setq-default c-basic-offset 4)
 
+(defun tsp/scroll-up-and-center ()
+  "Scroll forward and center point in the window."
+  (interactive)
+  (call-interactively #'scroll-up-command)
+  (recenter))
+
+(defun tsp/scroll-down-and-center ()
+  "Scroll backward and center point in the window."
+  (interactive)
+  (call-interactively #'scroll-down-command)
+  (recenter))
+
+(keymap-global-set "C-v" #'tsp/scroll-up-and-center)
+(keymap-global-set "M-v" #'tsp/scroll-down-and-center)
+
 (add-hook 'emacs-startup-hook
           (lambda ()
             (setq gc-cons-threshold (* 16 1024 1024))

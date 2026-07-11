@@ -1,16 +1,7 @@
 #+title: tsp Emacs Configuration
 #+property: header-args:emacs-lisp :mkdirp yes :comments no
 
-Welcome to this Emacs config, this is me trying to get Emacs to fit my ways of
-configuring things, but also trying to get other apps I use to fit inside Emacs
-(ex. Telegram, Email, Music ...). It's been pretty fun so far.
-
 * Early init
-
-This is the early init file, basically, I'm assuming that this is for the "first
-boot up" kinda thing. Cache and state directories are configured here, allowing
-them to stay in their respective parent directories (XDG...) instead of
-cluttering up my config directory.
 
 #+begin_src emacs-lisp :tangle early-init.el
 ;;; early-init.el --- Early startup settings -*- lexical-binding: t; -*-
@@ -156,6 +147,21 @@ cluttering up my config directory.
               tab-width 4)
 
 (setq-default c-basic-offset 4)
+
+(defun tsp/scroll-up-and-center ()
+  "Scroll forward and center point in the window."
+  (interactive)
+  (call-interactively #'scroll-up-command)
+  (recenter))
+
+(defun tsp/scroll-down-and-center ()
+  "Scroll backward and center point in the window."
+  (interactive)
+  (call-interactively #'scroll-down-command)
+  (recenter))
+
+(keymap-global-set "C-v" #'tsp/scroll-up-and-center)
+(keymap-global-set "M-v" #'tsp/scroll-down-and-center)
 
 (add-hook 'emacs-startup-hook
           (lambda ()
@@ -406,6 +412,249 @@ sessions."
 #+end_src
 
 * Org
+
+This section configures Org as a small personal productivity system.  The basic
+loop is: capture quickly into the inbox, clarify the inbox into tasks and
+projects, work from the dashboard, and review regularly.  Org-roam holds notes
+that should outlive an individual task, while Google Calendar supplies external
+events to the agenda.
+
+** Quick start
+
+The three commands worth learning first are:
+
+- =C-c c= captures something without interrupting the current task.
+- =C-c A= opens the daily dashboard.
+- =C-c a= opens Org's full agenda dispatcher, including the weekly review.
+
+A simple daily routine is:
+
+1. Open the dashboard with =C-c A= and choose what to work on.
+2. Capture new work with =C-c c t= instead of reorganizing files immediately.
+3. Mark the current action =DOING= and optionally clock into it with =C-c o i=.
+4. During an inbox pass, refile captured entries with =C-c C-w=.
+5. Mark completed work =DONE=.  Finishing the clocked task automatically clocks
+   out.
+
+** Files and storage
+
+The Org root is =~/org/= by default.  Set the =ORG_DIRECTORY= environment
+variable before Emacs starts to use a different directory.  Missing core files
+and directories are created automatically.
+
+- =inbox.org= is the landing place for unprocessed tasks, ideas, links, and
+  journal entries.
+- =tasks.org= contains standalone actions, waiting items, someday items, and
+  habits.
+- =projects.org= contains multi-step outcomes and meeting notes.
+- =roam/= contains durable notes, people, references, project notes, and daily
+  notes.
+- =archive/= receives completed subtrees archived with =C-c C-x C-a=.
+- The generated Google Calendar file lives under Emacs's state directory, not
+  in =~/org/=, but it is included in the agenda.
+
+The agenda reads the inbox, task, project, and Google Calendar files.  The Org
+files under =~/org/= are committed, rebased, and pushed if that directory is a
+Git repository: asynchronously at startup and once more when Emacs exits.  A
+sync failure leaves all files and Git state intact for manual recovery.
+
+** Capturing
+
+Press =C-c c= and then choose a template:
+
+| Key | Template       | Destination and purpose                         |
+|-----+----------------+-------------------------------------------------|
+| =t= | Inbox task     | A plain =TODO= in =inbox.org=                   |
+| =s= | Scheduled task | An inbox task with a prompted date and time     |
+| =i= | Idea           | An inbox entry tagged =idea=                    |
+| =l= | Link           | A stored link back to the current context       |
+| =m= | Meeting        | A dated meeting record in =projects.org=        |
+| =j= | Journal        | A dated journal entry in =inbox.org=            |
+| =h= | Habit          | A repeating task under =tasks.org= / Habits     |
+| =p= | Project        | A project outcome and first next action         |
+
+*** What to fill in the capture buffer
+
+The first line is the headline.  Put a short, specific name immediately after
+the TODO keyword or the leading =*=.  This is what appears in searches and the
+agenda, so it should make sense without reading the rest of the entry.  Put
+supporting details, links, and longer thoughts in the body below the property
+drawer.
+
+For example, an idea capture initially looks like this:
+
+#+begin_example
+*  :idea:
+:PROPERTIES:
+:CREATED: [2026-07-11 Sat 22:11]
+:END:
+#+end_example
+
+Fill it in like this:
+
+#+begin_example
+* Add lag simulation to the multiplayer test harness :idea:
+:PROPERTIES:
+:CREATED: [2026-07-11 Sat 22:11]
+:END:
+
+It would be useful to control latency, jitter, and packet loss independently.
+Try it first on the local WebSocket transport.
+#+end_example
+
+In other words, do not leave the headline as only =* :idea:=.  In the screenshot
+above, =I think it would be cool, if a lag ...= could become a concise headline
+such as =Simulate network lag in local tests=, followed by the full thought in
+the body.
+
+What each template expects:
+
+- Inbox task (=t=): replace the cursor with an actionable phrase, such as
+  =Email Dara the revised proposal=.  Add context or a checklist in the body.
+- Scheduled task (=s=): enter the action first, then choose when Emacs prompts
+  for a date.  Use a schedule for when work should begin, not merely when it is
+  due; add a deadline later with =C-c C-d= if needed.
+- Idea (=i=): write a short name for the idea on the headline and explain the
+  motivation, possible implementation, or next experiment in the body.  An idea
+  does not need a TODO state until it becomes committed work.
+- Link (=l=): name why the saved page or location matters.  The stored link and
+  captured context are inserted automatically; add your own note below them.
+- Meeting (=m=): enter the meeting name at the prompt, write notes under
+  =Notes=, and put concrete follow-ups below =NEXT Follow-ups=.  This template
+  starts a clock while capturing.
+- Journal (=j=): the timestamp is supplied automatically.  Write the journal
+  subject at the cursor, then continue with any detail beneath it.
+- Habit (=h=): enter the repeatable behavior, such as =Review Spanish cards=,
+  and choose the first scheduled date.  In the date prompt, add a repeater such
+  as =+1d= for daily or =+1w= for weekly.
+- Project (=p=): enter an outcome rather than a vague topic, for example
+  =Publish the portfolio website=.  At the =NEXT= child, enter the first visible
+  physical action, such as =Choose three projects to feature=.
+
+The =PROPERTIES= drawer is metadata.  Normally leave =CREATED= and the drawer
+markers unchanged.  Move below =:END:= before adding body text; text placed
+inside the drawer must be valid =:NAME: value= metadata and is not ordinary
+notes.
+
+The capture window's header shows the available exits.  Use =C-c C-c= when the
+entry is ready, =C-c C-w= to finish and immediately choose a different filing
+location, or =C-c C-k= to discard the capture.  You can edit and move around the
+temporary buffer normally before choosing one of those commands.
+
+Use =C-c l= first when you want to remember the current file, web page, email,
+or other linkable context; then =C-c c l= captures it.  Finish a capture with
+=C-c C-c= or cancel it with =C-c C-k=.
+
+The inbox is deliberately temporary.  When processing it, delete irrelevant
+items, do very small actions, or use =C-c C-w= to refile an entry into the
+appropriate heading in =tasks.org= or =projects.org=.
+
+** Task states, projects, and tags
+
+Tasks move through this sequence:
+
+#+begin_example
+TODO -> NEXT -> DOING -> WAIT -> SOMEDAY -> DONE / CANCELLED
+#+end_example
+
+- =TODO= means the work exists but has not been clarified as an immediate next
+  action.
+- =NEXT= is ready to do.
+- =DOING= is actively in progress.
+- =WAIT= is blocked on another person or event.  Changing to this state prompts
+  for a note.
+- =SOMEDAY= is intentionally deferred and also prompts for a note.
+- =DONE= and =CANCELLED= are terminal states.  State changes and completion
+  times are recorded in a drawer.
+
+Cycle states with =C-c C-t=.  Schedule work with =C-c C-s=, add a deadline with
+=C-c C-d=, and set tags with =C-c C-q=.  Available context tags are =@home=,
+=@work=, =@computer=, and =@errand=; descriptive tags include =project=, =idea=,
+and =meeting=.
+
+A project is an unfinished heading tagged =project=.  Give every active project
+at least one child action in =NEXT= or =DOING=; otherwise Org reports it as a
+stuck project during the weekly review.  Task and checkbox dependencies are
+enforced, so parent work cannot be completed while required children remain
+open.
+
+** Agenda and reviews
+
+=C-c A= opens the custom daily dashboard.  It shows today's calendar, work in
+progress, next actions, overdue work, waiting items, and active projects.
+
+=C-c a= opens the dispatcher.  The custom views are:
+
+- =d= -- the same daily dashboard.
+- =w= -- a seven-day weekly review with stuck projects, waiting tasks, someday
+  tasks, and all active projects.
+- =p= -- active projects only.
+
+In an agenda, use =RET= to visit an item, =t= to change its TODO state, =s= to
+schedule it, =d= to set a deadline, and =g= to refresh the view.  The normal Org
+agenda help key =?= shows all commands available in the current view.
+
+A useful weekly review is to empty =inbox.org=, inspect every stuck project,
+follow up or reschedule =WAIT= items, reconsider =SOMEDAY= items, and make sure
+each active project has a concrete =NEXT= action.
+
+** Time tracking
+
+- =C-c o i= clocks into the heading at point.
+- =C-c o o= clocks out.
+- =C-c o g= jumps to the currently clocked task.
+
+Clock history persists across Emacs restarts, and clocking into a previous task
+resumes it.  Moving the currently clocked task to =DONE= or =CANCELLED= clocks
+out automatically.  Use Org's clock table facilities when a note or project
+needs a time report.
+
+** Org-roam notes
+
+Org-roam is for connected knowledge rather than actionable work:
+
+- =C-c o f= finds or creates a note.
+- =C-c o n= inserts a link to a note.
+- =C-c o b= toggles the backlinks buffer.
+- =C-c o d= opens today's daily note.
+- =C-c o D= captures directly into today's daily note.
+
+When creating a note, choose =n= for a general note, =p= for a person, =r= for a
+reference, or =P= for a project note.  Project notes contain supporting context;
+the actionable project itself still belongs in =projects.org=.  Daily notes
+provide a morning plan, chronological log, meeting area, and end-of-day review.
+
+** Google Calendar
+
+If =~/.config/org-gcal/config.el= exists (or =ORG_GCAL_CONFIG= names another
+file), press =C-c o C= to fetch Google Calendar events.  Set
+=ORG_GCAL_AUTO_FETCH= to a nonempty value to also fetch five seconds after
+startup and every 30 minutes.  Automatic fetching is opt-in because unlocking
+the encrypted OAuth token during startup otherwise causes a passphrase prompt.
+Imported events appear in the normal dashboard and agenda.  The optional org-gcal auto-archiver is
+disabled because malformed or unsupported event timestamps can otherwise abort
+the whole fetch; this does not disable calendar synchronization.
+
+The machine-local config contains credentials and calendar mappings and should
+not be placed in this shared literate config.
+
+On a new computer, run =M-x tsp/org-gcal-setup=.  Select the OAuth client JSON
+downloaded from Google Cloud and enter the Google Calendar account address.
+Emacs installs the credentials and writes the machine-local configuration with
+owner-only permissions.  Then press =C-c o C= and complete Google's browser
+authorization once.
+
+** Writing Org documents
+
+In Org buffers, long lines are filled at 80 columns.  Type =<el=, =<py=, or
+=<sh= followed by =TAB= to insert an Emacs Lisp, Python, or shell source block.
+Run the block with =C-c C-c=; inline images are refreshed afterward.  Links open
+with =RET=, and non-Org files use the desktop's normal application.
+
+This file is the source of truth.  After changing the Lisp block below, tangle
+it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
+=lisp/tsp-org.el=, then restart Emacs or evaluate the changed forms.
+
 #+begin_src emacs-lisp :tangle lisp/tsp-org.el
 ;;; tsp-org.el --- Org configuration -*- lexical-binding: t; -*-
 ;;; Code:
@@ -423,17 +672,261 @@ sessions."
   (when (derived-mode-p 'org-mode)
     (org-redisplay-inline-images)))
 
+(defconst tsp/org-directory
+  (file-name-as-directory
+   (expand-file-name (or (getenv "ORG_DIRECTORY") "~/org")))
+  "Root directory for Org data.")
+
+(defconst tsp/org-inbox-file (expand-file-name "inbox.org" tsp/org-directory))
+(defconst tsp/org-tasks-file (expand-file-name "tasks.org" tsp/org-directory))
+(defconst tsp/org-projects-file (expand-file-name "projects.org" tsp/org-directory))
+(defconst tsp/org-calendar-directory (tsp/emacs-state-file "org-gcal/"))
+(defconst tsp/org-calendar-file
+  (expand-file-name "calendar.org" tsp/org-calendar-directory))
+(defconst tsp/org-archive-directory (expand-file-name "archive/" tsp/org-directory))
+(defconst tsp/org-roam-directory (expand-file-name "roam/" tsp/org-directory))
+(defconst tsp/org-roam-dailies-directory
+  (expand-file-name "daily/" tsp/org-roam-directory))
+
+(defun tsp/org-bootstrap-file (file title &rest headings)
+  "Create FILE with TITLE and HEADINGS when it does not exist."
+  (unless (file-exists-p file)
+    (make-directory (file-name-directory file) t)
+    (with-temp-file file
+      (insert "#+title: " title "\n\n")
+      (dolist (heading headings)
+        (insert "* " heading "\n")))))
+
+(defun tsp/org-bootstrap ()
+  "Create the directories and core files used by the Org workflow."
+  (dolist (directory (list tsp/org-directory tsp/org-calendar-directory
+                           tsp/org-archive-directory
+                           tsp/org-roam-directory tsp/org-roam-dailies-directory))
+    (make-directory directory t))
+  (tsp/org-bootstrap-file tsp/org-inbox-file "Inbox")
+  (tsp/org-bootstrap-file tsp/org-tasks-file "Tasks"
+                          "Actions" "Waiting" "Someday" "Habits")
+  (tsp/org-bootstrap-file tsp/org-projects-file "Projects"
+                          "Active" "Completed")
+  (tsp/org-bootstrap-file tsp/org-calendar-file "Google Calendar"))
+
+(tsp/org-bootstrap)
+
+(defvar tsp/org-git-sync-running nil
+  "Non-nil while an Org Git synchronization is running.")
+
+(defvar tsp/org-git-sync-process nil
+  "Background process used for startup Org synchronization.")
+
+(defun tsp/org-save-buffers ()
+  "Save modified file buffers belonging to `tsp/org-directory'."
+  (dolist (buffer (buffer-list))
+    (with-current-buffer buffer
+      (when (and buffer-file-name
+                 (buffer-modified-p)
+                 (file-in-directory-p buffer-file-name tsp/org-directory))
+        (save-buffer)))))
+
+(defun tsp/org-git-run (&rest arguments)
+  "Run Git with ARGUMENTS in `tsp/org-directory'.
+Return a cons containing the exit status and command output."
+  (with-temp-buffer
+    (let ((default-directory tsp/org-directory))
+      (cons (apply #'process-file "git" nil t nil arguments)
+            (string-trim (buffer-string))))))
+
+(defun tsp/org-git-sync (&optional quiet)
+  "Commit, rebase, and push the Org repository.
+When QUIET is non-nil, only report failures.  Conflicts and network errors are
+left untouched for manual recovery."
+  (interactive)
+  (when (process-live-p tsp/org-git-sync-process)
+    (delete-process tsp/org-git-sync-process)
+    (setq tsp/org-git-sync-process nil))
+  (unless tsp/org-git-sync-running
+    (let ((tsp/org-git-sync-running t))
+      (tsp/org-save-buffers)
+      (if (not (file-directory-p (expand-file-name ".git" tsp/org-directory)))
+          (unless quiet
+            (message "Org Git sync skipped: %s is not a repository"
+                     tsp/org-directory))
+        (let* ((status (tsp/org-git-run "status" "--porcelain"))
+               (dirty (not (string-empty-p (cdr status))))
+               failure)
+          (when (/= (car status) 0)
+            (setq failure (cdr status)))
+          (when (and dirty (not failure))
+            (pcase-let ((`(,add-status . ,add-output)
+                         (tsp/org-git-run "add" "--all")))
+              (if (/= add-status 0)
+                  (setq failure add-output)
+                (pcase-let ((`(,commit-status . ,commit-output)
+                             (tsp/org-git-run
+                              "commit" "-m"
+                              (format-time-string "Org sync: %Y-%m-%d %H:%M"))))
+                  (when (/= commit-status 0)
+                    (setq failure commit-output))))))
+          (unless failure
+            (pcase-let ((`(,pull-status . ,pull-output)
+                         (tsp/org-git-run "pull" "--rebase")))
+              (when (/= pull-status 0)
+                (setq failure pull-output))))
+          (unless failure
+            (pcase-let ((`(,push-status . ,push-output)
+                         (tsp/org-git-run "push")))
+              (when (/= push-status 0)
+                (setq failure push-output))))
+          (if failure
+              (display-warning
+               'tsp-org
+               (format "Org Git sync failed; files were preserved:\n%s" failure)
+               :warning)
+            (unless quiet
+              (message "Org Git sync complete"))))))))
+
+(defun tsp/org-git-sync-async ()
+  "Synchronize the Org repository without blocking Emacs."
+  (interactive)
+  (tsp/org-save-buffers)
+  (if (not (file-directory-p (expand-file-name ".git" tsp/org-directory)))
+      (message "Org Git sync skipped: %s is not a repository" tsp/org-directory)
+    (unless (process-live-p tsp/org-git-sync-process)
+      (let* ((default-directory tsp/org-directory)
+             (buffer (get-buffer-create " *Org Git Sync*"))
+             (commit-message
+              (shell-quote-argument
+               (format-time-string "Org sync: %Y-%m-%d %H:%M")))
+             (command
+              (string-join
+               (list "git add --all"
+                     (format (concat "if ! git diff --cached --quiet; then "
+                                     "git commit -m %s; fi")
+                             commit-message)
+                     "git pull --rebase"
+                     "git push")
+               " && ")))
+        (with-current-buffer buffer
+          (erase-buffer))
+        (setq tsp/org-git-sync-process
+              (make-process
+               :name "org-git-sync"
+               :buffer buffer
+               :command (list "/bin/bash" "-lc" command)
+               :noquery t
+               :sentinel
+               (lambda (process _event)
+                 (when (memq (process-status process) '(exit signal))
+                   (setq tsp/org-git-sync-process nil)
+                   (if (= (process-exit-status process) 0)
+                       (kill-buffer (process-buffer process))
+                     (display-warning
+                      'tsp-org
+                      (format
+                       "Background Org Git sync failed; see %s"
+                       (buffer-name (process-buffer process)))
+                      :warning))))))))))
+
+(defun tsp/org-git-sync-on-startup ()
+  "Start an asynchronous Org synchronization after startup."
+  (tsp/org-git-sync-async))
+
+(add-hook 'emacs-startup-hook #'tsp/org-git-sync-on-startup)
+(add-hook 'kill-emacs-hook #'tsp/org-git-sync)
+
+(defun tsp/org-project-p ()
+  "Return non-nil when the current heading is an unfinished project."
+  (and (member (org-get-todo-state) '("TODO" "NEXT" "DOING" "WAIT"))
+       (member "project" (org-get-tags nil t))))
+
+(defun tsp/org-agenda-skip-non-projects ()
+  "Skip the current subtree unless it is an unfinished project."
+  (unless (tsp/org-project-p)
+    (or (outline-next-heading) (point-max))))
+
+(defun tsp/org-open-dashboard ()
+  "Open the main Org agenda dashboard."
+  (interactive)
+  (org-agenda nil "d"))
+
+(defun tsp/org-clock-out-if-done ()
+  "Clock out when the current clocked task enters a done state."
+  (when (and (member org-state org-done-keywords)
+             (org-clocking-p)
+             (equal (marker-buffer org-clock-marker) (current-buffer)))
+    (org-clock-out)))
+
 (use-package org
   :ensure nil
   :bind
   (("C-c a" . org-agenda)
+   ("C-c A" . tsp/org-open-dashboard)
    ("C-c c" . org-capture)
-   ("C-c l" . org-store-link))
+   ("C-c l" . org-store-link)
+   ("C-c o i" . org-clock-in)
+   ("C-c o o" . org-clock-out)
+   ("C-c o g" . org-clock-goto))
   :hook
   ((org-mode . tsp/org-mode-setup)
    (org-babel-after-execute . tsp/org-redisplay-inline-images))
   :init
-  (setq org-startup-indented nil
+  (setq org-directory tsp/org-directory
+        org-default-notes-file tsp/org-inbox-file
+        org-agenda-files (list tsp/org-inbox-file tsp/org-tasks-file
+                               tsp/org-projects-file tsp/org-calendar-file)
+        org-archive-location
+        (concat tsp/org-archive-directory "%s_archive::datetree/")
+        org-attach-id-dir (expand-file-name "attachments/" tsp/org-directory)
+        org-todo-keywords
+        '((sequence "TODO(t)" "NEXT(n!)" "DOING(g!)" "WAIT(w@/!)" "SOMEDAY(s@)"
+                    "|" "DONE(d!)" "CANCELLED(c@)"))
+        org-todo-keyword-faces
+        '(("NEXT" . success) ("DOING" . warning) ("WAIT" . font-lock-constant-face)
+          ("SOMEDAY" . shadow) ("CANCELLED" . shadow))
+        org-tag-alist '((:startgroup) ("@home" . ?h) ("@work" . ?w)
+                        ("@computer" . ?c) ("@errand" . ?e) (:endgroup)
+                        ("project" . ?p) ("idea" . ?i) ("meeting" . ?m))
+        org-stuck-projects '("+project/-DONE-CANCELLED" ("NEXT" "DOING") nil "")
+        org-enforce-todo-dependencies t
+        org-enforce-todo-checkbox-dependencies t
+        org-refile-targets `((,tsp/org-tasks-file :maxlevel . 2)
+                             (,tsp/org-projects-file :maxlevel . 3)
+                             (,tsp/org-inbox-file :maxlevel . 1))
+        org-capture-templates
+        `(("t" "Inbox task" entry (file ,tsp/org-inbox-file)
+           "* TODO %?\n:PROPERTIES:\n:CREATED: %U\n:END:\n%i" :empty-lines 1)
+          ("s" "Scheduled task" entry (file ,tsp/org-inbox-file)
+           "* TODO %?\nSCHEDULED: %^t\n:PROPERTIES:\n:CREATED: %U\n:END:\n%i" :empty-lines 1)
+          ("i" "Idea" entry (file ,tsp/org-inbox-file)
+           "* %? :idea:\n:PROPERTIES:\n:CREATED: %U\n:END:\n%i" :empty-lines 1)
+          ("l" "Link" entry (file ,tsp/org-inbox-file)
+           "* %?\n%a\nCaptured: %U\n%i" :empty-lines 1)
+          ("m" "Meeting" entry (file+olp+datetree ,tsp/org-projects-file)
+           "* %^{Meeting} :meeting:\n%U\n\n** Notes\n%?\n\n** NEXT Follow-ups\n" :clock-in t :clock-resume t)
+          ("j" "Journal" entry (file+olp+datetree ,tsp/org-inbox-file)
+           "* %U %?\n%i" :tree-type day)
+          ("h" "Habit" entry (file+headline ,tsp/org-tasks-file "Habits")
+           "* TODO %?\nSCHEDULED: %^t\n:PROPERTIES:\n:STYLE: habit\n:CREATED: %U\n:END:\n" :empty-lines 1)
+          ("p" "Project" entry (file+headline ,tsp/org-projects-file "Active")
+           "* TODO %^{Outcome} :project:\n:PROPERTIES:\n:CREATED: %U\n:END:\n\n** NEXT %?\n" :empty-lines 1))
+        org-agenda-custom-commands
+        '(("d" "Dashboard"
+           ((agenda "" ((org-agenda-span 1) (org-agenda-start-day nil)
+                         (org-agenda-overriding-header "Today")))
+            (todo "DOING" ((org-agenda-overriding-header "In progress")))
+            (todo "NEXT" ((org-agenda-overriding-header "Next actions")))
+            (tags-todo "+DEADLINE<\"<today>\""
+                       ((org-agenda-overriding-header "Overdue")))
+            (todo "WAIT" ((org-agenda-overriding-header "Waiting")))
+            (tags-todo "+project"
+                       ((org-agenda-overriding-header "Projects")
+                        (org-agenda-skip-function #'tsp/org-agenda-skip-non-projects)))))
+          ("w" "Weekly review"
+           ((agenda "" ((org-agenda-span 7) (org-agenda-start-on-weekday 1)))
+            (stuck "")
+            (todo "WAIT") (todo "SOMEDAY")
+            (tags-todo "+project")))
+          ("p" "Projects" tags-todo "+project/-DONE-CANCELLED"))
+        org-startup-indented nil
         org-hide-leading-stars nil
         org-hide-emphasis-markers nil
         org-startup-folded 'show2levels
@@ -441,7 +934,7 @@ sessions."
         org-fontify-quote-and-verse-blocks nil
         org-fontify-whole-heading-line nil
         org-fontify-done-headline nil
-        org-src-fontify-natively nil
+        org-src-fontify-natively t
         org-fold-catch-invisible-edits 'smart
         org-insert-heading-respect-content t
         org-M-RET-may-split-line '((default . nil))
@@ -454,14 +947,26 @@ sessions."
         org-list-allow-alphabetical t
         org-use-sub-superscripts '{}
         org-log-done 'time
+        org-log-reschedule 'time
+        org-log-redeadline 'time
         org-log-into-drawer t
         org-outline-path-complete-in-steps nil
         org-refile-use-outline-path 'file
         org-refile-use-cache t
         org-ellipsis " ..."
         org-image-actual-width '(800)
-        org-export-with-smart-quotes t)
+        org-export-with-smart-quotes t
+        org-clock-persist 'history
+        org-clock-persist-file (tsp/emacs-state-file "org-clock-save.el")
+        org-clock-in-resume t
+        org-clock-out-remove-zero-time-clocks t
+        org-clock-report-include-clocking-task t
+        org-habit-show-habits-only-for-today nil)
   :config
+  (require 'org-habit)
+  (require 'org-clock)
+  (org-clock-persistence-insinuate)
+  (add-hook 'org-after-todo-state-change-hook #'tsp/org-clock-out-if-done)
   (require 'org-tempo)
   (dolist (template '(("el" . "src emacs-lisp")
                       ("py" . "src python")
@@ -469,6 +974,137 @@ sessions."
     (add-to-list 'org-structure-template-alist template))
   (when (boundp 'org-file-apps-gnu)
     (setcdr (assq t org-file-apps-gnu) 'browse-url-xdg-open)))
+
+(use-package org-roam
+  :ensure t
+  :after org
+  :commands (org-roam-buffer-toggle org-roam-node-find org-roam-node-insert
+             org-roam-dailies-goto-today org-roam-dailies-capture-today)
+  :bind (("C-c o f" . org-roam-node-find)
+         ("C-c o n" . org-roam-node-insert)
+         ("C-c o b" . org-roam-buffer-toggle)
+         ("C-c o d" . org-roam-dailies-goto-today)
+         ("C-c o D" . org-roam-dailies-capture-today))
+  :init
+  (setq org-roam-directory tsp/org-roam-directory
+        org-roam-db-location (tsp/emacs-state-file "org-roam.db")
+        org-roam-dailies-directory "daily/"
+        org-roam-completion-everywhere t
+        org-roam-capture-templates
+        '(("n" "Note" plain "%?"
+           :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"
+                              "#+title: ${title}\n#+date: %U\n")
+           :unnarrowed t)
+          ("p" "Person" plain "* Notes\n%?"
+           :target (file+head "people/%<%Y%m%d%H%M%S>-${slug}.org"
+                              "#+title: ${title}\n#+filetags: :person:\n")
+           :unnarrowed t)
+          ("r" "Reference" plain "* Summary\n%?\n\n* Source\n%^{Source}"
+           :target (file+head "references/%<%Y%m%d%H%M%S>-${slug}.org"
+                              "#+title: ${title}\n#+filetags: :reference:\n")
+           :unnarrowed t)
+          ("P" "Project note" plain "* Outcome\n%?\n\n* Notes\n\n* Links\n"
+           :target (file+head "projects/%<%Y%m%d%H%M%S>-${slug}.org"
+                              "#+title: ${title}\n#+filetags: :project:\n")
+           :unnarrowed t))
+        org-roam-dailies-capture-templates
+        '(("d" "Daily dashboard" entry "* %<%H:%M> %?"
+           :target
+           (file+head "%<%Y-%m-%d>.org"
+                      "#+title: %<%A, %Y-%m-%d>\n\n* Morning plan\n- [ ] Review the agenda\n- [ ] Choose three outcomes\n  1. \n  2. \n  3. \n\n* Log\n\n* Meetings\n\n* End-of-day review\n- [ ] Process the inbox\n- [ ] Update or reschedule open tasks\n- [ ] Link durable notes\n- [ ] Record wins and lessons\n"))))
+  :config
+  (org-roam-db-autosync-mode 1))
+
+(defconst tsp/org-gcal-config-file
+  (expand-file-name
+   (or (getenv "ORG_GCAL_CONFIG") "org-gcal/config.el")
+   (or (getenv "XDG_CONFIG_HOME") (expand-file-name "~/.config/")))
+  "Machine-local configuration file for `org-gcal'.")
+
+(defvar tsp/org-gcal-fetch-timer nil
+  "Timer used to refresh Google Calendar events.")
+
+(defun tsp/org-gcal-configured-p ()
+  "Return non-nil when machine-local Google Calendar settings exist."
+  (file-readable-p tsp/org-gcal-config-file))
+
+(defun tsp/org-gcal-setup (credentials-file calendar-id)
+  "Install CREDENTIALS-FILE and configure CALENDAR-ID for `org-gcal'."
+  (interactive
+   (list (read-file-name "Google OAuth client JSON: " nil nil t nil
+                         (lambda (file)
+                           (or (file-directory-p file)
+                               (string-match-p "\\.json\\'" file))))
+         (read-string "Google Calendar email/address: " user-mail-address)))
+  (require 'json)
+  (let* ((config-directory (file-name-directory tsp/org-gcal-config-file))
+         (installed-credentials
+          (expand-file-name "credentials.json" config-directory))
+         (credentials (json-read-file credentials-file))
+         (client (or (alist-get 'installed credentials)
+                     (alist-get 'desktop credentials))))
+    (unless client
+      (user-error "No desktop OAuth client found in %s" credentials-file))
+    (unless (and (alist-get 'client_id client)
+                 (alist-get 'client_secret client))
+      (user-error "OAuth client ID or secret is missing from %s"
+                  credentials-file))
+    (make-directory config-directory t)
+    (copy-file credentials-file installed-credentials t)
+    (set-file-modes installed-credentials #o600)
+    (with-temp-file tsp/org-gcal-config-file
+      (insert ";;; config.el --- Machine-local org-gcal settings -*- lexical-binding: t; -*-\n\n"
+              "(require 'json)\n\n"
+              "(let* ((credentials-file "
+              (prin1-to-string installed-credentials)
+              ")\n       (credentials (json-read-file credentials-file))\n"
+              "       (client (or (alist-get 'installed credentials)\n"
+              "                   (alist-get 'desktop credentials))))\n"
+              "  (setq org-gcal-client-id (alist-get 'client_id client)\n"
+              "        org-gcal-client-secret (alist-get 'client_secret client)\n"
+              "        org-gcal-fetch-file-alist (list (cons "
+              (prin1-to-string calendar-id)
+              " tsp/org-calendar-file))))\n\n"
+              ";;; config.el ends here\n"))
+    (set-file-modes tsp/org-gcal-config-file #o600)
+    (message "Google Calendar configured; press C-c o C to authorize and sync")))
+
+(defun tsp/org-gcal-fetch (&optional quiet)
+  "Fetch Google Calendar events into the local Agenda cache.
+When QUIET is non-nil, suppress the missing-configuration error."
+  (interactive)
+  (if (not (tsp/org-gcal-configured-p))
+      (unless quiet
+        (user-error "Create %s first" tsp/org-gcal-config-file))
+    (load tsp/org-gcal-config-file nil 'nomessage)
+    (require 'org-gcal)
+    (org-gcal-fetch)))
+
+(defun tsp/org-gcal-start-fetch-timer ()
+  "Fetch Google Calendar shortly after startup and every 30 minutes."
+  (when (and (tsp/org-gcal-configured-p)
+             (let ((value (getenv "ORG_GCAL_AUTO_FETCH")))
+               (and value (> (length value) 0))))
+    (when (timerp tsp/org-gcal-fetch-timer)
+      (cancel-timer tsp/org-gcal-fetch-timer))
+    (setq tsp/org-gcal-fetch-timer
+          (run-at-time 5 (* 30 60) #'tsp/org-gcal-fetch t))))
+
+(use-package org-gcal
+  :ensure t
+  :commands (org-gcal-fetch tsp/org-gcal-fetch)
+  :bind (("C-c o C" . tsp/org-gcal-fetch))
+  :init
+  (setq org-gcal-dir tsp/org-calendar-directory
+        org-gcal-recurring-events-mode 'nested
+        ;; The upstream auto-archiver aborts the whole sync when any managed
+        ;; entry lacks a timestamp it recognizes.  Fetching does not require
+        ;; archiving, so leave old-event cleanup to Org instead.
+        org-gcal-auto-archive nil)
+  (when (tsp/org-gcal-configured-p)
+    (load tsp/org-gcal-config-file nil 'nomessage)))
+
+(add-hook 'emacs-startup-hook #'tsp/org-gcal-start-fetch-timer)
 
 (use-package verb
   :ensure t
@@ -664,29 +1300,82 @@ Call ORIGINAL for strings that do not contain Khmer."
 (use-package emms
   :ensure t
   :commands (emms emms-playlist-mode-go emms-browser emms-start emms-stop
-                  emms-pause emms-next emms-previous)
+                  emms-pause emms-next emms-previous tsp/emms-refresh-library)
   :bind (("C-c e g" . emms-playlist-mode-go)
          ("C-c e b" . emms-browser)
+         ("C-c e u" . tsp/emms-refresh-library)
          ("C-c e s" . emms-start)
          ("C-c e x" . emms-stop)
          ("C-c e p" . emms-pause)
          ("C-c e n" . emms-next)
-         ("C-c e r" . emms-previous))
+         ("C-c e r" . emms-previous)
+         ("C-c e +" . emms-volume-raise)
+         ("C-c e -" . emms-volume-lower)
+         ("C-c e R" . emms-toggle-repeat-playlist)
+         ("C-c e S" . emms-shuffle))
   :init
-  (setq emms-directory (tsp/emacs-state-file "emms/"))
+  (setq emms-directory (tsp/emacs-state-file "emms/")
+        emms-mode-line-format " [%s]"
+        emms-show-format "Now playing: %s")
   :custom
   (emms-directory (tsp/emacs-state-file "emms/"))
   (emms-source-file-default-directory "~/pCloud/My Music/")
   (emms-browser-covers #'emms-browser-cache-thumbnail-async)
+  (emms-volume-change-amount 5)
   :config
   (require 'emms-setup)
   (emms-all)
   (setq emms-player-list '(emms-player-mpv))
   (require 'emms-info-native)
   (setq emms-info-functions '(emms-info-native))
+  (setq emms-browser-info-title-format "%i%T. %t"
+        emms-browser-playlist-info-title-format "%i%T. %t")
   (require 'emms-volume)
   (require 'emms-volume-mpv)
   (setq emms-volume-change-function 'emms-volume-mpv-change)
+  (require 'emms-history)
+  (emms-history-load)
+
+  (defvar tsp/emms-library-refresh-timer nil)
+
+  (defun tsp/emms-refresh-library (&optional quiet)
+    "Rescan the music directory and refresh the EMMS browser.
+When QUIET is non-nil, avoid status messages for automatic refreshes."
+    (interactive)
+    (let ((library (expand-file-name emms-source-file-default-directory)))
+      (if (not (file-directory-p library))
+          (unless quiet
+            (message "EMMS library is not mounted: %s" library))
+        (unless quiet
+          (message "Refreshing EMMS library from %s..." library))
+        ;; Populate the cache without adding the entire library to the user's queue.
+        (with-temp-buffer
+          (setq emms-playlist-buffer-p t
+                emms-playlist-insert-track-function
+                #'emms-playlist-mode-insert-track)
+          (let ((emms-playlist-buffer (current-buffer)))
+            (emms-add-directory-tree library)))
+        ;; Older cache files may contain the printer's truncation marker,
+        ;; which hides properties appearing after it (notably track titles).
+        (maphash (lambda (path track)
+                   (setcdr track (delq (intern "...") (cdr track)))
+                   (when (and (emms-track-file-p track)
+                              (file-in-directory-p path library))
+                     (emms-info-native track)))
+                 emms-cache-db)
+        (emms-cache-sync t)
+        (let (print-length print-level)
+          (emms-cache-save))
+        (when (buffer-live-p emms-browser-buffer)
+          (with-current-buffer emms-browser-buffer
+            (emms-browse-by emms-browser-default-browse-type)))
+        (unless quiet
+          (message "EMMS library refresh complete")))))
+
+  (when (timerp tsp/emms-library-refresh-timer)
+    (cancel-timer tsp/emms-library-refresh-timer))
+  (setq tsp/emms-library-refresh-timer
+        (run-with-idle-timer 60 600 #'tsp/emms-refresh-library t))
   (emms-mode-line-mode 1)
   (emms-playing-time-mode 1))
 
