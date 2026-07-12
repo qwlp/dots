@@ -125,8 +125,11 @@
   (mapcar
    (lambda (entry)
      (let* ((date (car entry))
-            (text (string-join (split-string (nth 1 entry) "\n[[:space:]]*" t)
-                               " — "))
+            (lines (split-string (nth 1 entry) "\n[[:space:]]*" t))
+            (text (concat (car lines)
+                          (when (cdr lines)
+                            (concat "\n        "
+                                    (string-join (cdr lines) "\n        ")))))
             (source (nth 3 entry))
             (marker (car source)))
        (propertize
@@ -134,7 +137,7 @@
                 (nth 2 date) (car date) (nth 1 date) text)
         'dashboard-agenda-file (nth 1 source)
         'dashboard-agenda-loc (if (markerp marker) (marker-position marker) 1))))
-   (diary-list-entries (calendar-current-date) 7)))
+   (diary-list-entries (calendar-current-date) 7 t)))
 
 (defun tsp/dashboard-insert-agenda (list-size)
   "Insert Org and Diary agenda items, limited to LIST-SIZE."
@@ -147,7 +150,8 @@
      `(lambda (&rest _)
         (let ((file (get-text-property 0 'dashboard-agenda-file ,el))
               (point (get-text-property 0 'dashboard-agenda-loc ,el)))
-          (funcall dashboard-agenda-action file point)))
+          (find-file file)
+          (goto-char point)))
      (format "%s" el))))
 
 (use-package dashboard
