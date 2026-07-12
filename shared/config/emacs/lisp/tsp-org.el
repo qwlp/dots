@@ -22,9 +22,7 @@
 (defconst tsp/org-inbox-file (expand-file-name "inbox.org" tsp/org-directory))
 (defconst tsp/org-tasks-file (expand-file-name "tasks.org" tsp/org-directory))
 (defconst tsp/org-projects-file (expand-file-name "projects.org" tsp/org-directory))
-(defconst tsp/org-calendar-directory (tsp/emacs-state-file "org-gcal/"))
-(defconst tsp/org-calendar-file
-  (expand-file-name "calendar.org" tsp/org-calendar-directory))
+(defconst tsp/org-diary-file (expand-file-name "diary" tsp/org-directory))
 (defconst tsp/org-archive-directory (expand-file-name "archive/" tsp/org-directory))
 (defconst tsp/org-roam-directory (expand-file-name "roam/" tsp/org-directory))
 (defconst tsp/org-roam-dailies-directory
@@ -41,8 +39,7 @@
 
 (defun tsp/org-bootstrap ()
   "Create the directories and core files used by the Org workflow."
-  (dolist (directory (list tsp/org-directory tsp/org-calendar-directory
-                           tsp/org-archive-directory
+  (dolist (directory (list tsp/org-directory tsp/org-archive-directory
                            tsp/org-roam-directory tsp/org-roam-dailies-directory))
     (make-directory directory t))
   (tsp/org-bootstrap-file tsp/org-inbox-file "Inbox")
@@ -50,7 +47,8 @@
                           "Actions" "Waiting" "Someday" "Habits")
   (tsp/org-bootstrap-file tsp/org-projects-file "Projects"
                           "Active" "Completed")
-  (tsp/org-bootstrap-file tsp/org-calendar-file "Google Calendar"))
+  (unless (file-exists-p tsp/org-diary-file)
+    (with-temp-file tsp/org-diary-file)))
 
 (tsp/org-bootstrap)
 
@@ -245,8 +243,11 @@ left untouched for manual recovery."
   :init
   (setq org-directory tsp/org-directory
         org-default-notes-file tsp/org-inbox-file
+        diary-file tsp/org-diary-file
+        calendar-mark-diary-entries-flag t
+        org-agenda-include-diary t
         org-agenda-files (list tsp/org-inbox-file tsp/org-tasks-file
-                               tsp/org-projects-file tsp/org-calendar-file)
+                               tsp/org-projects-file)
         org-archive-location
         (concat tsp/org-archive-directory "%s_archive::datetree/")
         org-attach-id-dir (expand-file-name "attachments/" tsp/org-directory)
@@ -389,105 +390,6 @@ left untouched for manual recovery."
                       "#+title: %<%A, %Y-%m-%d>\n\n* Morning plan\n- [ ] Review the agenda\n- [ ] Choose three outcomes\n  1. \n  2. \n  3. \n\n* Log\n\n* Meetings\n\n* End-of-day review\n- [ ] Process the inbox\n- [ ] Update or reschedule open tasks\n- [ ] Link durable notes\n- [ ] Record wins and lessons\n"))))
   :config
   (org-roam-db-autosync-mode 1))
-
-(defconst tsp/org-gcal-config-file
-  (expand-file-name
-   (or (getenv "ORG_GCAL_CONFIG") "org-gcal/config.el")
-   (or (getenv "XDG_CONFIG_HOME") (expand-file-name "~/.config/")))
-  "Machine-local configuration file for `org-gcal'.")
-
-(defvar tsp/org-gcal-fetch-timer nil
-  "Timer used to refresh Google Calendar events.")
-
-(defun tsp/org-gcal-configured-p ()
-  "Return non-nil when machine-local Google Calendar settings exist."
-  (file-readable-p tsp/org-gcal-config-file))
-
-(defun tsp/org-gcal-setup (credentials-file calendar-id)
-  "Install CREDENTIALS-FILE and configure CALENDAR-ID for `org-gcal'."
-  (interactive
-   (list (read-file-name "Google OAuth client JSON: " nil nil t nil
-                         (lambda (file)
-                           (or (file-directory-p file)
-                               (string-match-p "\\.json\\'" file))))
-         (read-string "Google Calendar email/address: " user-mail-address)))
-  (require 'json)
-  (let* ((config-directory (file-name-directory tsp/org-gcal-config-file))
-         (installed-credentials
-          (expand-file-name "credentials.json" config-directory))
-         (credentials (json-read-file credentials-file))
-         (client (or (alist-get 'installed credentials)
-                     (alist-get 'desktop credentials))))
-    (unless client
-      (user-error "No desktop OAuth client found in %s" credentials-file))
-    (unless (and (alist-get 'client_id client)
-                 (alist-get 'client_secret client))
-      (user-error "OAuth client ID or secret is missing from %s"
-                  credentials-file))
-    (make-directory config-directory t)
-    (copy-file credentials-file installed-credentials t)
-    (set-file-modes installed-credentials #o600)
-    (with-temp-file tsp/org-gcal-config-file
-      (insert ";;; config.el --- Machine-local org-gcal settings -*- lexical-binding: t; -*-\n\n"
-              "(require 'json)\n\n"
-              "(let* ((credentials-file "
-              (prin1-to-string installed-credentials)
-              ")\n       (credentials (json-read-file credentials-file))\n"
-              "       (client (or (alist-get 'installed credentials)\n"
-              "                   (alist-get 'desktop credentials))))\n"
-              "  (setq org-gcal-client-id (alist-get 'client_id client)\n"
-              "        org-gcal-client-secret (alist-get 'client_secret client)\n"
-              "        org-gcal-fetch-file-alist (list (cons "
-              (prin1-to-string calendar-id)
-              " tsp/org-calendar-file))))\n\n"
-              ";;; config.el ends here\n"))
-    (set-file-modes tsp/org-gcal-config-file #o600)
-    (message "Google Calendar configured; press C-c o C to authorize and sync")))
-
-(defun tsp/org-gcal-fetch (&optional quiet)
-  "Fetch Google Calendar events into the local Agenda cache.
-When QUIET is non-nil, suppress the missing-configuration error."
-  (interactive)
-  (if (not (tsp/org-gcal-configured-p))
-      (unless quiet
-        (user-error "Create %s first" tsp/org-gcal-config-file))
-    (load tsp/org-gcal-config-file nil 'nomessage)
-    (require 'org-gcal)
-    (org-gcal-fetch)
-    ;; `org-gcal-fetch' is asynchronous.  Refresh the dashboard after its
-    ;; network request has had time to update the agenda file.
-    (run-at-time 10 nil #'tsp/dashboard-refresh-if-visible)))
-
-(defun tsp/org-gcal-start-fetch-timer ()
-  "Fetch Google Calendar shortly after startup and every 30 minutes."
-  (when (and (tsp/org-gcal-configured-p)
-             ;; Desktop-launched Emacs does not necessarily inherit the Fish
-             ;; environment.  Default to enabled; retain an environment switch
-             ;; for machines where automatic fetching is undesirable.
-             (not (member (downcase (or (getenv "ORG_GCAL_AUTO_FETCH") "1"))
-                          '("0" "false" "no"))))
-    (when (timerp tsp/org-gcal-fetch-timer)
-      (cancel-timer tsp/org-gcal-fetch-timer))
-    (setq tsp/org-gcal-fetch-timer
-          (run-at-time 5 (* 30 60) #'tsp/org-gcal-fetch t))))
-
-(use-package org-gcal
-  :ensure t
-  :commands (org-gcal-fetch tsp/org-gcal-fetch)
-  :bind (("C-c o C" . tsp/org-gcal-fetch))
-  :init
-  (setq org-gcal-dir tsp/org-calendar-directory
-        org-gcal-up-days 90
-        org-gcal-down-days 365
-        org-gcal-recurring-events-mode 'nested
-        ;; The upstream auto-archiver aborts the whole sync when any managed
-        ;; entry lacks a timestamp it recognizes.  Fetching does not require
-        ;; archiving, so leave old-event cleanup to Org instead.
-        org-gcal-auto-archive nil)
-  (when (tsp/org-gcal-configured-p)
-    (load tsp/org-gcal-config-file nil 'nomessage)))
-
-(add-hook 'emacs-startup-hook #'tsp/org-gcal-start-fetch-timer)
 
 (use-package verb
   :ensure t

@@ -12,10 +12,6 @@
 
 (setq package-user-dir (expand-file-name "elpa/" tsp/emacs-state-directory))
 
-;; Keep the symmetric plstore passphrase in memory for this Emacs session so
-;; org-gcal's OAuth store does not repeatedly prompt during background fetches.
-(setq plstore-cache-passphrase-for-symmetric-encryption t)
-
 (require 'package)
 
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
