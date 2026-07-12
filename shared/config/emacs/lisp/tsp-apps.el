@@ -119,6 +119,37 @@
         :inserter #'tsp/telega-dashboard-chat-insert)))
   nil)
 
+(defun tsp/dashboard-diary-agenda ()
+  "Return Diary appointments for the dashboard's seven-day agenda."
+  (require 'diary-lib)
+  (mapcar
+   (lambda (entry)
+     (let* ((date (car entry))
+            (text (string-join (split-string (nth 1 entry) "\n[[:space:]]*" t)
+                               " — "))
+            (source (nth 3 entry))
+            (marker (car source)))
+       (propertize
+        (format "%04d-%02d-%02d  %s"
+                (nth 2 date) (car date) (nth 1 date) text)
+        'dashboard-agenda-file (nth 1 source)
+        'dashboard-agenda-loc (if (markerp marker) (marker-position marker) 1))))
+   (diary-list-entries (calendar-current-date) 7)))
+
+(defun tsp/dashboard-insert-agenda (list-size)
+  "Insert Org and Diary agenda items, limited to LIST-SIZE."
+  (require 'org-agenda)
+  (let ((items (append (dashboard-agenda--sorted-agenda)
+                       (tsp/dashboard-diary-agenda))))
+    (dashboard-insert-section
+     "Agenda for the coming week:"
+     items list-size 'agenda (dashboard-get-shortcut 'agenda)
+     `(lambda (&rest _)
+        (let ((file (get-text-property 0 'dashboard-agenda-file ,el))
+              (point (get-text-property 0 'dashboard-agenda-loc ,el)))
+          (funcall dashboard-agenda-action file point)))
+     (format "%s" el))))
+
 (use-package dashboard
   :ensure t
   :demand t
@@ -137,6 +168,8 @@
                           (recents . 5)
                           (projects . 5)))
   :config
+  (setf (alist-get 'agenda dashboard-item-generators)
+        #'tsp/dashboard-insert-agenda)
   (add-to-list 'dashboard-item-generators
                '(telega-chats . tsp/dashboard-insert-telega-chats))
   (add-to-list 'dashboard-item-shortcuts '(telega-chats . "t"))
