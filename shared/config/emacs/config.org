@@ -466,7 +466,7 @@ and directories are created automatically.
 - =roam/= contains durable notes, people, references, project notes, and daily
   notes.
 - =archive/= receives completed subtrees archived with =C-c C-x C-a=.
-- =diary= stores Emacs Calendar appointments in the synchronized Org directory.
+- =diary.org= stores Emacs Calendar appointments in the synchronized Org directory.
 
 The agenda reads the inbox, task, and project files plus the Emacs diary.  The Org
 directory is synchronized every 15 minutes by the =org-webdav-sync.timer=
@@ -642,7 +642,7 @@ provide a morning plan, chronological log, meeting area, and end-of-day review.
 ** Calendar and diary
 
 Press =M-x calendar= to open Emacs Calendar.  Press =i d= on a date to add a
-diary appointment.  The diary lives at =~/org/diary=, so the existing WebDAV
+diary appointment.  The diary lives at =~/org/diary.org=, so the existing WebDAV
 service synchronizes it with the rest of the Org directory.  Diary entries are
 shown in the normal Org agenda and startup dashboard.
 
@@ -682,7 +682,7 @@ it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
 (defconst tsp/org-inbox-file (expand-file-name "inbox.org" tsp/org-directory))
 (defconst tsp/org-tasks-file (expand-file-name "tasks.org" tsp/org-directory))
 (defconst tsp/org-projects-file (expand-file-name "projects.org" tsp/org-directory))
-(defconst tsp/org-diary-file (expand-file-name "diary" tsp/org-directory))
+(defconst tsp/org-diary-file (expand-file-name "diary.org" tsp/org-directory))
 (setq diary-file tsp/org-diary-file)
 (with-eval-after-load 'diary-lib
   (setq diary-file tsp/org-diary-file))

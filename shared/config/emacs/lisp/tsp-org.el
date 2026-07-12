@@ -22,7 +22,7 @@
 (defconst tsp/org-inbox-file (expand-file-name "inbox.org" tsp/org-directory))
 (defconst tsp/org-tasks-file (expand-file-name "tasks.org" tsp/org-directory))
 (defconst tsp/org-projects-file (expand-file-name "projects.org" tsp/org-directory))
-(defconst tsp/org-diary-file (expand-file-name "diary" tsp/org-directory))
+(defconst tsp/org-diary-file (expand-file-name "diary.org" tsp/org-directory))
 (setq diary-file tsp/org-diary-file)
 (with-eval-after-load 'diary-lib
   (setq diary-file tsp/org-diary-file))
