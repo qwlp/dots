@@ -60,6 +60,9 @@
 (defvar tsp/org-git-sync-process nil
   "Background process used for startup Org synchronization.")
 
+(defvar tsp/org-git-sync-timer nil
+  "Idle timer used for periodic Org synchronization.")
+
 (defun tsp/org-save-buffers ()
   "Save modified file buffers belonging to `tsp/org-directory'."
   (dolist (buffer (buffer-list))
@@ -68,6 +71,28 @@
                  (buffer-modified-p)
                  (file-in-directory-p buffer-file-name tsp/org-directory))
         (save-buffer)))))
+
+(defconst tsp/org-webdav-sync-service "org-webdav-sync.service"
+  "Systemd user service that synchronizes the Org directory.")
+
+(defun tsp/org-webdav-sync-on-startup ()
+  "Queue an Org WebDAV synchronization without delaying startup."
+  (when (executable-find "systemctl")
+    (start-process "org-webdav-sync-startup" nil
+                   "systemctl" "--user" "start" "--no-block"
+                   tsp/org-webdav-sync-service)))
+
+(defun tsp/org-webdav-sync-on-shutdown ()
+  "Save Org buffers and wait for the final WebDAV synchronization."
+  (tsp/org-save-buffers)
+  (when (executable-find "systemctl")
+    (unless (= 0 (call-process "systemctl" nil nil nil
+                               "--user" "start"
+                               tsp/org-webdav-sync-service))
+      (message "Final Org WebDAV sync failed to start"))))
+
+(add-hook 'emacs-startup-hook #'tsp/org-webdav-sync-on-startup)
+(add-hook 'kill-emacs-hook #'tsp/org-webdav-sync-on-shutdown)
 
 (defun tsp/org-git-run (&rest arguments)
   "Run Git with ARGUMENTS in `tsp/org-directory'.
@@ -169,11 +194,18 @@ left untouched for manual recovery."
                       :warning))))))))))
 
 (defun tsp/org-git-sync-on-startup ()
-  "Start an asynchronous Org synchronization after startup."
-  (tsp/org-git-sync-async))
+  "Start Org synchronization and schedule later syncs during idle time."
+  (tsp/org-git-sync-async)
+  (when (timerp tsp/org-git-sync-timer)
+    (cancel-timer tsp/org-git-sync-timer))
+  (setq tsp/org-git-sync-timer
+        (run-with-idle-timer (* 15 60) t #'tsp/org-git-sync-async)))
 
-(add-hook 'emacs-startup-hook #'tsp/org-git-sync-on-startup)
-(add-hook 'kill-emacs-hook #'tsp/org-git-sync)
+(defun tsp/org-git-sync-cancel-timer ()
+  "Cancel periodic Org synchronization without starting a final sync."
+  (when (timerp tsp/org-git-sync-timer)
+    (cancel-timer tsp/org-git-sync-timer)
+    (setq tsp/org-git-sync-timer nil)))
 
 (defun tsp/org-project-p ()
   "Return non-nil when the current heading is an unfinished project."
@@ -317,6 +349,9 @@ left untouched for manual recovery."
   (when (boundp 'org-file-apps-gnu)
     (setcdr (assq t org-file-apps-gnu) 'browse-url-xdg-open)))
 
+(global-set-key (kbd "C-c o d") #'org-roam-dailies-goto-today)
+(global-set-key (kbd "C-c o D") #'org-roam-dailies-capture-today)
+
 (use-package org-roam
   :ensure t
   :after org
@@ -324,9 +359,7 @@ left untouched for manual recovery."
              org-roam-dailies-goto-today org-roam-dailies-capture-today)
   :bind (("C-c o f" . org-roam-node-find)
          ("C-c o n" . org-roam-node-insert)
-         ("C-c o b" . org-roam-buffer-toggle)
-         ("C-c o d" . org-roam-dailies-goto-today)
-         ("C-c o D" . org-roam-dailies-capture-today))
+         ("C-c o b" . org-roam-buffer-toggle))
   :init
   (setq org-roam-directory tsp/org-roam-directory
         org-roam-db-location (tsp/emacs-state-file "org-roam.db")

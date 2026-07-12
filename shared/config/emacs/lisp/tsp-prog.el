@@ -9,7 +9,9 @@
 (defvar treesit-extra-load-path nil)
 
 (defconst tsp/treesit-language-sources
-  '((go "https://github.com/tree-sitter/tree-sitter-go")
+  '((c "https://github.com/tree-sitter/tree-sitter-c")
+    (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
+    (go "https://github.com/tree-sitter/tree-sitter-go")
     (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
     (typst "https://github.com/uben0/tree-sitter-typst"))
   "Tree-sitter grammars managed by this config.")
@@ -45,6 +47,33 @@
   (setq-local indent-tabs-mode nil
               tab-width 4
               go-ts-mode-indent-offset 4))
+
+;; Font-lock plus stipples keeps indentation guides cheap: no overlays,
+;; tree-sitter queries, current-scope tracking, or work on blank lines.
+(use-package indent-bars
+  :commands indent-bars-mode
+  :custom
+  (indent-bars-prefer-character t)
+  (indent-bars-no-stipple-char ?│)
+  (indent-bars-color '(default :blend 0.28))
+  (indent-bars-color-by-depth nil)
+  (indent-bars-display-on-blank-lines nil)
+  (indent-bars-highlight-current-depth nil)
+  (indent-bars-treesit-support nil))
+
+(defun tsp/enable-indent-bars-after-major-mode ()
+  "Enable indentation bars after a programming mode finishes initializing."
+  (when (derived-mode-p 'prog-mode)
+    (indent-bars-mode 1)))
+
+(add-hook 'after-change-major-mode-hook
+          #'tsp/enable-indent-bars-after-major-mode)
+
+(use-package c-ts-mode
+  :ensure nil
+  :mode ("\\.c\\'" . c-ts-mode))
+
+(add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
 
 (use-package go-ts-mode
   :ensure nil

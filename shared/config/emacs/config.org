@@ -218,6 +218,12 @@ sessions."
 
 (keymap-global-set "C-c r" #'tsp/reload-config)
 
+;; Emoji insertion: search by name for the common case, with the visual
+;; browser and recently used emojis available on the same prefix.
+(keymap-global-set "C-c i e" #'emoji-search)
+(keymap-global-set "C-c i E" #'emoji-list)
+(keymap-global-set "C-c i r" #'emoji-recent)
+
 (provide 'tsp-core)
 ;;; tsp-core.el ends here
 #+end_src
@@ -454,9 +460,9 @@ and directories are created automatically.
   in =~/org/=, but it is included in the agenda.
 
 The agenda reads the inbox, task, project, and Google Calendar files.  The Org
-files under =~/org/= are committed, rebased, and pushed if that directory is a
-Git repository: asynchronously at startup and once more when Emacs exits.  A
-sync failure leaves all files and Git state intact for manual recovery.
+directory is synchronized every 15 minutes by the =org-webdav-sync.timer=
+systemd user unit.  Emacs also starts that service asynchronously on startup
+and waits for a final synchronization on shutdown.
 
 ** Capturing
 
@@ -718,6 +724,9 @@ it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
 (defvar tsp/org-git-sync-process nil
   "Background process used for startup Org synchronization.")
 
+(defvar tsp/org-git-sync-timer nil
+  "Idle timer used for periodic Org synchronization.")
+
 (defun tsp/org-save-buffers ()
   "Save modified file buffers belonging to `tsp/org-directory'."
   (dolist (buffer (buffer-list))
@@ -726,6 +735,28 @@ it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
                  (buffer-modified-p)
                  (file-in-directory-p buffer-file-name tsp/org-directory))
         (save-buffer)))))
+
+(defconst tsp/org-webdav-sync-service "org-webdav-sync.service"
+  "Systemd user service that synchronizes the Org directory.")
+
+(defun tsp/org-webdav-sync-on-startup ()
+  "Queue an Org WebDAV synchronization without delaying startup."
+  (when (executable-find "systemctl")
+    (start-process "org-webdav-sync-startup" nil
+                   "systemctl" "--user" "start" "--no-block"
+                   tsp/org-webdav-sync-service)))
+
+(defun tsp/org-webdav-sync-on-shutdown ()
+  "Save Org buffers and wait for the final WebDAV synchronization."
+  (tsp/org-save-buffers)
+  (when (executable-find "systemctl")
+    (unless (= 0 (call-process "systemctl" nil nil nil
+                               "--user" "start"
+                               tsp/org-webdav-sync-service))
+      (message "Final Org WebDAV sync failed to start"))))
+
+(add-hook 'emacs-startup-hook #'tsp/org-webdav-sync-on-startup)
+(add-hook 'kill-emacs-hook #'tsp/org-webdav-sync-on-shutdown)
 
 (defun tsp/org-git-run (&rest arguments)
   "Run Git with ARGUMENTS in `tsp/org-directory'.
@@ -827,11 +858,18 @@ left untouched for manual recovery."
                       :warning))))))))))
 
 (defun tsp/org-git-sync-on-startup ()
-  "Start an asynchronous Org synchronization after startup."
-  (tsp/org-git-sync-async))
+  "Start Org synchronization and schedule later syncs during idle time."
+  (tsp/org-git-sync-async)
+  (when (timerp tsp/org-git-sync-timer)
+    (cancel-timer tsp/org-git-sync-timer))
+  (setq tsp/org-git-sync-timer
+        (run-with-idle-timer (* 15 60) t #'tsp/org-git-sync-async)))
 
-(add-hook 'emacs-startup-hook #'tsp/org-git-sync-on-startup)
-(add-hook 'kill-emacs-hook #'tsp/org-git-sync)
+(defun tsp/org-git-sync-cancel-timer ()
+  "Cancel periodic Org synchronization without starting a final sync."
+  (when (timerp tsp/org-git-sync-timer)
+    (cancel-timer tsp/org-git-sync-timer)
+    (setq tsp/org-git-sync-timer nil)))
 
 (defun tsp/org-project-p ()
   "Return non-nil when the current heading is an unfinished project."
@@ -975,6 +1013,9 @@ left untouched for manual recovery."
   (when (boundp 'org-file-apps-gnu)
     (setcdr (assq t org-file-apps-gnu) 'browse-url-xdg-open)))
 
+(global-set-key (kbd "C-c o d") #'org-roam-dailies-goto-today)
+(global-set-key (kbd "C-c o D") #'org-roam-dailies-capture-today)
+
 (use-package org-roam
   :ensure t
   :after org
@@ -982,9 +1023,7 @@ left untouched for manual recovery."
              org-roam-dailies-goto-today org-roam-dailies-capture-today)
   :bind (("C-c o f" . org-roam-node-find)
          ("C-c o n" . org-roam-node-insert)
-         ("C-c o b" . org-roam-buffer-toggle)
-         ("C-c o d" . org-roam-dailies-goto-today)
-         ("C-c o D" . org-roam-dailies-capture-today))
+         ("C-c o b" . org-roam-buffer-toggle))
   :init
   (setq org-roam-directory tsp/org-roam-directory
         org-roam-db-location (tsp/emacs-state-file "org-roam.db")
@@ -1139,11 +1178,13 @@ When QUIET is non-nil, suppress the missing-configuration error."
     (string-width string from to)))
 
 (defun tsp/telega-glyph-boundaries (string)
-  "Return a vector of grapheme boundaries in STRING."
+  "Return a vector of safe character boundaries in STRING.
+Avoid `string-glyph-split', which can abort Emacs 30.2 while Telega renders
+some chat-preview strings."
   (let ((position 0)
         (boundaries (list 0)))
-    (dolist (glyph (string-glyph-split string))
-      (setq position (+ position (length glyph)))
+    (while (< position (length string))
+      (setq position (1+ position))
       (push position boundaries))
     (vconcat (nreverse boundaries))))
 
@@ -1288,7 +1329,91 @@ Call ORIGINAL for strings that do not contain Khmer."
                            'telega-fmt-eval-eliding)
     (advice-add 'telega-fmt-eval-eliding
                 :around #'tsp/telega-khmer-aware-eliding))
+  (unless (advice-member-p #'tsp/telega-notification-valid-message
+                           'telega-notifications--chat-msg0)
+    (advice-add 'telega-notifications--chat-msg0
+                :around #'tsp/telega-notification-valid-message))
   (telega-notifications-mode 1))
+
+(defun tsp/telega-notification-valid-message (original msg &rest args)
+  "Call ORIGINAL for MSG only when it has valid Telegram identifiers."
+  (when (and (integerp (plist-get msg :id))
+             (integerp (plist-get msg :chat_id)))
+    (apply original msg args)))
+
+(defun tsp/telega-dashboard-chat-insert (chat)
+  "Insert a lightweight one-line dashboard entry for CHAT."
+  (let ((unread (plist-get chat :unread_count)))
+    (insert (telega-chat-title chat))
+    (when (and (integerp unread) (> unread 0))
+      (insert (propertize (format "  %d unread" unread)
+                          'face 'font-lock-warning-face)))))
+
+(defun tsp/dashboard-insert-telega-chats (list-size)
+  "Insert up to LIST-SIZE recent Telega chats into the dashboard."
+  (dashboard-insert-heading "Telega Chats:"
+                            (dashboard-get-shortcut 'telega-chats))
+  (if (not (and (fboundp 'telega-server-live-p)
+                (telega-server-live-p)))
+      (insert (propertize "\n    Telega is starting…"
+                          'face 'dashboard-no-items-face))
+    (dolist (chat
+             (seq-take
+              (seq-sort
+               (lambda (chat-a chat-b)
+                 (> (or (plist-get (plist-get chat-a :last_message) :date) 0)
+                    (or (plist-get (plist-get chat-b :last_message) :date) 0)))
+               (copy-sequence
+                (telega-filter-chats (telega-chats-list))))
+              list-size))
+      (insert "\n    ")
+      (telega-button--insert 'telega-chat chat
+        :inserter #'tsp/telega-dashboard-chat-insert)))
+  (dashboard-insert-shortcut 'telega-chats
+                             (dashboard-get-shortcut 'telega-chats)
+                             "Telega Chats:"))
+
+(use-package dashboard
+  :ensure t
+  :demand t
+  :bind (("C-c d" . dashboard-open))
+  :init
+  (setq dashboard-startup-banner 'logo
+        dashboard-image-banner-max-height 96
+        dashboard-banner-logo-title "Welcome back"
+        dashboard-center-content t
+        dashboard-vertically-center-content nil
+        dashboard-set-heading-icons nil
+        dashboard-set-file-icons nil
+        dashboard-show-shortcuts t
+        dashboard-items '((agenda . 7)
+                          (telega-chats . 6)
+                          (recents . 5)
+                          (projects . 5)))
+  :config
+  (add-to-list 'dashboard-item-generators
+               '(telega-chats . tsp/dashboard-insert-telega-chats))
+  (add-to-list 'dashboard-item-shortcuts '(telega-chats . "t"))
+  (dashboard-setup-startup-hook))
+
+(defun tsp/dashboard-start-telega ()
+  "Start Telega in the background and refresh its dashboard widget."
+  (when (and (not noninteractive) (not (daemonp)))
+    (save-window-excursion (telega))))
+
+(defun tsp/dashboard-refresh-after-telega ()
+  "Refresh the dashboard once Telega has actually fetched its chats."
+  (when (get-buffer "*dashboard*")
+    (dashboard-refresh-buffer)))
+
+(defun tsp/dashboard-open-on-startup ()
+  "Open the dashboard after other startup buffer changes have finished."
+  (when (and (not noninteractive) (not (daemonp)))
+    (dashboard-open)))
+
+(add-hook 'emacs-startup-hook #'tsp/dashboard-start-telega 90)
+(add-hook 'emacs-startup-hook #'tsp/dashboard-open-on-startup 99)
+(add-hook 'telega-chats-fetched-hook #'tsp/dashboard-refresh-after-telega)
 
 (use-package exec-path-from-shell
   :ensure t
@@ -1396,7 +1521,9 @@ When QUIET is non-nil, avoid status messages for automatic refreshes."
 (defvar treesit-extra-load-path nil)
 
 (defconst tsp/treesit-language-sources
-  '((go "https://github.com/tree-sitter/tree-sitter-go")
+  '((c "https://github.com/tree-sitter/tree-sitter-c")
+    (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
+    (go "https://github.com/tree-sitter/tree-sitter-go")
     (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
     (typst "https://github.com/uben0/tree-sitter-typst"))
   "Tree-sitter grammars managed by this config.")
@@ -1432,6 +1559,33 @@ When QUIET is non-nil, avoid status messages for automatic refreshes."
   (setq-local indent-tabs-mode nil
               tab-width 4
               go-ts-mode-indent-offset 4))
+
+;; Font-lock plus stipples keeps indentation guides cheap: no overlays,
+;; tree-sitter queries, current-scope tracking, or work on blank lines.
+(use-package indent-bars
+  :commands indent-bars-mode
+  :custom
+  (indent-bars-prefer-character t)
+  (indent-bars-no-stipple-char ?│)
+  (indent-bars-color '(default :blend 0.28))
+  (indent-bars-color-by-depth nil)
+  (indent-bars-display-on-blank-lines nil)
+  (indent-bars-highlight-current-depth nil)
+  (indent-bars-treesit-support nil))
+
+(defun tsp/enable-indent-bars-after-major-mode ()
+  "Enable indentation bars after a programming mode finishes initializing."
+  (when (derived-mode-p 'prog-mode)
+    (indent-bars-mode 1)))
+
+(add-hook 'after-change-major-mode-hook
+          #'tsp/enable-indent-bars-after-major-mode)
+
+(use-package c-ts-mode
+  :ensure nil
+  :mode ("\\.c\\'" . c-ts-mode))
+
+(add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
 
 (use-package go-ts-mode
   :ensure nil

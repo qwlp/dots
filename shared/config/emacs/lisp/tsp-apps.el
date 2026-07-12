@@ -69,7 +69,91 @@
                            'telega-fmt-eval-eliding)
     (advice-add 'telega-fmt-eval-eliding
                 :around #'tsp/telega-khmer-aware-eliding))
+  (unless (advice-member-p #'tsp/telega-notification-valid-message
+                           'telega-notifications--chat-msg0)
+    (advice-add 'telega-notifications--chat-msg0
+                :around #'tsp/telega-notification-valid-message))
   (telega-notifications-mode 1))
+
+(defun tsp/telega-notification-valid-message (original msg &rest args)
+  "Call ORIGINAL for MSG only when it has valid Telegram identifiers."
+  (when (and (integerp (plist-get msg :id))
+             (integerp (plist-get msg :chat_id)))
+    (apply original msg args)))
+
+(defun tsp/telega-dashboard-chat-insert (chat)
+  "Insert a lightweight one-line dashboard entry for CHAT."
+  (let ((unread (plist-get chat :unread_count)))
+    (insert (telega-chat-title chat))
+    (when (and (integerp unread) (> unread 0))
+      (insert (propertize (format "  %d unread" unread)
+                          'face 'font-lock-warning-face)))))
+
+(defun tsp/dashboard-insert-telega-chats (list-size)
+  "Insert up to LIST-SIZE recent Telega chats into the dashboard."
+  (dashboard-insert-heading "Telega Chats:"
+                            (dashboard-get-shortcut 'telega-chats))
+  (if (not (and (fboundp 'telega-server-live-p)
+                (telega-server-live-p)))
+      (insert (propertize "\n    Telega is starting…"
+                          'face 'dashboard-no-items-face))
+    (dolist (chat
+             (seq-take
+              (seq-sort
+               (lambda (chat-a chat-b)
+                 (> (or (plist-get (plist-get chat-a :last_message) :date) 0)
+                    (or (plist-get (plist-get chat-b :last_message) :date) 0)))
+               (copy-sequence
+                (telega-filter-chats (telega-chats-list))))
+              list-size))
+      (insert "\n    ")
+      (telega-button--insert 'telega-chat chat
+        :inserter #'tsp/telega-dashboard-chat-insert)))
+  (dashboard-insert-shortcut 'telega-chats
+                             (dashboard-get-shortcut 'telega-chats)
+                             "Telega Chats:"))
+
+(use-package dashboard
+  :ensure t
+  :demand t
+  :bind (("C-c d" . dashboard-open))
+  :init
+  (setq dashboard-startup-banner 'logo
+        dashboard-image-banner-max-height 96
+        dashboard-banner-logo-title "Welcome back"
+        dashboard-center-content t
+        dashboard-vertically-center-content nil
+        dashboard-set-heading-icons nil
+        dashboard-set-file-icons nil
+        dashboard-show-shortcuts t
+        dashboard-items '((agenda . 7)
+                          (telega-chats . 6)
+                          (recents . 5)
+                          (projects . 5)))
+  :config
+  (add-to-list 'dashboard-item-generators
+               '(telega-chats . tsp/dashboard-insert-telega-chats))
+  (add-to-list 'dashboard-item-shortcuts '(telega-chats . "t"))
+  (dashboard-setup-startup-hook))
+
+(defun tsp/dashboard-start-telega ()
+  "Start Telega in the background and refresh its dashboard widget."
+  (when (and (not noninteractive) (not (daemonp)))
+    (save-window-excursion (telega))))
+
+(defun tsp/dashboard-refresh-after-telega ()
+  "Refresh the dashboard once Telega has actually fetched its chats."
+  (when (get-buffer "*dashboard*")
+    (dashboard-refresh-buffer)))
+
+(defun tsp/dashboard-open-on-startup ()
+  "Open the dashboard after other startup buffer changes have finished."
+  (when (and (not noninteractive) (not (daemonp)))
+    (dashboard-open)))
+
+(add-hook 'emacs-startup-hook #'tsp/dashboard-start-telega 90)
+(add-hook 'emacs-startup-hook #'tsp/dashboard-open-on-startup 99)
+(add-hook 'telega-chats-fetched-hook #'tsp/dashboard-refresh-after-telega)
 
 (use-package exec-path-from-shell
   :ensure t

@@ -10,6 +10,7 @@ fi
 packages=(
     emacs-wayland
     git
+    rclone
     base-devel
     pkgconf
     cmake

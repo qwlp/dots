@@ -141,5 +141,11 @@ sessions."
 
 (keymap-global-set "C-c r" #'tsp/reload-config)
 
+;; Emoji insertion: search by name for the common case, with the visual
+;; browser and recently used emojis available on the same prefix.
+(keymap-global-set "C-c i e" #'emoji-search)
+(keymap-global-set "C-c i E" #'emoji-list)
+(keymap-global-set "C-c i r" #'emoji-recent)
+
 (provide 'tsp-core)
 ;;; tsp-core.el ends here

@@ -19,11 +19,13 @@
     (string-width string from to)))
 
 (defun tsp/telega-glyph-boundaries (string)
-  "Return a vector of grapheme boundaries in STRING."
+  "Return a vector of safe character boundaries in STRING.
+Avoid `string-glyph-split', which can abort Emacs 30.2 while Telega renders
+some chat-preview strings."
   (let ((position 0)
         (boundaries (list 0)))
-    (dolist (glyph (string-glyph-split string))
-      (setq position (+ position (length glyph)))
+    (while (< position (length string))
+      (setq position (1+ position))
       (push position boundaries))
     (vconcat (nreverse boundaries))))
 
