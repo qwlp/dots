@@ -17,6 +17,14 @@
       auto-save-list-file-prefix
       (expand-file-name "auto-save-list/.saves-" tsp/emacs-state-directory))
 
+;; Minimize GC and regexp work while the configuration is loading.  Restore
+;; normal values from `emacs-startup-hook' so long-running sessions are not
+;; affected.
+(defvar tsp/startup-file-name-handler-alist file-name-handler-alist)
+(setq file-name-handler-alist nil
+      gc-cons-threshold most-positive-fixnum
+      gc-cons-percentage 0.6)
+
 (when (fboundp 'startup-redirect-eln-cache)
   (startup-redirect-eln-cache
    (expand-file-name "eln-cache/" tsp/emacs-cache-directory)))

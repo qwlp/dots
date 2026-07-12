@@ -23,6 +23,14 @@
       auto-save-list-file-prefix
       (expand-file-name "auto-save-list/.saves-" tsp/emacs-state-directory))
 
+;; Minimize GC and regexp work while the configuration is loading.  Restore
+;; normal values from `emacs-startup-hook' so long-running sessions are not
+;; affected.
+(defvar tsp/startup-file-name-handler-alist file-name-handler-alist)
+(setq file-name-handler-alist nil
+      gc-cons-threshold most-positive-fixnum
+      gc-cons-percentage 0.6)
+
 (when (fboundp 'startup-redirect-eln-cache)
   (startup-redirect-eln-cache
    (expand-file-name "eln-cache/" tsp/emacs-cache-directory)))
@@ -48,6 +56,10 @@
   "Directory for persistent Emacs state.")
 
 (setq package-user-dir (expand-file-name "elpa/" tsp/emacs-state-directory))
+
+;; Keep the symmetric plstore passphrase in memory for this Emacs session so
+;; org-gcal's OAuth store does not repeatedly prompt during background fetches.
+(setq plstore-cache-passphrase-for-symmetric-encryption t)
 
 (require 'package)
 
@@ -165,7 +177,9 @@
 
 (add-hook 'emacs-startup-hook
           (lambda ()
-            (setq gc-cons-threshold (* 16 1024 1024))
+            (setq file-name-handler-alist tsp/startup-file-name-handler-alist
+                  gc-cons-threshold (* 16 1024 1024)
+                  gc-cons-percentage 0.1)
             (message "Emacs loaded in %s with %d garbage collections."
                      (emacs-init-time)
                      gcs-done)))
@@ -461,8 +475,8 @@ and directories are created automatically.
 
 The agenda reads the inbox, task, project, and Google Calendar files.  The Org
 directory is synchronized every 15 minutes by the =org-webdav-sync.timer=
-systemd user unit.  Emacs also starts that service asynchronously on startup
-and waits for a final synchronization on shutdown.
+systemd user unit.  Emacs queues that service asynchronously on startup and
+shutdown, so a slow network cannot delay either operation.
 
 ** Capturing
 
@@ -747,11 +761,11 @@ it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
                    tsp/org-webdav-sync-service)))
 
 (defun tsp/org-webdav-sync-on-shutdown ()
-  "Save Org buffers and wait for the final WebDAV synchronization."
+  "Save Org buffers and queue a final WebDAV synchronization."
   (tsp/org-save-buffers)
   (when (executable-find "systemctl")
     (unless (= 0 (call-process "systemctl" nil nil nil
-                               "--user" "start"
+                               "--user" "start" "--no-block"
                                tsp/org-webdav-sync-service))
       (message "Final Org WebDAV sync failed to start"))))
 
@@ -1117,13 +1131,19 @@ When QUIET is non-nil, suppress the missing-configuration error."
         (user-error "Create %s first" tsp/org-gcal-config-file))
     (load tsp/org-gcal-config-file nil 'nomessage)
     (require 'org-gcal)
-    (org-gcal-fetch)))
+    (org-gcal-fetch)
+    ;; `org-gcal-fetch' is asynchronous.  Refresh the dashboard after its
+    ;; network request has had time to update the agenda file.
+    (run-at-time 10 nil #'tsp/dashboard-refresh-if-visible)))
 
 (defun tsp/org-gcal-start-fetch-timer ()
   "Fetch Google Calendar shortly after startup and every 30 minutes."
   (when (and (tsp/org-gcal-configured-p)
-             (let ((value (getenv "ORG_GCAL_AUTO_FETCH")))
-               (and value (> (length value) 0))))
+             ;; Desktop-launched Emacs does not necessarily inherit the Fish
+             ;; environment.  Default to enabled; retain an environment switch
+             ;; for machines where automatic fetching is undesirable.
+             (not (member (downcase (or (getenv "ORG_GCAL_AUTO_FETCH") "1"))
+                          '("0" "false" "no"))))
     (when (timerp tsp/org-gcal-fetch-timer)
       (cancel-timer tsp/org-gcal-fetch-timer))
     (setq tsp/org-gcal-fetch-timer
@@ -1135,6 +1155,8 @@ When QUIET is non-nil, suppress the missing-configuration error."
   :bind (("C-c o C" . tsp/org-gcal-fetch))
   :init
   (setq org-gcal-dir tsp/org-calendar-directory
+        org-gcal-up-days 90
+        org-gcal-down-days 365
         org-gcal-recurring-events-mode 'nested
         ;; The upstream auto-archiver aborts the whole sync when any managed
         ;; entry lacks a timestamp it recognizes.  Fetching does not require
@@ -1349,6 +1371,14 @@ Call ORIGINAL for strings that do not contain Khmer."
       (insert (propertize (format "  %d unread" unread)
                           'face 'font-lock-warning-face)))))
 
+(defun tsp/dashboard-jump-to-telega-chats ()
+  "Move point to the Telega chats dashboard section."
+  (interactive)
+  (goto-char (point-min))
+  (when (search-forward "Telega Chats:" nil t)
+    (forward-line 1)
+    (back-to-indentation)))
+
 (defun tsp/dashboard-insert-telega-chats (list-size)
   "Insert up to LIST-SIZE recent Telega chats into the dashboard."
   (dashboard-insert-heading "Telega Chats:"
@@ -1369,9 +1399,7 @@ Call ORIGINAL for strings that do not contain Khmer."
       (insert "\n    ")
       (telega-button--insert 'telega-chat chat
         :inserter #'tsp/telega-dashboard-chat-insert)))
-  (dashboard-insert-shortcut 'telega-chats
-                             (dashboard-get-shortcut 'telega-chats)
-                             "Telega Chats:"))
+  nil)
 
 (use-package dashboard
   :ensure t
@@ -1394,25 +1422,43 @@ Call ORIGINAL for strings that do not contain Khmer."
   (add-to-list 'dashboard-item-generators
                '(telega-chats . tsp/dashboard-insert-telega-chats))
   (add-to-list 'dashboard-item-shortcuts '(telega-chats . "t"))
+  (keymap-set dashboard-mode-map "t" #'tsp/dashboard-jump-to-telega-chats)
   (dashboard-setup-startup-hook))
-
-(defun tsp/dashboard-start-telega ()
-  "Start Telega in the background and refresh its dashboard widget."
-  (when (and (not noninteractive) (not (daemonp)))
-    (save-window-excursion (telega))))
 
 (defun tsp/dashboard-refresh-after-telega ()
   "Refresh the dashboard once Telega has actually fetched its chats."
   (when (get-buffer "*dashboard*")
     (dashboard-refresh-buffer)))
 
+(defun tsp/dashboard-refresh-if-visible ()
+  "Refresh the dashboard when it already exists."
+  (when-let* ((buffer (get-buffer "*dashboard*")))
+    ;; `dashboard-refresh-buffer' aliases the interactive `dashboard-open' and
+    ;; can make widget navigation fail when called by a timer.  Re-render the
+    ;; existing buffer directly without changing the selected buffer or point.
+    (when (fboundp 'dashboard-insert-startupify-lists)
+      (with-current-buffer buffer
+        (dashboard-insert-startupify-lists t)))))
+
+(defun tsp/dashboard-start-telega ()
+  "Start Telega in the background after startup."
+  (when (and (not noninteractive) (not (daemonp))
+             (not (and (fboundp 'telega-server-live-p)
+                       (telega-server-live-p))))
+    (save-window-excursion (telega))))
+
+(defun tsp/dashboard-schedule-telega ()
+  "Schedule Telega after Emacs becomes responsive."
+  (when (and (not noninteractive) (not (daemonp)))
+    (run-with-idle-timer 2 nil #'tsp/dashboard-start-telega)))
+
 (defun tsp/dashboard-open-on-startup ()
   "Open the dashboard after other startup buffer changes have finished."
   (when (and (not noninteractive) (not (daemonp)))
     (dashboard-open)))
 
-(add-hook 'emacs-startup-hook #'tsp/dashboard-start-telega 90)
 (add-hook 'emacs-startup-hook #'tsp/dashboard-open-on-startup 99)
+(add-hook 'emacs-startup-hook #'tsp/dashboard-schedule-telega 90)
 (add-hook 'telega-chats-fetched-hook #'tsp/dashboard-refresh-after-telega)
 
 (use-package exec-path-from-shell

@@ -89,6 +89,14 @@
       (insert (propertize (format "  %d unread" unread)
                           'face 'font-lock-warning-face)))))
 
+(defun tsp/dashboard-jump-to-telega-chats ()
+  "Move point to the Telega chats dashboard section."
+  (interactive)
+  (goto-char (point-min))
+  (when (search-forward "Telega Chats:" nil t)
+    (forward-line 1)
+    (back-to-indentation)))
+
 (defun tsp/dashboard-insert-telega-chats (list-size)
   "Insert up to LIST-SIZE recent Telega chats into the dashboard."
   (dashboard-insert-heading "Telega Chats:"
@@ -109,9 +117,7 @@
       (insert "\n    ")
       (telega-button--insert 'telega-chat chat
         :inserter #'tsp/telega-dashboard-chat-insert)))
-  (dashboard-insert-shortcut 'telega-chats
-                             (dashboard-get-shortcut 'telega-chats)
-                             "Telega Chats:"))
+  nil)
 
 (use-package dashboard
   :ensure t
@@ -134,25 +140,43 @@
   (add-to-list 'dashboard-item-generators
                '(telega-chats . tsp/dashboard-insert-telega-chats))
   (add-to-list 'dashboard-item-shortcuts '(telega-chats . "t"))
+  (keymap-set dashboard-mode-map "t" #'tsp/dashboard-jump-to-telega-chats)
   (dashboard-setup-startup-hook))
-
-(defun tsp/dashboard-start-telega ()
-  "Start Telega in the background and refresh its dashboard widget."
-  (when (and (not noninteractive) (not (daemonp)))
-    (save-window-excursion (telega))))
 
 (defun tsp/dashboard-refresh-after-telega ()
   "Refresh the dashboard once Telega has actually fetched its chats."
   (when (get-buffer "*dashboard*")
     (dashboard-refresh-buffer)))
 
+(defun tsp/dashboard-refresh-if-visible ()
+  "Refresh the dashboard when it already exists."
+  (when-let* ((buffer (get-buffer "*dashboard*")))
+    ;; `dashboard-refresh-buffer' aliases the interactive `dashboard-open' and
+    ;; can make widget navigation fail when called by a timer.  Re-render the
+    ;; existing buffer directly without changing the selected buffer or point.
+    (when (fboundp 'dashboard-insert-startupify-lists)
+      (with-current-buffer buffer
+        (dashboard-insert-startupify-lists t)))))
+
+(defun tsp/dashboard-start-telega ()
+  "Start Telega in the background after startup."
+  (when (and (not noninteractive) (not (daemonp))
+             (not (and (fboundp 'telega-server-live-p)
+                       (telega-server-live-p))))
+    (save-window-excursion (telega))))
+
+(defun tsp/dashboard-schedule-telega ()
+  "Schedule Telega after Emacs becomes responsive."
+  (when (and (not noninteractive) (not (daemonp)))
+    (run-with-idle-timer 2 nil #'tsp/dashboard-start-telega)))
+
 (defun tsp/dashboard-open-on-startup ()
   "Open the dashboard after other startup buffer changes have finished."
   (when (and (not noninteractive) (not (daemonp)))
     (dashboard-open)))
 
-(add-hook 'emacs-startup-hook #'tsp/dashboard-start-telega 90)
 (add-hook 'emacs-startup-hook #'tsp/dashboard-open-on-startup 99)
+(add-hook 'emacs-startup-hook #'tsp/dashboard-schedule-telega 90)
 (add-hook 'telega-chats-fetched-hook #'tsp/dashboard-refresh-after-telega)
 
 (use-package exec-path-from-shell

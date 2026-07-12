@@ -88,7 +88,9 @@
 
 (add-hook 'emacs-startup-hook
           (lambda ()
-            (setq gc-cons-threshold (* 16 1024 1024))
+            (setq file-name-handler-alist tsp/startup-file-name-handler-alist
+                  gc-cons-threshold (* 16 1024 1024)
+                  gc-cons-percentage 0.1)
             (message "Emacs loaded in %s with %d garbage collections."
                      (emacs-init-time)
                      gcs-done)))

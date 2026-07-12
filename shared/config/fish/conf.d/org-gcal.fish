@@ -1,0 +1,1 @@
+set -gx ORG_GCAL_AUTO_FETCH 1

@@ -83,11 +83,11 @@
                    tsp/org-webdav-sync-service)))
 
 (defun tsp/org-webdav-sync-on-shutdown ()
-  "Save Org buffers and wait for the final WebDAV synchronization."
+  "Save Org buffers and queue a final WebDAV synchronization."
   (tsp/org-save-buffers)
   (when (executable-find "systemctl")
     (unless (= 0 (call-process "systemctl" nil nil nil
-                               "--user" "start"
+                               "--user" "start" "--no-block"
                                tsp/org-webdav-sync-service))
       (message "Final Org WebDAV sync failed to start"))))
 
@@ -453,13 +453,19 @@ When QUIET is non-nil, suppress the missing-configuration error."
         (user-error "Create %s first" tsp/org-gcal-config-file))
     (load tsp/org-gcal-config-file nil 'nomessage)
     (require 'org-gcal)
-    (org-gcal-fetch)))
+    (org-gcal-fetch)
+    ;; `org-gcal-fetch' is asynchronous.  Refresh the dashboard after its
+    ;; network request has had time to update the agenda file.
+    (run-at-time 10 nil #'tsp/dashboard-refresh-if-visible)))
 
 (defun tsp/org-gcal-start-fetch-timer ()
   "Fetch Google Calendar shortly after startup and every 30 minutes."
   (when (and (tsp/org-gcal-configured-p)
-             (let ((value (getenv "ORG_GCAL_AUTO_FETCH")))
-               (and value (> (length value) 0))))
+             ;; Desktop-launched Emacs does not necessarily inherit the Fish
+             ;; environment.  Default to enabled; retain an environment switch
+             ;; for machines where automatic fetching is undesirable.
+             (not (member (downcase (or (getenv "ORG_GCAL_AUTO_FETCH") "1"))
+                          '("0" "false" "no"))))
     (when (timerp tsp/org-gcal-fetch-timer)
       (cancel-timer tsp/org-gcal-fetch-timer))
     (setq tsp/org-gcal-fetch-timer
@@ -471,6 +477,8 @@ When QUIET is non-nil, suppress the missing-configuration error."
   :bind (("C-c o C" . tsp/org-gcal-fetch))
   :init
   (setq org-gcal-dir tsp/org-calendar-directory
+        org-gcal-up-days 90
+        org-gcal-down-days 365
         org-gcal-recurring-events-mode 'nested
         ;; The upstream auto-archiver aborts the whole sync when any managed
         ;; entry lacks a timestamp it recognizes.  Fetching does not require
