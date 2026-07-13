@@ -22,14 +22,16 @@
 (defconst tsp/org-inbox-file (expand-file-name "inbox.org" tsp/org-directory))
 (defconst tsp/org-tasks-file (expand-file-name "tasks.org" tsp/org-directory))
 (defconst tsp/org-projects-file (expand-file-name "projects.org" tsp/org-directory))
-(defconst tsp/org-diary-file (expand-file-name "diary.org" tsp/org-directory))
-(setq diary-file tsp/org-diary-file)
-(with-eval-after-load 'diary-lib
-  (setq diary-file tsp/org-diary-file))
+(defconst tsp/org-calendar-file (expand-file-name "calendar.org" tsp/org-directory))
 (defconst tsp/org-archive-directory (expand-file-name "archive/" tsp/org-directory))
 (defconst tsp/org-roam-directory (expand-file-name "roam/" tsp/org-directory))
 (defconst tsp/org-roam-dailies-directory
   (expand-file-name "daily/" tsp/org-roam-directory))
+(defconst tsp/org-roam-note-directories
+  (mapcar (lambda (directory)
+            (expand-file-name directory tsp/org-roam-directory))
+          '("meetings/" "events/" "ideas/" "projects/" "references/"))
+  "Directories used by typed Org-roam note captures.")
 
 (defun tsp/org-bootstrap-file (file title &rest headings)
   "Create FILE with TITLE and HEADINGS when it does not exist."
@@ -42,16 +44,17 @@
 
 (defun tsp/org-bootstrap ()
   "Create the directories and core files used by the Org workflow."
-  (dolist (directory (list tsp/org-directory tsp/org-archive-directory
-                           tsp/org-roam-directory tsp/org-roam-dailies-directory))
+  (dolist (directory (append (list tsp/org-directory tsp/org-archive-directory
+                                   tsp/org-roam-directory
+                                   tsp/org-roam-dailies-directory)
+                             tsp/org-roam-note-directories))
     (make-directory directory t))
   (tsp/org-bootstrap-file tsp/org-inbox-file "Inbox")
   (tsp/org-bootstrap-file tsp/org-tasks-file "Tasks"
                           "Actions" "Waiting" "Someday" "Habits")
   (tsp/org-bootstrap-file tsp/org-projects-file "Projects"
                           "Active" "Completed")
-  (unless (file-exists-p tsp/org-diary-file)
-    (with-temp-file tsp/org-diary-file)))
+  (tsp/org-bootstrap-file tsp/org-calendar-file "Calendar" "Events"))
 
 (tsp/org-bootstrap)
 
@@ -246,11 +249,8 @@ left untouched for manual recovery."
   :init
   (setq org-directory tsp/org-directory
         org-default-notes-file tsp/org-inbox-file
-        diary-file tsp/org-diary-file
-        calendar-mark-diary-entries-flag t
-        org-agenda-include-diary t
         org-agenda-files (list tsp/org-inbox-file tsp/org-tasks-file
-                               tsp/org-projects-file)
+                               tsp/org-projects-file tsp/org-calendar-file)
         org-archive-location
         (concat tsp/org-archive-directory "%s_archive::datetree/")
         org-attach-id-dir (expand-file-name "attachments/" tsp/org-directory)
@@ -278,6 +278,9 @@ left untouched for manual recovery."
            "* %? :idea:\n:PROPERTIES:\n:CREATED: %U\n:END:\n%i" :empty-lines 1)
           ("l" "Link" entry (file ,tsp/org-inbox-file)
            "* %?\n%a\nCaptured: %U\n%i" :empty-lines 1)
+          ("e" "Event" entry (file+headline ,tsp/org-calendar-file "Events")
+           "* %^{Event}\n:PROPERTIES:\n:ID: %(org-id-new)\n:LOCATION: %^{Location}\n:CREATED: %U\n:END:\n%^T\n\n%?"
+           :empty-lines 1)
           ("m" "Meeting" entry (file+olp+datetree ,tsp/org-projects-file)
            "* %^{Meeting} :meeting:\n%U\n\n** Notes\n%?\n\n** NEXT Follow-ups\n" :clock-in t :clock-resume t)
           ("j" "Journal" entry (file+olp+datetree ,tsp/org-inbox-file)
@@ -355,6 +358,107 @@ left untouched for manual recovery."
 
 (global-set-key (kbd "C-c o d") #'org-roam-dailies-goto-today)
 (global-set-key (kbd "C-c o D") #'org-roam-dailies-capture-today)
+
+(defvar tsp/org-related-event-marker nil
+  "Marker for the event awaiting a related Org-roam capture.")
+
+(defvar tsp/org-related-note-id nil
+  "ID of the Org-roam note awaiting capture.")
+
+(defvar tsp/org-related-note-title nil
+  "Title of the Org-roam note awaiting capture.")
+
+(defun tsp/org-roam-related-note-finalize ()
+  "Link the captured Org-roam note from its originating calendar event."
+  (unwind-protect
+      (progn
+        (when (and (markerp tsp/org-related-event-marker)
+                   (marker-buffer tsp/org-related-event-marker))
+          (org-with-point-at tsp/org-related-event-marker
+            (org-entry-put
+             nil "RELATED_NOTE"
+             (org-link-make-string (concat "id:" tsp/org-related-note-id)
+                                   tsp/org-related-note-title))
+            (save-buffer)))
+        (org-roam-capture--finalize-find-file))
+    (setq tsp/org-related-event-marker nil
+          tsp/org-related-note-id nil
+          tsp/org-related-note-title nil)))
+
+(defun tsp/org-roam-note-from-event ()
+  "Create or visit a typed Org-roam note related to the event at point."
+  (interactive)
+  (catch 'tsp/org-roam-note-from-event
+  (require 'org-id)
+  (require 'org-roam)
+  (require 'org-roam-capture)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "This command must be used from an Org calendar event"))
+  (org-back-to-heading t)
+  (unless (org-entry-get nil "TIMESTAMP")
+    (user-error "The heading at point has no event timestamp"))
+  (let ((related (org-entry-get nil "RELATED_NOTE")))
+    (when (and related (string-match "\\[\\[id:\\([^]]+\\)\\]" related))
+      (if-let* ((node (org-roam-node-from-id (match-string 1 related))))
+          (progn
+            (org-roam-node-visit node)
+            (throw 'tsp/org-roam-note-from-event nil))
+        (user-error "The event's related note is missing from Org-roam"))))
+  (let* ((event-marker (copy-marker (point)))
+         (event-title (org-get-heading t t t t))
+         (event-id (org-id-get-create))
+         (event-time (org-entry-get nil "TIMESTAMP"))
+         (event-date
+          (condition-case nil
+              (format-time-string "%Y-%m-%d" (org-time-string-to-time event-time))
+            (error "")))
+         (location (or (org-entry-get nil "LOCATION") ""))
+         (types
+          '((?m "Meeting" "meeting" "meetings/"
+                "* Attendees\n\n- \n\n* Agenda\n\n- \n\n* Notes\n\n* Decisions\n\n* Follow-ups\n\n- [ ] ")
+            (?e "Event" "event" "events/"
+                "* Expectations\n\n* Observations\n\n* People and references\n\n* Outcome\n\n* Follow-ups\n\n- [ ] ")
+            (?i "Idea" "idea" "ideas/"
+                "* Motivation\n\n* Idea\n\n* Possible approaches\n\n* Next experiment\n")
+            (?n "General" "note" ""
+                "* Notes\n\n")
+            (?p "Project" "project" "projects/"
+                "* Outcome\n\n* Context\n\n* Notes\n\n* Links\n\n")
+            (?r "Reference" "reference" "references/"
+                "* Summary\n\n* Source\n\n* Notes\n\n")))
+         (choice (read-char-choice
+                  "Note type: [m]eeting [e]vent [i]dea [n]general [p]roject [r]eference: "
+                  (mapcar #'car types)))
+         (type (assq choice types))
+         (default-title (if (string-empty-p event-date)
+                            event-title
+                          (format "%s — %s" event-title event-date)))
+         (note-title (read-string "Note title: " default-title))
+         (note-id (org-id-new))
+         (body (concat "* Calendar event\n${event-link}\n"
+                       (unless (string-empty-p location)
+                         "Location: ${location}\n")
+                       "\n" (nth 4 type) "%?"))
+         (template
+          `((,(char-to-string choice) ,(nth 1 type) plain ,body
+             :target
+             (file+head ,(concat (nth 3 type) "%<%Y%m%d%H%M%S>-${slug}.org")
+                        ,(concat "#+title: ${title}\n#+filetags: :"
+                                 (nth 2 type) ":\n"))
+             :unnarrowed t))))
+    (save-buffer)
+    (setq tsp/org-related-event-marker event-marker
+          tsp/org-related-note-id note-id
+          tsp/org-related-note-title note-title)
+    (org-roam-capture-
+     :node (org-roam-node-create :id note-id :title note-title)
+     :info (list :event-link
+                 (org-link-make-string (concat "id:" event-id) event-title)
+                 :location location)
+     :templates template
+     :props '(:finalize tsp/org-roam-related-note-finalize)))))
+
+(global-set-key (kbd "C-c o N") #'tsp/org-roam-note-from-event)
 
 (use-package org-roam
   :ensure t

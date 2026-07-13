@@ -382,10 +382,15 @@ sessions."
          (kill-ring-yank-pointer kill-ring))
     (consult-yank-pop)))
 
+(use-package avy
+  :ensure t
+  :bind
+  (("C-s" . avy-goto-char-timer)))
+
 (use-package consult
   :ensure t
   :bind
-  (("C-s" . consult-line)
+  (("C-S-s" . consult-line)
    ("C-y" . tsp/yank-from-kill-ring)
    ("C-S-y" . tsp/yank-from-system-clipboard)
    ("C-Y" . tsp/yank-from-system-clipboard)
@@ -432,8 +437,8 @@ sessions."
 This section configures Org as a small personal productivity system.  The basic
 loop is: capture quickly into the inbox, clarify the inbox into tasks and
 projects, work from the dashboard, and review regularly.  Org-roam holds notes
-that should outlive an individual task.  Emacs Calendar and Diary supply dated
-appointments to the agenda.
+that should outlive an individual task.  Org calendar events supply dated
+appointments to the agenda and stable link targets for notes.
 
 ** Quick start
 
@@ -466,9 +471,9 @@ and directories are created automatically.
 - =roam/= contains durable notes, people, references, project notes, and daily
   notes.
 - =archive/= receives completed subtrees archived with =C-c C-x C-a=.
-- =diary.org= stores Emacs Calendar appointments in the synchronized Org directory.
+- =calendar.org= stores appointments as linkable Org headings.
 
-The agenda reads the inbox, task, and project files plus the Emacs diary.  The Org
+The agenda reads the inbox, task, project, and calendar files.  The Org
 directory is synchronized every 15 minutes by the =org-webdav-sync.timer=
 systemd user unit.  Emacs queues that service asynchronously on startup and
 shutdown, so a slow network cannot delay either operation.
@@ -483,6 +488,7 @@ Press =C-c c= and then choose a template:
 | =s= | Scheduled task | An inbox task with a prompted date and time     |
 | =i= | Idea           | An inbox entry tagged =idea=                    |
 | =l= | Link           | A stored link back to the current context       |
+| =e= | Event          | A linkable appointment in =calendar.org=        |
 | =m= | Meeting        | A dated meeting record in =projects.org=        |
 | =j= | Journal        | A dated journal entry in =inbox.org=            |
 | =h= | Habit          | A repeating task under =tasks.org= / Habits     |
@@ -534,6 +540,10 @@ What each template expects:
   does not need a TODO state until it becomes committed work.
 - Link (=l=): name why the saved page or location matters.  The stored link and
   captured context are inserted automatically; add your own note below them.
+- Event (=e=): enter a title, date and time, and optional location.  Each event
+  receives a stable Org ID, so links to it keep working if it is renamed or
+  moved.  Add an agenda-only appointment here; keep durable knowledge in a
+  meeting or Org-roam note and link the two.
 - Meeting (=m=): enter the meeting name at the prompt, write notes under
   =Notes=, and put concrete follow-ups below =NEXT Follow-ups=.  This template
   starts a clock while capturing.
@@ -630,6 +640,10 @@ Org-roam is for connected knowledge rather than actionable work:
 
 - =C-c o f= finds or creates a note.
 - =C-c o n= inserts a link to a note.
+- =C-c o N= creates or opens a typed Org-roam note related to the calendar
+  event at point.  Choose =m= meeting, =e= event, =i= idea, =n= general,
+  =p= project, or =r= reference.  Successful captures add a link back to the
+  note in the event's =RELATED_NOTE= property.
 - =C-c o b= toggles the backlinks buffer.
 - =C-c o d= opens today's daily note.
 - =C-c o D= captures directly into today's daily note.
@@ -639,12 +653,14 @@ reference, or =P= for a project note.  Project notes contain supporting context;
 the actionable project itself still belongs in =projects.org=.  Daily notes
 provide a morning plan, chronological log, meeting area, and end-of-day review.
 
-** Calendar and diary
+** Calendar events
 
-Press =M-x calendar= to open Emacs Calendar.  Press =i d= on a date to add a
-diary appointment.  The diary lives at =~/org/diary.org=, so the existing WebDAV
-service synchronizes it with the rest of the Org directory.  Diary entries are
-shown in the normal Org agenda and startup dashboard.
+Press =C-c c e= to create an event in =~/org/calendar.org=.  Its active timestamp
+makes it appear in the normal Org agenda and startup dashboard.  Press =RET= on
+the agenda entry to visit it.  From the event heading, use =C-c l= to store its
+stable ID link; then use =C-c C-l= in any Org or Org-roam note to insert the
+reference.  =M-x calendar= remains useful for browsing dates, but events should
+be captured as Org headings rather than diary entries.
 
 ** Writing Org documents
 
@@ -682,14 +698,16 @@ it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
 (defconst tsp/org-inbox-file (expand-file-name "inbox.org" tsp/org-directory))
 (defconst tsp/org-tasks-file (expand-file-name "tasks.org" tsp/org-directory))
 (defconst tsp/org-projects-file (expand-file-name "projects.org" tsp/org-directory))
-(defconst tsp/org-diary-file (expand-file-name "diary.org" tsp/org-directory))
-(setq diary-file tsp/org-diary-file)
-(with-eval-after-load 'diary-lib
-  (setq diary-file tsp/org-diary-file))
+(defconst tsp/org-calendar-file (expand-file-name "calendar.org" tsp/org-directory))
 (defconst tsp/org-archive-directory (expand-file-name "archive/" tsp/org-directory))
 (defconst tsp/org-roam-directory (expand-file-name "roam/" tsp/org-directory))
 (defconst tsp/org-roam-dailies-directory
   (expand-file-name "daily/" tsp/org-roam-directory))
+(defconst tsp/org-roam-note-directories
+  (mapcar (lambda (directory)
+            (expand-file-name directory tsp/org-roam-directory))
+          '("meetings/" "events/" "ideas/" "projects/" "references/"))
+  "Directories used by typed Org-roam note captures.")
 
 (defun tsp/org-bootstrap-file (file title &rest headings)
   "Create FILE with TITLE and HEADINGS when it does not exist."
@@ -702,16 +720,17 @@ it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
 
 (defun tsp/org-bootstrap ()
   "Create the directories and core files used by the Org workflow."
-  (dolist (directory (list tsp/org-directory tsp/org-archive-directory
-                           tsp/org-roam-directory tsp/org-roam-dailies-directory))
+  (dolist (directory (append (list tsp/org-directory tsp/org-archive-directory
+                                   tsp/org-roam-directory
+                                   tsp/org-roam-dailies-directory)
+                             tsp/org-roam-note-directories))
     (make-directory directory t))
   (tsp/org-bootstrap-file tsp/org-inbox-file "Inbox")
   (tsp/org-bootstrap-file tsp/org-tasks-file "Tasks"
                           "Actions" "Waiting" "Someday" "Habits")
   (tsp/org-bootstrap-file tsp/org-projects-file "Projects"
                           "Active" "Completed")
-  (unless (file-exists-p tsp/org-diary-file)
-    (with-temp-file tsp/org-diary-file)))
+  (tsp/org-bootstrap-file tsp/org-calendar-file "Calendar" "Events"))
 
 (tsp/org-bootstrap)
 
@@ -906,11 +925,8 @@ left untouched for manual recovery."
   :init
   (setq org-directory tsp/org-directory
         org-default-notes-file tsp/org-inbox-file
-        diary-file tsp/org-diary-file
-        calendar-mark-diary-entries-flag t
-        org-agenda-include-diary t
         org-agenda-files (list tsp/org-inbox-file tsp/org-tasks-file
-                               tsp/org-projects-file)
+                               tsp/org-projects-file tsp/org-calendar-file)
         org-archive-location
         (concat tsp/org-archive-directory "%s_archive::datetree/")
         org-attach-id-dir (expand-file-name "attachments/" tsp/org-directory)
@@ -938,6 +954,9 @@ left untouched for manual recovery."
            "* %? :idea:\n:PROPERTIES:\n:CREATED: %U\n:END:\n%i" :empty-lines 1)
           ("l" "Link" entry (file ,tsp/org-inbox-file)
            "* %?\n%a\nCaptured: %U\n%i" :empty-lines 1)
+          ("e" "Event" entry (file+headline ,tsp/org-calendar-file "Events")
+           "* %^{Event}\n:PROPERTIES:\n:ID: %(org-id-new)\n:LOCATION: %^{Location}\n:CREATED: %U\n:END:\n%^T\n\n%?"
+           :empty-lines 1)
           ("m" "Meeting" entry (file+olp+datetree ,tsp/org-projects-file)
            "* %^{Meeting} :meeting:\n%U\n\n** Notes\n%?\n\n** NEXT Follow-ups\n" :clock-in t :clock-resume t)
           ("j" "Journal" entry (file+olp+datetree ,tsp/org-inbox-file)
@@ -1015,6 +1034,107 @@ left untouched for manual recovery."
 
 (global-set-key (kbd "C-c o d") #'org-roam-dailies-goto-today)
 (global-set-key (kbd "C-c o D") #'org-roam-dailies-capture-today)
+
+(defvar tsp/org-related-event-marker nil
+  "Marker for the event awaiting a related Org-roam capture.")
+
+(defvar tsp/org-related-note-id nil
+  "ID of the Org-roam note awaiting capture.")
+
+(defvar tsp/org-related-note-title nil
+  "Title of the Org-roam note awaiting capture.")
+
+(defun tsp/org-roam-related-note-finalize ()
+  "Link the captured Org-roam note from its originating calendar event."
+  (unwind-protect
+      (progn
+        (when (and (markerp tsp/org-related-event-marker)
+                   (marker-buffer tsp/org-related-event-marker))
+          (org-with-point-at tsp/org-related-event-marker
+            (org-entry-put
+             nil "RELATED_NOTE"
+             (org-link-make-string (concat "id:" tsp/org-related-note-id)
+                                   tsp/org-related-note-title))
+            (save-buffer)))
+        (org-roam-capture--finalize-find-file))
+    (setq tsp/org-related-event-marker nil
+          tsp/org-related-note-id nil
+          tsp/org-related-note-title nil)))
+
+(defun tsp/org-roam-note-from-event ()
+  "Create or visit a typed Org-roam note related to the event at point."
+  (interactive)
+  (catch 'tsp/org-roam-note-from-event
+  (require 'org-id)
+  (require 'org-roam)
+  (require 'org-roam-capture)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "This command must be used from an Org calendar event"))
+  (org-back-to-heading t)
+  (unless (org-entry-get nil "TIMESTAMP")
+    (user-error "The heading at point has no event timestamp"))
+  (let ((related (org-entry-get nil "RELATED_NOTE")))
+    (when (and related (string-match "\\[\\[id:\\([^]]+\\)\\]" related))
+      (if-let* ((node (org-roam-node-from-id (match-string 1 related))))
+          (progn
+            (org-roam-node-visit node)
+            (throw 'tsp/org-roam-note-from-event nil))
+        (user-error "The event's related note is missing from Org-roam"))))
+  (let* ((event-marker (copy-marker (point)))
+         (event-title (org-get-heading t t t t))
+         (event-id (org-id-get-create))
+         (event-time (org-entry-get nil "TIMESTAMP"))
+         (event-date
+          (condition-case nil
+              (format-time-string "%Y-%m-%d" (org-time-string-to-time event-time))
+            (error "")))
+         (location (or (org-entry-get nil "LOCATION") ""))
+         (types
+          '((?m "Meeting" "meeting" "meetings/"
+                "* Attendees\n\n- \n\n* Agenda\n\n- \n\n* Notes\n\n* Decisions\n\n* Follow-ups\n\n- [ ] ")
+            (?e "Event" "event" "events/"
+                "* Expectations\n\n* Observations\n\n* People and references\n\n* Outcome\n\n* Follow-ups\n\n- [ ] ")
+            (?i "Idea" "idea" "ideas/"
+                "* Motivation\n\n* Idea\n\n* Possible approaches\n\n* Next experiment\n")
+            (?n "General" "note" ""
+                "* Notes\n\n")
+            (?p "Project" "project" "projects/"
+                "* Outcome\n\n* Context\n\n* Notes\n\n* Links\n\n")
+            (?r "Reference" "reference" "references/"
+                "* Summary\n\n* Source\n\n* Notes\n\n")))
+         (choice (read-char-choice
+                  "Note type: [m]eeting [e]vent [i]dea [n]general [p]roject [r]eference: "
+                  (mapcar #'car types)))
+         (type (assq choice types))
+         (default-title (if (string-empty-p event-date)
+                            event-title
+                          (format "%s — %s" event-title event-date)))
+         (note-title (read-string "Note title: " default-title))
+         (note-id (org-id-new))
+         (body (concat "* Calendar event\n${event-link}\n"
+                       (unless (string-empty-p location)
+                         "Location: ${location}\n")
+                       "\n" (nth 4 type) "%?"))
+         (template
+          `((,(char-to-string choice) ,(nth 1 type) plain ,body
+             :target
+             (file+head ,(concat (nth 3 type) "%<%Y%m%d%H%M%S>-${slug}.org")
+                        ,(concat "#+title: ${title}\n#+filetags: :"
+                                 (nth 2 type) ":\n"))
+             :unnarrowed t))))
+    (save-buffer)
+    (setq tsp/org-related-event-marker event-marker
+          tsp/org-related-note-id note-id
+          tsp/org-related-note-title note-title)
+    (org-roam-capture-
+     :node (org-roam-node-create :id note-id :title note-title)
+     :info (list :event-link
+                 (org-link-make-string (concat "id:" event-id) event-title)
+                 :location location)
+     :templates template
+     :props '(:finalize tsp/org-roam-related-note-finalize)))))
+
+(global-set-key (kbd "C-c o N") #'tsp/org-roam-note-from-event)
 
 (use-package org-roam
   :ensure t
@@ -1300,31 +1420,10 @@ Call ORIGINAL for strings that do not contain Khmer."
         :inserter #'tsp/telega-dashboard-chat-insert)))
   nil)
 
-(defun tsp/dashboard-diary-agenda ()
-  "Return Diary appointments for the dashboard's seven-day agenda."
-  (require 'diary-lib)
-  (mapcar
-   (lambda (entry)
-     (let* ((date (car entry))
-            (lines (split-string (nth 1 entry) "\n[[:space:]]*" t))
-            (text (concat (car lines)
-                          (when (cdr lines)
-                            (concat "\n        "
-                                    (string-join (cdr lines) "\n        ")))))
-            (source (nth 3 entry))
-            (marker (car source)))
-       (propertize
-        (format "%04d-%02d-%02d  %s"
-                (nth 2 date) (car date) (nth 1 date) text)
-        'dashboard-agenda-file (nth 1 source)
-        'dashboard-agenda-loc (if (markerp marker) (marker-position marker) 1))))
-   (diary-list-entries (calendar-current-date) 7 t)))
-
 (defun tsp/dashboard-insert-agenda (list-size)
-  "Insert Org and Diary agenda items, limited to LIST-SIZE."
+  "Insert Org agenda items, limited to LIST-SIZE."
   (require 'org-agenda)
-  (let ((items (append (dashboard-agenda--sorted-agenda)
-                       (tsp/dashboard-diary-agenda))))
+  (let ((items (dashboard-agenda--sorted-agenda)))
     (dashboard-insert-section
      "Agenda for the coming week:"
      items list-size 'agenda (dashboard-get-shortcut 'agenda)
@@ -1375,6 +1474,7 @@ Call ORIGINAL for strings that do not contain Khmer."
         dashboard-set-heading-icons nil
         dashboard-set-file-icons nil
         dashboard-show-shortcuts t
+        dashboard-agenda-time-string-format "%Y-%m-%d %H:%M"
         dashboard-items '((agenda . 7)
                           (telega-chats . 6)
                           (recents . 5)

@@ -68,10 +68,15 @@
          (kill-ring-yank-pointer kill-ring))
     (consult-yank-pop)))
 
+(use-package avy
+  :ensure t
+  :bind
+  (("C-s" . avy-goto-char-timer)))
+
 (use-package consult
   :ensure t
   :bind
-  (("C-s" . consult-line)
+  (("C-S-s" . consult-line)
    ("C-y" . tsp/yank-from-kill-ring)
    ("C-S-y" . tsp/yank-from-system-clipboard)
    ("C-Y" . tsp/yank-from-system-clipboard)
