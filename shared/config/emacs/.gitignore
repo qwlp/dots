@@ -24,7 +24,6 @@ multiple-cursors-lists.el
 .org-generic-id-locations
 .org-id-locations
 bookmarks
-oauth2-auto.plist
 persist/
 request/
 *.elc

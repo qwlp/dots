@@ -14,6 +14,18 @@
   :ensure t
   :init
   (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el"))
+  (with-eval-after-load 'org
+    ;; Org's local map shadows the global multiple-cursors bindings.
+    ;; Keep the displaced Org commands available on nearby keys.
+    (define-key org-mode-map (kbd "C-c M-<") #'org-promote-subtree)
+    (define-key org-mode-map (kbd "C-c M-'") #'org-cycle-agenda-files)
+    (define-key org-mode-map (kbd "C-c C-<") #'mc/mark-all-like-this)
+    (define-key org-mode-map (kbd "C-'") #'mc/skip-to-next-like-this))
+  :config
+  (mc/load-lists)
+  (setq mc/cmds-to-run-once
+        (delq 'org-self-insert-command mc/cmds-to-run-once))
+  (add-to-list 'mc/cmds-to-run-for-all 'org-self-insert-command)
   :bind
   (("C-S-c C-S-c" . mc/edit-lines)
    ("C->" . mc/mark-next-like-this)
@@ -154,10 +166,37 @@
           (goto-char point)))
      (format "%s" el))))
 
+(defun tsp/dashboard-org-projects ()
+  "Return unfinished Org projects from `org-agenda-files'."
+  (require 'org)
+  (let (projects)
+    (org-map-entries
+     (lambda ()
+       (when (tsp/org-project-p)
+         (push (propertize (org-get-heading t t t t)
+                           'tsp/org-project-marker (copy-marker (point)))
+               projects)))
+     "+project/-DONE-CANCELLED-SOMEDAY" 'agenda)
+    (nreverse projects)))
+
+(defun tsp/dashboard-insert-org-projects (list-size)
+  "Insert up to LIST-SIZE unfinished projects from the Org agenda."
+  (dashboard-insert-section
+   "Projects:"
+   (tsp/dashboard-org-projects)
+   list-size 'projects (dashboard-get-shortcut 'projects)
+   `(lambda (&rest _)
+      (let ((marker (get-text-property 0 'tsp/org-project-marker ,el)))
+        (when (marker-buffer marker)
+          (pop-to-buffer-same-window (marker-buffer marker))
+          (goto-char marker)
+          (org-show-context))))
+   (format "%s" el)))
+
 (use-package dashboard
   :ensure t
   :demand t
-  :bind (("C-c d" . dashboard-open))
+  :bind (("C-c d" . tsp/dashboard-open))
   :init
   (setq dashboard-startup-banner 'logo
         dashboard-image-banner-max-height 96
@@ -174,6 +213,8 @@
   :config
   (setf (alist-get 'agenda dashboard-item-generators)
         #'tsp/dashboard-insert-agenda)
+  (setf (alist-get 'projects dashboard-item-generators)
+        #'tsp/dashboard-insert-org-projects)
   (add-to-list 'dashboard-item-generators
                '(telega-chats . tsp/dashboard-insert-telega-chats))
   (add-to-list 'dashboard-item-shortcuts '(telega-chats . "t"))
@@ -182,8 +223,7 @@
 
 (defun tsp/dashboard-refresh-after-telega ()
   "Refresh the dashboard once Telega has actually fetched its chats."
-  (when (get-buffer "*dashboard*")
-    (dashboard-refresh-buffer)))
+  (tsp/dashboard-refresh-if-visible))
 
 (defun tsp/dashboard-refresh-if-visible ()
   "Refresh the dashboard when it already exists."
@@ -197,23 +237,41 @@
 
 (defun tsp/dashboard-start-telega ()
   "Start Telega in the background after startup."
-  (when (and (not noninteractive) (not (daemonp))
+  (when (and (not noninteractive)
              (not (and (fboundp 'telega-server-live-p)
                        (telega-server-live-p))))
     (save-window-excursion (telega))))
 
 (defun tsp/dashboard-schedule-telega ()
   "Schedule Telega after Emacs becomes responsive."
-  (when (and (not noninteractive) (not (daemonp)))
+  (when (not noninteractive)
     (run-with-idle-timer 2 nil #'tsp/dashboard-start-telega)))
+
+(defun tsp/dashboard-open ()
+  "Open a freshly rendered dashboard, including after its buffer was killed."
+  (interactive)
+  (when-let ((buffer (get-buffer "*dashboard*")))
+    ;; Do not use `with-current-buffer' here: when this command is invoked
+    ;; from the dashboard, killing BUFFER would leave the unwind code trying
+    ;; to restore a current buffer that no longer exists.
+    (when (provided-mode-derived-p (buffer-local-value 'major-mode buffer)
+                                   'dashboard-mode)
+      (kill-buffer buffer)))
+  (dashboard-open))
 
 (defun tsp/dashboard-open-on-startup ()
   "Open the dashboard after other startup buffer changes have finished."
   (when (and (not noninteractive) (not (daemonp)))
-    (dashboard-open)))
+    (tsp/dashboard-open)))
+
+(defun tsp/dashboard-initialize-client-frame (&optional _frame)
+  "Initialize dashboard services for a newly created daemon client frame."
+  (when (daemonp)
+    (tsp/dashboard-schedule-telega)))
 
 (add-hook 'emacs-startup-hook #'tsp/dashboard-open-on-startup 99)
 (add-hook 'emacs-startup-hook #'tsp/dashboard-schedule-telega 90)
+(add-hook 'server-after-make-frame-hook #'tsp/dashboard-initialize-client-frame)
 (add-hook 'telega-chats-fetched-hook #'tsp/dashboard-refresh-after-telega)
 
 (use-package exec-path-from-shell
