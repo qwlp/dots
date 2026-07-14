@@ -106,6 +106,12 @@
   :config
   (global-corfu-mode))
 
+(defun tsp/org-corfu-manual-only ()
+  "Keep Corfu available in Org buffers without automatic popups."
+  (setq-local corfu-auto nil))
+
+(add-hook 'org-mode-hook #'tsp/org-corfu-manual-only)
+
 (use-package which-key
   :ensure t
   :demand t

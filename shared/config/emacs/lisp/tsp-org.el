@@ -6,6 +6,7 @@
 (defun tsp/org-mode-setup ()
   "Custom setup for Org mode."
   (setq fill-column 80)
+  (electric-indent-local-mode -1)
   (auto-fill-mode 1)
   (display-fill-column-indicator-mode 1))
 
@@ -472,7 +473,7 @@ left untouched for manual recovery."
   (setq org-roam-directory tsp/org-roam-directory
         org-roam-db-location (tsp/emacs-state-file "org-roam.db")
         org-roam-dailies-directory "daily/"
-        org-roam-completion-everywhere t
+        org-roam-completion-everywhere nil
         org-roam-capture-templates
         '(("n" "Note" plain "%?"
            :target (file+head "%<%Y%m%d%H%M%S>-${slug}.org"

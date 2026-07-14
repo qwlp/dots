@@ -57,6 +57,7 @@ alias lt="eza --tree --icons=always --group-directories-first"
 alias poweroff="systemctl poweroff --no-wall"
 alias tpc="typst compile"
 alias h="hx"
+alias cy="codex --yolo"
 
 alias llt="eza -la --sort=modified --icons=always"
 alias lls="eza -la --sort=size --icons=always"

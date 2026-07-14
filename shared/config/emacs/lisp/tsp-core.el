@@ -86,6 +86,121 @@
 (keymap-global-set "C-v" #'tsp/scroll-up-and-center)
 (keymap-global-set "M-v" #'tsp/scroll-down-and-center)
 
+(defun tsp/line-bounds ()
+  "Return the bounds and line count of the current line or active region.
+
+The returned list is (BEG END COUNT).  When the region ends at the
+beginning of a line, that line is not included."
+  (let* ((regionp (use-region-p))
+         (start (if regionp (region-beginning) (point)))
+         (finish (if regionp (region-end) (point)))
+         (beg (save-excursion
+                (goto-char start)
+                (line-beginning-position)))
+         (end (save-excursion
+                (goto-char finish)
+                (unless (and regionp (> finish start) (bolp))
+                  (forward-line 1))
+                (point))))
+    (list beg end (max 1 (count-lines beg end)))))
+
+(defun tsp/move-lines (direction)
+  "Move the current line or active region one line in DIRECTION.
+
+DIRECTION must be -1 to move up or 1 to move down.  Point and an active
+region keep their positions within the moved text."
+  (let* ((regionp (use-region-p))
+         (bounds (tsp/line-bounds))
+         (beg (nth 0 bounds))
+         (end (nth 1 bounds))
+         (line-count (nth 2 bounds))
+         (point-offset (- (point) beg))
+         (mark-offset (and regionp (- (mark) beg)))
+         (missing-final-newline
+          (and (> (point-max) (point-min))
+               (/= (char-before (point-max)) ?\n)))
+         new-beg)
+    (atomic-change-group
+      ;; Giving the final line a temporary terminator lets `transpose-regions'
+      ;; treat every line uniformly.  Remove it again after the swap.
+      (when missing-final-newline
+        (let ((old-max (point-max)))
+          (save-excursion
+            (goto-char old-max)
+            (insert "\n"))
+          (when (= end old-max)
+            (setq end (1+ end)))))
+      (pcase direction
+        (-1
+         (when (= beg (point-min))
+           (user-error "Already at the first line"))
+         (let ((previous-beg (save-excursion
+                               (goto-char beg)
+                               (forward-line -1)
+                               (point))))
+           (transpose-regions previous-beg beg beg end)
+           (setq new-beg previous-beg)))
+        (1
+         (when (= end (point-max))
+           (user-error "Already at the last line"))
+         (let ((next-end (save-excursion
+                           (goto-char end)
+                           (forward-line 1)
+                           (point))))
+           (transpose-regions beg end end next-end)
+           (setq new-beg (+ beg (- next-end end)))))
+        (_ (error "Invalid line movement direction: %S" direction)))
+      (when missing-final-newline
+        (save-excursion
+          (goto-char (point-max))
+          (delete-char -1))))
+    (let ((new-end (save-excursion
+                     (goto-char new-beg)
+                     (forward-line line-count)
+                     (point))))
+      (goto-char (+ new-beg (min point-offset (- new-end new-beg))))
+      (when regionp
+        (set-mark (+ new-beg (min mark-offset (- new-end new-beg))))
+        (setq deactivate-mark nil)))))
+
+(defun tsp/move-lines-up ()
+  "Move the current line or active region up by one line."
+  (interactive)
+  (tsp/move-lines -1))
+
+(defun tsp/move-lines-down ()
+  "Move the current line or active region down by one line."
+  (interactive)
+  (tsp/move-lines 1))
+
+;; Keep line editing under a dedicated user prefix so mode-specific editing
+;; keys (especially Org's Meta-arrow bindings) remain untouched.
+(defvar-keymap tsp/line-edit-map
+  :doc "Keymap for lightweight line editing commands."
+  "d" #'duplicate-dwim
+  "l" #'duplicate-line
+  "p" #'tsp/move-lines-up
+  "n" #'tsp/move-lines-down
+  "<up>" #'tsp/move-lines-up
+  "<down>" #'tsp/move-lines-down)
+
+;; Remove the former binding when reloading an existing Emacs session.
+(when (eq (keymap-global-lookup "C-c L") tsp/line-edit-map)
+  (keymap-global-unset "C-c L"))
+
+(keymap-global-set "C-c s" tsp/line-edit-map)
+
+;; Remove the former Super bindings when reloading an existing session.
+(when (eq (keymap-global-lookup "s-n") #'tsp/move-lines-down)
+  (keymap-global-unset "s-n"))
+(when (eq (keymap-global-lookup "s-p") #'tsp/move-lines-up)
+  (keymap-global-unset "s-p"))
+
+;; Hold Alt+Shift and tap n/p repeatedly.  Lowercase Meta-n/p remain available
+;; to symbol-overlay and Control-n/p keep normal line navigation.
+(keymap-global-set "M-N" #'tsp/move-lines-down)
+(keymap-global-set "M-P" #'tsp/move-lines-up)
+
 (add-hook 'emacs-startup-hook
           (lambda ()
             (setq file-name-handler-alist tsp/startup-file-name-handler-alist
