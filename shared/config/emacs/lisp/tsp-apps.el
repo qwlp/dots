@@ -300,18 +300,13 @@
   (require 'emms-history)
   (emms-history-load)
 
-  (defvar tsp/emms-library-refresh-timer nil)
-
-  (defun tsp/emms-refresh-library (&optional quiet)
-    "Rescan the music directory and refresh the EMMS browser.
-When QUIET is non-nil, avoid status messages for automatic refreshes."
+  (defun tsp/emms-refresh-library ()
+    "Rescan the music directory and refresh the EMMS browser."
     (interactive)
     (let ((library (expand-file-name emms-source-file-default-directory)))
       (if (not (file-directory-p library))
-          (unless quiet
-            (message "EMMS library is not mounted: %s" library))
-        (unless quiet
-          (message "Refreshing EMMS library from %s..." library))
+          (message "EMMS library is not mounted: %s" library)
+        (message "Refreshing EMMS library from %s..." library)
         ;; Populate the cache without adding the entire library to the user's queue.
         (with-temp-buffer
           (setq emms-playlist-buffer-p t
@@ -333,13 +328,14 @@ When QUIET is non-nil, avoid status messages for automatic refreshes."
         (when (buffer-live-p emms-browser-buffer)
           (with-current-buffer emms-browser-buffer
             (emms-browse-by emms-browser-default-browse-type)))
-        (unless quiet
-          (message "EMMS library refresh complete")))))
+        (message "EMMS library refresh complete"))))
 
-  (when (timerp tsp/emms-library-refresh-timer)
-    (cancel-timer tsp/emms-library-refresh-timer))
-  (setq tsp/emms-library-refresh-timer
-        (run-with-idle-timer 60 600 #'tsp/emms-refresh-library t))
+  ;; Cancel the old automatic refresh timer when reloading this config in an
+  ;; existing Emacs session.
+  (when (and (boundp 'tsp/emms-library-refresh-timer)
+             (timerp tsp/emms-library-refresh-timer))
+    (cancel-timer tsp/emms-library-refresh-timer)
+    (makunbound 'tsp/emms-library-refresh-timer))
   (emms-mode-line-mode 1)
   (emms-playing-time-mode 1))
 

@@ -1,0 +1,17 @@
+[Icon Theme]
+Name=WinbarApps
+Comment=Unmodified application logos for the vertical Waybar
+Directories=256x256/apps,scalable/apps
+Inherits=hicolor
+
+[scalable/apps]
+Size=48
+Type=Scalable
+MinSize=16
+MaxSize=256
+Context=Applications
+
+[256x256/apps]
+Size=256
+Type=Fixed
+Context=Applications

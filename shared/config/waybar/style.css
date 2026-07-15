@@ -1,0 +1,123 @@
+* {
+  border: none;
+  border-radius: 0;
+  min-height: 0;
+  min-width: 0;
+  font-family: "Noto Sans", "Noto Sans Symbols 2", sans-serif;
+  font-size: 13px;
+  box-shadow: none;
+  text-shadow: none;
+}
+
+window#waybar {
+  background: #062329;
+  color: #f2f2f2;
+}
+
+tooltip {
+  background: #202020;
+  color: #ffffff;
+  border: 1px solid #555555;
+  border-radius: 2px;
+}
+
+tooltip label {
+  padding: 5px 7px;
+}
+
+#custom-start,
+#taskbar,
+#tray,
+#custom-media,
+#custom-bluetooth,
+#network,
+#pulseaudio,
+#battery,
+#clock {
+  background: transparent;
+}
+
+#custom-start {
+  min-width: 47px;
+  min-height: 48px;
+  color: #f4f4f4;
+  font-family: "Symbols Nerd Font";
+  font-size: 22px;
+}
+
+#custom-start:hover,
+#network:hover,
+#custom-media:hover,
+#custom-bluetooth:hover,
+#pulseaudio:hover,
+#battery:hover,
+#clock:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+#taskbar button:hover {
+  background: rgba(255, 255, 255, 0.10);
+}
+
+#taskbar button {
+  min-width: 47px;
+  min-height: 48px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+}
+
+/* GTK places taskbar images about 3 logical pixels left in this vertical layout. */
+#taskbar image {
+  margin-left: 3px;
+  margin-right: 0;
+  margin-top: 9px;
+  margin-bottom: -9px;
+}
+
+#taskbar button.active {
+  background: rgba(255, 255, 255, 0.10);
+  box-shadow: inset -3px 0 #1685d1;
+}
+
+#taskbar button.minimized {
+  opacity: 0.65;
+}
+
+#tray {
+  min-width: 35px;
+  padding: 8px 6px;
+}
+
+#network,
+#custom-media,
+#custom-bluetooth,
+#pulseaudio,
+#battery {
+  min-width: 47px;
+  min-height: 34px;
+  padding: 0;
+  margin: 0;
+  font-family: "Symbols Nerd Font";
+  font-size: 18px;
+}
+
+#network.disconnected,
+#pulseaudio.muted {
+  color: #aaaaaa;
+}
+
+#battery.warning {
+  color: #f0c674;
+}
+
+#battery.critical:not(.charging) {
+  color: #ff6b6b;
+}
+
+#clock {
+  min-width: 47px;
+  padding: 6px 0;
+  font-size: 11px;
+}
