@@ -47,7 +47,7 @@
   "custom/bluetooth": {
     "format": "󰂯",
     "tooltip-format": "Bluetooth",
-    "on-click": "foot -e bluetui"
+    "on-click": "foot --app-id=waybar-popup --window-size-chars=80x24 -e bluetui"
   },
 
   "network": {
@@ -58,7 +58,7 @@
     "tooltip-format-wifi": "{essid}\n{signalStrength}%",
     "tooltip-format-ethernet": "{ifname}\n{ipaddr}/{cidr}",
     "tooltip-format-disconnected": "Network disconnected",
-    "on-click": "foot -e impala"
+    "on-click": "foot --app-id=waybar-popup --window-size-chars=80x24 -e impala"
   },
 
   "pulseaudio": {
@@ -70,7 +70,7 @@
     },
     "tooltip-format": "Volume: {volume}%",
     "scroll-step": 5,
-    "on-click": "foot -e pulsemixer",
+    "on-click": "foot --app-id=waybar-popup --window-size-chars=80x24 -e pulsemixer",
     "on-click-right": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle"
   },
 
