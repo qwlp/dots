@@ -12,11 +12,20 @@
 
 (defun tsp/telega-rendered-string-width (string &optional from to)
   "Measure STRING using its rendered glyph width when it contains Khmer."
-  (if (and (display-graphic-p)
-           (tsp/telega-khmer-string-p
-            (if (or from to) (substring string from to) string)))
-      (telega-window-string-width string from to)
-    (string-width string from to)))
+  (let ((fallback-width (string-width string from to)))
+    (if (and (display-graphic-p)
+             (tsp/telega-khmer-string-p
+              (if (or from to) (substring string from to) string)))
+        ;; Pixel measurement needs a live graphical window.  During daemon
+        ;; startup or redisplay it can transiently fail or return nil.
+        (condition-case nil
+            (let ((rendered-width
+                   (telega-window-string-width string from to)))
+              (if (numberp rendered-width)
+                  rendered-width
+                fallback-width))
+          (error fallback-width))
+      fallback-width)))
 
 (defun tsp/telega-glyph-boundaries (string)
   "Return a vector of safe character boundaries in STRING.

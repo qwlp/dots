@@ -85,7 +85,19 @@
                            'telega-notifications--chat-msg0)
     (advice-add 'telega-notifications--chat-msg0
                 :around #'tsp/telega-notification-valid-message))
+  (unless (advice-member-p #'tsp/telega-location-live-for-compatible
+                           'telega-msg-location-live-for)
+    (advice-add 'telega-msg-location-live-for
+                :around #'tsp/telega-location-live-for-compatible))
   (telega-notifications-mode 1))
+
+(defun tsp/telega-location-live-for-compatible (original msg)
+  "Handle ordinary locations from TDLib versions with no live fields."
+  (let* ((content (plist-get msg :content))
+         (live-period (plist-get content :live_period))
+         (expires-in (plist-get content :expires_in)))
+    (when (and (numberp live-period) (numberp expires-in))
+      (funcall original msg))))
 
 (defun tsp/telega-notification-valid-message (original msg &rest args)
   "Call ORIGINAL for MSG only when it has valid Telegram identifiers."
@@ -215,17 +227,23 @@
       (with-current-buffer buffer
         (dashboard-insert-startupify-lists t)))))
 
-(defun tsp/dashboard-start-telega ()
-  "Start Telega in the background after startup."
+(defun tsp/dashboard-start-telega (&optional frame)
+  "Start Telega in the background on graphical FRAME."
   (when (and (not noninteractive)
+             (frame-live-p frame)
+             (display-graphic-p frame)
              (not (and (fboundp 'telega-server-live-p)
                        (telega-server-live-p))))
-    (save-window-excursion (telega))))
+    ;; Telega calculates and caches image sizes while constructing its buffers.
+    ;; In a daemon, ensure that happens with the client frame selected.
+    (with-selected-frame frame
+      (save-window-excursion (telega)))))
 
-(defun tsp/dashboard-schedule-telega ()
-  "Schedule Telega after Emacs becomes responsive."
-  (when (not noninteractive)
-    (run-with-idle-timer 2 nil #'tsp/dashboard-start-telega)))
+(defun tsp/dashboard-schedule-telega (&optional frame)
+  "Schedule Telega after graphical FRAME becomes responsive."
+  (let ((frame (or frame (selected-frame))))
+    (when (and (not noninteractive) (display-graphic-p frame))
+      (run-with-idle-timer 2 nil #'tsp/dashboard-start-telega frame))))
 
 (defun tsp/dashboard-open ()
   "Open a freshly rendered dashboard, including after its buffer was killed."
@@ -298,7 +316,54 @@
   (require 'emms-volume-mpv)
   (setq emms-volume-change-function 'emms-volume-mpv-change)
   (require 'emms-history)
-  (emms-history-load)
+
+  (defvar tsp/emms-history-loaded-p nil
+    "Non-nil after EMMS history has been restored in this session.")
+
+  (unless tsp/emms-history-loaded-p
+    (emms-history-load)
+    (setq tsp/emms-history-loaded-p t))
+
+  (defun tsp/emms-playlist-fingerprint (buffer)
+    "Return the ordered track identity list for playlist BUFFER."
+    (with-current-buffer buffer
+      (save-restriction
+        (widen)
+        (mapcar (lambda (track)
+                  (cons (emms-track-type track)
+                        (emms-track-name track)))
+                (emms-playlist-tracks-in-region
+                 (point-min) (point-max))))))
+
+  (defun tsp/emms-deduplicate-playlists ()
+    "Kill duplicate EMMS playlists while preserving distinct queues.
+
+The active playlist is always retained.  Two playlists are duplicates when
+their ordered track types and names are identical.  Return the number of
+playlist buffers removed."
+    (interactive)
+    (let* ((active emms-playlist-buffer)
+           (buffers (emms-playlist-buffer-list))
+           (buffers (if (memq active buffers)
+                        (cons active (delq active buffers))
+                      buffers))
+           (seen (make-hash-table :test #'equal))
+           (removed 0))
+      (dolist (buffer buffers)
+        (when (buffer-live-p buffer)
+          (let ((fingerprint (tsp/emms-playlist-fingerprint buffer)))
+            (if (gethash fingerprint seen)
+                (when (kill-buffer buffer)
+                  (setq removed (1+ removed)))
+              (puthash fingerprint buffer seen)))))
+      ;; Rebuild the registry instead of destructively pruning it while its
+      ;; buffers' kill hooks may also be changing the same list.
+      (setq emms-playlist-buffers
+            (seq-filter #'buffer-live-p emms-playlist-buffers))
+      (when (called-interactively-p 'interactive)
+        (message "Removed %d duplicate EMMS playlist%s"
+                 removed (if (= removed 1) "" "s")))
+      removed))
 
   (defun tsp/emms-refresh-library ()
     "Rescan the music directory and refresh the EMMS browser."

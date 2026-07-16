@@ -100,17 +100,21 @@
   :demand t
   :init
   (setq corfu-cycle t
-        corfu-auto t
-        corfu-auto-prefix 2
-        corfu-auto-delay 0.2)
+        ;; Keep manual completion available everywhere, but do not run every
+        ;; buffer's CAPF from an idle timer.  In particular, Elisp completion
+        ;; and the TAGS fallback can be expensive enough to block redisplay.
+        corfu-auto nil
+        corfu-auto-prefix 3
+        corfu-auto-delay 0.35)
   :config
   (global-corfu-mode))
 
-(defun tsp/org-corfu-manual-only ()
-  "Keep Corfu available in Org buffers without automatic popups."
-  (setq-local corfu-auto nil))
+(defun tsp/corfu-enable-auto-completion ()
+  "Enable automatic Corfu popups in inexpensive programming buffers."
+  (unless (derived-mode-p 'emacs-lisp-mode 'lisp-interaction-mode)
+    (setq-local corfu-auto t)))
 
-(add-hook 'org-mode-hook #'tsp/org-corfu-manual-only)
+(add-hook 'prog-mode-hook #'tsp/corfu-enable-auto-completion)
 
 (use-package which-key
   :ensure t
