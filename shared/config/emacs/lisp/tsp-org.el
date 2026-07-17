@@ -8,7 +8,9 @@
   (setq fill-column 80)
   (electric-indent-local-mode -1)
   (auto-fill-mode 1)
-  (display-fill-column-indicator-mode 1))
+  (display-fill-column-indicator-mode 1)
+  (add-hook 'post-command-hook
+            #'tsp/org--hide-image-preview-after-move nil t))
 
 (defun tsp/org-redisplay-inline-images ()
   "Refresh inline images after evaluating an Org source block."
@@ -25,6 +27,7 @@
 (defconst tsp/org-projects-file (expand-file-name "projects.org" tsp/org-directory))
 (defconst tsp/org-calendar-file (expand-file-name "calendar.org" tsp/org-directory))
 (defconst tsp/org-archive-directory (expand-file-name "archive/" tsp/org-directory))
+(defconst tsp/org-assets-directory (expand-file-name "assets/" tsp/org-directory))
 (defconst tsp/org-roam-directory (expand-file-name "roam/" tsp/org-directory))
 (defconst tsp/org-roam-dailies-directory
   (expand-file-name "daily/" tsp/org-roam-directory))
@@ -46,6 +49,7 @@
 (defun tsp/org-bootstrap ()
   "Create the directories and core files used by the Org workflow."
   (dolist (directory (append (list tsp/org-directory tsp/org-archive-directory
+                                   tsp/org-assets-directory
                                    tsp/org-roam-directory
                                    tsp/org-roam-dailies-directory)
                              tsp/org-roam-note-directories))
@@ -58,6 +62,151 @@
   (tsp/org-bootstrap-file tsp/org-calendar-file "Calendar" "Events"))
 
 (tsp/org-bootstrap)
+
+(defvar-local tsp/org-temporary-image-overlays nil
+  "Image overlays belonging to the current temporary preview.")
+
+(defvar-local tsp/org-temporary-image-bounds nil
+  "Markers bounding the image link currently being previewed.")
+
+(defun tsp/org--clear-temporary-image-preview ()
+  "Remove the temporary image preview in the current buffer."
+  (mapc (lambda (overlay)
+          (when (overlayp overlay)
+            (delete-overlay overlay)))
+        tsp/org-temporary-image-overlays)
+  (setq tsp/org-temporary-image-overlays nil)
+  (when tsp/org-temporary-image-bounds
+    (mapc (lambda (marker) (set-marker marker nil))
+          tsp/org-temporary-image-bounds)
+    (setq tsp/org-temporary-image-bounds nil)))
+
+(defun tsp/org--hide-image-preview-after-move ()
+  "Hide the temporary preview after point leaves its image link."
+  (when tsp/org-temporary-image-bounds
+    (let ((begin (marker-position (car tsp/org-temporary-image-bounds)))
+          (end (marker-position (cadr tsp/org-temporary-image-bounds))))
+      (unless (and begin end (<= begin (point)) (< (point) end))
+        (tsp/org--clear-temporary-image-preview)))))
+
+(defun tsp/org-preview-image-at-point ()
+  "Temporarily display the Org image link at point.
+The preview is removed as soon as point moves outside the link."
+  (interactive)
+  (let* ((link (org-element-lineage (org-element-context) '(link) t))
+         (type (and link (org-element-property :type link)))
+         (path (and link (org-element-property :path link))))
+    (unless (and link
+                 (member type '("file" "attachment"))
+                 path
+                 (string-match-p (image-file-name-regexp) path))
+      (user-error "Point is not on an image link"))
+    (tsp/org--clear-temporary-image-preview)
+    (let ((begin (org-element-property :begin link))
+          (end (org-element-property :end link)))
+      (org-display-inline-images t t begin end)
+      (setq tsp/org-temporary-image-overlays
+            (seq-filter (lambda (overlay)
+                          (overlay-get overlay 'org-image-overlay))
+                        (overlays-in begin end))
+            tsp/org-temporary-image-bounds
+            (list (copy-marker begin) (copy-marker end t)))
+      (unless tsp/org-temporary-image-overlays
+        (setq tsp/org-temporary-image-bounds nil)
+        (user-error "Could not display this image")))))
+
+(defun tsp/org-delete-image-at-point ()
+  "Trash the pasted image at point and remove its Org link.
+For safety, only image files inside `tsp/org-assets-directory' are removed."
+  (interactive)
+  (let* ((link (org-element-lineage (org-element-context) '(link) t))
+         (type (and link (org-element-property :type link)))
+         (path (and link (org-element-property :path link)))
+         (base (if buffer-file-name
+                   (file-name-directory buffer-file-name)
+                 tsp/org-directory))
+         (file (and (equal type "file") path
+                    (expand-file-name (org-link-unescape path) base))))
+    (unless (and link file
+                 (string-match-p (image-file-name-regexp) file))
+      (user-error "Point is not on a local image link"))
+    (unless (and (file-exists-p file)
+                 (file-in-directory-p (file-truename file)
+                                      (file-truename tsp/org-assets-directory)))
+      (user-error "Refusing to delete an image outside %s"
+                  tsp/org-assets-directory))
+    (when (yes-or-no-p (format "Trash %s and remove its Org link? "
+                               (file-name-nondirectory file)))
+      (let ((begin (org-element-property :begin link))
+            (end (- (org-element-property :end link)
+                    (or (org-element-property :post-blank link) 0))))
+        (tsp/org--clear-temporary-image-preview)
+        (move-file-to-trash file)
+        (delete-region begin end)
+        (message "Moved %s to trash and removed its link"
+                 (file-name-nondirectory file))))))
+
+(defun tsp/org--clipboard-image-spec ()
+  "Return a clipboard image command and extension, or signal a user error."
+  (cond
+   ((executable-find "wl-paste")
+    (let ((types (with-temp-buffer
+                   (when (zerop (call-process "wl-paste" nil t nil "--list-types"))
+                     (buffer-string)))))
+      (cond
+       ((string-match-p "image/png" types)
+        '("png" "wl-paste" "--no-newline" "--type" "image/png"))
+       ((string-match-p "image/jpeg" types)
+        '("jpg" "wl-paste" "--no-newline" "--type" "image/jpeg"))
+       ((string-match-p "image/webp" types)
+        '("webp" "wl-paste" "--no-newline" "--type" "image/webp"))
+       ((string-match-p "image/gif" types)
+        '("gif" "wl-paste" "--no-newline" "--type" "image/gif"))
+       (t (user-error "The clipboard does not contain an image")))))
+   ((executable-find "xclip")
+    ;; Xclip returns a non-zero status when the requested image target is absent.
+    (let ((target (seq-find
+                   (lambda (candidate)
+                     (with-temp-buffer
+                       (zerop (call-process "xclip" nil t nil "-selection" "clipboard"
+                                            "-t" (car candidate) "-o"))))
+                   '(("image/png" . "png") ("image/jpeg" . "jpg")
+                     ("image/webp" . "webp") ("image/gif" . "gif")))))
+      (if target
+          (list (cdr target) "xclip" "-selection" "clipboard"
+                "-t" (car target) "-o")
+        (user-error "The clipboard does not contain an image"))))
+   ((executable-find "pngpaste") '("png" "pngpaste"))
+   (t (user-error "Install wl-clipboard, xclip, or pngpaste to paste clipboard images"))))
+
+(defun tsp/org-paste-clipboard-image ()
+  "Save the clipboard image under `tsp/org-assets-directory' and insert its link."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "This command is only available in Org buffers"))
+  (let* ((spec (tsp/org--clipboard-image-spec))
+         (extension (car spec))
+         (program (cadr spec))
+         (arguments (cddr spec))
+         (name (format-time-string "clipboard-%Y%m%d-%H%M%S-%3N"))
+         (file (expand-file-name (concat name "." extension)
+                                 tsp/org-assets-directory)))
+    (make-directory tsp/org-assets-directory t)
+    (if (string= program "pngpaste")
+        (unless (zerop (call-process program nil nil nil file))
+          (user-error "Could not read a PNG image from the clipboard"))
+      (let ((coding-system-for-write 'binary))
+        (with-temp-buffer
+          (set-buffer-multibyte nil)
+          (unless (zerop (apply #'call-process program nil t nil arguments))
+            (user-error "Could not read an image from the clipboard"))
+          (write-region (point-min) (point-max) file nil 'silent))))
+    (let* ((base (if buffer-file-name
+                     (file-name-directory buffer-file-name)
+                   tsp/org-directory))
+           (link (file-relative-name file base)))
+      (insert (format "[[file:%s]]" link))
+      (message "Saved clipboard image to %s" file))))
 
 (defvar tsp/org-git-sync-running nil
   "Non-nil while an Org Git synchronization is running.")
@@ -243,12 +392,18 @@ left untouched for manual recovery."
    ("C-c l" . org-store-link)
    ("C-c o i" . org-clock-in)
    ("C-c o o" . org-clock-out)
-   ("C-c o g" . org-clock-goto))
+   ("C-c o g" . org-clock-goto)
+   :map org-mode-map
+   ("C-c C-v" . tsp/org-paste-clipboard-image)
+   ("C-c C-p" . tsp/org-preview-image-at-point)
+   ("C-c C-x i" . tsp/org-delete-image-at-point))
   :hook
   ((org-mode . tsp/org-mode-setup)
    (org-babel-after-execute . tsp/org-redisplay-inline-images))
   :init
   (setq org-directory tsp/org-directory
+        org-startup-with-inline-images nil
+        org-image-actual-width 600
         org-default-notes-file tsp/org-inbox-file
         org-agenda-files (list tsp/org-inbox-file tsp/org-tasks-file
                                tsp/org-projects-file tsp/org-calendar-file)

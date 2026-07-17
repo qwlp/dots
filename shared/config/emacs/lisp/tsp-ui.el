@@ -59,10 +59,9 @@
 (tsp/configure-script-fonts)
 (add-hook 'after-make-frame-functions #'tsp/configure-script-fonts)
 
-(use-package naysayer-theme
-  :ensure t
-  :config
-  (load-theme 'naysayer t))
+(add-to-list 'custom-theme-load-path
+             (expand-file-name "themes/" user-emacs-directory))
+(load-theme 'naysayer t)
 
 (provide 'tsp-ui)
 ;;; tsp-ui.el ends here

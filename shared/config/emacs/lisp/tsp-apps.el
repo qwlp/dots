@@ -72,6 +72,10 @@
   (setq telega-server-libs-prefix
         (expand-file-name "~/.local")
         telega-use-images t
+        telega-root-show-avatars nil
+        telega-user-show-avatars nil
+        telega-chat-show-avatars nil
+        telega-completions-username-show-avatars nil
         telega-emoji-use-images nil
         telega-symbol-width 1
         telega-open-file-function 'org-open-file)
@@ -89,7 +93,20 @@
                            'telega-msg-location-live-for)
     (advice-add 'telega-msg-location-live-for
                 :around #'tsp/telega-location-live-for-compatible))
+  (dolist (handler '(telega--on-updateChatActiveStories
+                     telega--on-updateChatLastMessage
+                     telega--on-updateChatPosition))
+    (unless (advice-member-p #'tsp/telega-ignore-early-chat-update handler)
+      (advice-add handler :around #'tsp/telega-ignore-early-chat-update)))
   (telega-notifications-mode 1))
+
+(defun tsp/telega-ignore-early-chat-update (original event)
+  "Ignore EVENT until its chat has been added to telega's local cache."
+  (let* ((active-stories (plist-get event :active_stories))
+         (chat-id (or (plist-get event :chat_id)
+                      (plist-get active-stories :chat_id))))
+    (when (and chat-id (telega-chat-get chat-id 'offline))
+      (funcall original event))))
 
 (defun tsp/telega-location-live-for-compatible (original msg)
   "Handle ordinary locations from TDLib versions with no live fields."
@@ -303,6 +320,7 @@
   (emms-directory (tsp/emacs-state-file "emms/"))
   (emms-source-file-default-directory "~/pCloud/My Music/")
   (emms-browser-covers #'emms-browser-cache-thumbnail-async)
+  (emms-playing-time-display-format " [%s]")
   (emms-volume-change-amount 5)
   :config
   (require 'emms-setup)
@@ -310,6 +328,49 @@
   (setq emms-player-list '(emms-player-mpv))
   (require 'emms-info-native)
   (setq emms-info-functions '(emms-info-native))
+  (require 'emms-browser)
+
+  (defcustom tsp/emms-mode-line-cover-height 16
+    "Height in pixels of the EMMS cover shown in the mode line."
+    :type 'integer
+    :group 'emms)
+
+  (defun tsp/emms-mode-line-cover ()
+    "Return the current track's cover art for the mode line."
+    (let* ((track (emms-playlist-current-selected-track))
+           (description (and track (emms-track-description track)))
+           (artist (and track (emms-track-get track 'info-artist)))
+           (title (and track (emms-track-get track 'info-title)))
+           (album (and track (emms-track-get track 'info-album)))
+           (label (cond
+                   ((and artist title) (format "%s - %s" artist title))
+                   (title title)
+                   (description description)
+                   (t "Unknown track")))
+           (help (if album
+                     (format "%s — %s" album description)
+                   description))
+           (path (and track (emms-track-file-p track)
+                      (emms-track-name track)))
+           (cover (and path (display-graphic-p)
+                       (ignore-errors
+                         (emms-browser-get-cover-from-path path 'small))))
+           (image (and cover
+                       (ignore-errors
+                         (create-image cover nil nil
+                                       :height tsp/emms-mode-line-cover-height
+                                       :ascent 'center)))))
+      (concat
+       " "
+       (propertize (if image " " "♫")
+                   'display image
+                   'help-echo help
+                   'mouse-face 'mode-line-highlight)
+       " "
+       (propertize label 'help-echo help))))
+
+  (setq emms-mode-line-mode-line-function #'tsp/emms-mode-line-cover)
+
   (setq emms-browser-info-title-format "%i%T. %t"
         emms-browser-playlist-info-title-format "%i%T. %t")
   (require 'emms-volume)
@@ -385,6 +446,9 @@ playlist buffers removed."
                    (setcdr track (delq (intern "...") (cdr track)))
                    (when (and (emms-track-file-p track)
                               (file-in-directory-p path library))
+                     ;; Native readers only overwrite tags they find, so clear
+                     ;; optional values that may have been removed from a file.
+                     (emms-track-set track 'info-discnumber nil)
                      (emms-info-native track)))
                  emms-cache-db)
         (emms-cache-sync t)

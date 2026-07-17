@@ -416,13 +416,217 @@ sessions."
 (tsp/configure-script-fonts)
 (add-hook 'after-make-frame-functions #'tsp/configure-script-fonts)
 
-(use-package naysayer-theme
-  :ensure t
-  :config
-  (load-theme 'naysayer t))
+(add-to-list 'custom-theme-load-path
+             (expand-file-name "themes/" user-emacs-directory))
+(load-theme 'naysayer t)
 
 (provide 'tsp-ui)
 ;;; tsp-ui.el ends here
+#+end_src
+
+* Vendored naysayer theme
+
+The upstream theme uses =nil= for face foregrounds, which recent Emacs
+versions reject.  Keep the corrected theme here so tangling reproduces it.
+
+#+begin_src emacs-lisp :tangle themes/naysayer-theme.el
+;;; naysayer-theme.el --- The naysayer color theme
+
+;; Author: Nick Aversano <nickav@users.noreply.github.com>
+;; Package-Version: 20250406.2017
+;; Package-Revision: 00fe031e38f1
+;; Filename: naysayer-theme.el
+;; Package-Requires: ((emacs "24"))
+;; URL: https://github.com/nickav/naysayer-theme.el
+;; License: GPL-3+
+
+;;; Commentary:
+
+;; Dark green blue color scheme with tan colors. Inspired by Jonathan Blow's compiler livestreams.
+
+;;; Code:
+
+(unless (>= emacs-major-version 24)
+  (error "The naysayer theme requires Emacs 24 or later!"))
+
+(deftheme naysayer "The naysayer color theme")
+
+;; Monokai colors
+(defcustom naysayer-theme-yellow "#E6DB74" "Primary colors - yellow" :type 'string :group 'monokai)
+(defcustom naysayer-theme-orange "#FD971F" "Primary colors - orange" :type 'string :group 'monokai)
+(defcustom naysayer-theme-red "#F92672" "Primary colors - red" :type 'string :group 'monokai)
+(defcustom naysayer-theme-magenta "#FD5FF0" "Primary colors - magenta" :type 'string :group 'monokai)
+(defcustom naysayer-theme-blue "#66D9EF" "Primary colors - blue" :type 'string :group 'monokai)
+(defcustom naysayer-theme-green "#A6E22E" "Primary colors - green" :type 'string :group 'monokai)
+(defcustom naysayer-theme-cyan "#A1EFE4" "Primary colors - cyan" :type 'string :group 'monokai)
+(defcustom naysayer-theme-violet "#AE81FF" "Primary colors - violet" :type 'string :group 'monokai)
+
+(let ((background "#062329")
+      (gutters    "#062329")
+      (gutter-fg  "#062329")
+      (gutters-active "#062329")
+      (builtin      "#ffffff")
+      (selection  "#0000ff")
+      (text       "#d1b897")
+      (comments   "#44b340")
+      (punctuation "#8cde94")
+      (keywords "#ffffff")
+      (variables "#c1d1e3")
+      (functions "#ffffff")
+      (methods    "#c1d1e3")
+      (strings    "#2ec09c")
+      (constants "#7ad0c6")
+      (macros "#8cde94")
+      (numbers "#7ad0c6")
+      (white     "#ffffff")
+      (error "#ff0000")
+      (warning "#ffaa00")
+      (highlight-line "#0b3335")
+      (line-fg "#126367"))
+
+  (custom-theme-set-faces
+   'naysayer
+
+   ;; Default colors
+   ;; *****************************************************************************
+
+   `(default                          ((t (:foreground ,text :background ,background, :weight normal))))
+   `(region                           ((t (:foreground unspecified :background ,selection))))
+   `(cursor                           ((t (:background ,white                        ))))
+   `(fringe                           ((t (:background ,background   :foreground ,white))))
+   `(linum                            ((t (:background ,background :foreground ,gutter-fg))))
+   `(highlight ((t (:foreground unspecified :background ,selection))))
+
+   ;; Font lock faces
+   ;; *****************************************************************************
+
+   `(font-lock-keyword-face           ((t (:foreground ,keywords))))
+   `(font-lock-type-face              ((t (:foreground ,punctuation))))
+   `(font-lock-constant-face          ((t (:foreground ,constants))))
+   `(font-lock-variable-name-face     ((t (:foreground ,variables))))
+   `(font-lock-builtin-face           ((t (:foreground ,builtin))))
+   `(font-lock-string-face            ((t (:foreground ,strings))))
+   `(font-lock-comment-face           ((t (:foreground ,comments))))
+   `(font-lock-comment-delimiter-face ((t (:foreground ,comments))))
+   `(font-lock-doc-face               ((t (:foreground ,comments))))
+   `(font-lock-function-name-face     ((t (:foreground ,functions))))
+   `(font-lock-doc-string-face        ((t (:foreground ,strings))))
+   `(font-lock-preprocessor-face      ((t (:foreground ,macros))))
+   `(font-lock-warning-face           ((t (:foreground ,warning))))
+
+   ;; Plugins
+   ;; *****************************************************************************
+   `(trailing-whitespace ((t (:foreground unspecified :background ,warning))))
+   `(whitespace-trailing ((t (:background nil :foreground ,warning :inverse-video t))))
+
+   `(linum ((t (:foreground ,line-fg :background ,background))))
+   `(linum-relative-current-face ((t (:foreground ,white :background ,background))))
+   `(line-number ((t (:foreground ,line-fg :background ,background))))
+   `(line-number-current-line ((t (:foreground ,white :background ,background))))
+
+   ;; compilation
+   `(compilation-info ((t ,(list :foreground naysayer-theme-green
+                                 :inherit 'unspecified))))
+   `(compilation-warning ((t ,(list :foreground naysayer-theme-yellow
+                                    :bold t
+                                    :inherit 'unspecified))))
+   `(compilation-error ((t (:foreground ,error))))
+   `(compilation-mode-line-fail ((t ,(list :foreground error
+                                           :weight 'bold
+                                           :inherit 'unspecified))))
+   `(compilation-mode-line-exit ((t ,(list :foreground naysayer-theme-green
+                                           :weight 'bold
+                                           :inherit 'unspecified))))
+
+   ;; hl-line-mode
+   `(hl-line ((t (:background ,highlight-line))))
+   `(hl-line-face ((t (:background ,highlight-line))))
+
+   ;; rainbow-delimiters
+   `(rainbow-delimiters-depth-1-face ((t (:foreground ,naysayer-theme-violet))))
+   `(rainbow-delimiters-depth-2-face ((t (:foreground ,naysayer-theme-blue))))
+   `(rainbow-delimiters-depth-3-face ((t (:foreground ,naysayer-theme-green))))
+   `(rainbow-delimiters-depth-4-face ((t (:foreground ,naysayer-theme-yellow))))
+   `(rainbow-delimiters-depth-5-face ((t (:foreground ,naysayer-theme-orange))))
+   `(rainbow-delimiters-depth-6-face ((t (:foreground ,naysayer-theme-red))))
+   `(rainbow-delimiters-depth-7-face ((t (:foreground ,naysayer-theme-violet))))
+   `(rainbow-delimiters-depth-8-face ((t (:foreground ,naysayer-theme-blue))))
+   `(rainbow-delimiters-depth-9-face ((t (:foreground ,naysayer-theme-green))))
+   `(rainbow-delimiters-depth-10-face ((t (:foreground ,naysayer-theme-yellow))))
+   `(rainbow-delimiters-depth-11-face ((t (:foreground ,naysayer-theme-orange))))
+   `(rainbow-delimiters-depth-12-face ((t (:foreground ,naysayer-theme-red))))
+
+   ;; which-func
+   `(which-func ((t (:inverse-video unspecified
+                                    :underline unspecified
+                                    :foreground ,background
+                                    :weight bold
+                                    :box nil))))
+
+   ;; mode-line and powerline
+   `(mode-line-buffer-id ((t (:foreground ,background :distant-foreground ,text :text ,text :weight bold))))
+   `(mode-line ((t (:inverse-video unspecified
+                                   :underline unspecified
+                                   :foreground ,background
+                                   :background ,text
+                                   :box nil))))
+   `(powerline-active1 ((t (:background ,text :foreground ,background))))
+   `(powerline-active2 ((t (:background ,text :foreground ,background))))
+
+   `(mode-line-inactive ((t (:inverse-video unspecified
+                                            :underline unspecified
+                                            :foreground ,text
+                                            :background ,background
+                                            :box nil))))
+   `(powerline-inactive1 ((t (:background ,background :foreground ,text))))
+   `(powerline-inactive2 ((t (:background ,background :foreground ,text))))
+
+    ;; better compatibility with default DOOM mode-line
+   `(error ((t (:foreground unspecified :weight normal))))
+   `(doom-modeline-project-dir ((t (:foreground unspecified :weight bold))))
+
+   ;; js2-mode
+   `(js2-function-call ((t (:inherit (font-lock-function-name-face)))))
+   `(js2-function-param ((t (:foreground ,text))))
+   `(js2-jsdoc-tag ((t (:foreground ,keywords))))
+   `(js2-jsdoc-type ((t (:foreground ,constants))))
+   `(js2-jsdoc-value((t (:foreground ,text))))
+   `(js2-object-property ((t (:foreground ,text))))
+   `(js2-external-variable ((t (:foreground ,constants))))
+   `(js2-error ((t (:foreground ,error))))
+   `(js2-warning ((t (:foreground ,warning))))
+
+   ;; highlight numbers
+   `(highlight-numbers-number ((t (:foreground ,numbers))))
+
+   ;; tab-bar-mode
+   `(tab-bar ((t (:inherit modeline))))
+   `(tab-bar-tab ((t (:foreground ,background :background ,text))))
+   `(tab-bar-tab-inactive ((t (:foreground ,text :background ,background))))
+  )
+
+  (custom-theme-set-variables
+    'naysayer
+    '(linum-format " %5i ")
+  )
+)
+
+;;;###autoload
+(when (and (boundp 'custom-theme-load-path) load-file-name)
+  (add-to-list 'custom-theme-load-path
+               (file-name-as-directory (file-name-directory load-file-name))))
+
+;; *****************************************************************************
+
+(provide-theme 'naysayer)
+
+;; Local Variables:
+;; no-byte-compile: t
+;; End:
+
+(provide 'naysayer-theme)
+
+;;; naysayer-theme.el ends here
 #+end_src
 
 * Completion
@@ -596,6 +800,7 @@ and directories are created automatically.
 - =roam/= contains durable notes, people, references, project notes, and daily
   notes.
 - =archive/= receives completed subtrees archived with =C-c C-x C-a=.
+- =assets/= stores images pasted from the system clipboard with =C-c C-v=.
 - =calendar.org= stores appointments as linkable Org headings.
 
 The agenda reads the inbox, task, project, and calendar files.  The Org
@@ -797,11 +1002,17 @@ be captured as Org headings rather than diary entries.
 In Org buffers, long lines are filled at 80 columns.  Type =<el=, =<py=, or
 =<sh= followed by =TAB= to insert an Emacs Lisp, Python, or shell source block.
 Run the block with =C-c C-c=; inline images are refreshed afterward.  Links open
-with =RET=, and non-Org files use the desktop's normal application.
+with =RET=, and non-Org files use the desktop's normal application.  Press
+=C-c C-v= to save an image from the system clipboard in =assets/= and insert an
+image link.  Images stay hidden by default: put point on an image link and press
+=C-c C-p= to preview only that image; the preview disappears when point leaves
+the link.  Use =C-c C-x i= on one of these links to move its asset file to the
+trash and remove its Org link.  This replaces Org Babel's default =C-c C-v= prefix;
+use =M-x org-babel-tangle= when you need to tangle this file.
 
-This file is the source of truth.  After changing the Lisp block below, tangle
-it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
-=lisp/tsp-org.el=, then restart Emacs or evaluate the changed forms.
+This file is the source of truth.  After changing the Lisp block below, use
+=M-x org-babel-tangle= to regenerate =lisp/tsp-org.el=, then restart Emacs or
+evaluate the changed forms.
 
 #+begin_src emacs-lisp :tangle lisp/tsp-org.el
 ;;; tsp-org.el --- Org configuration -*- lexical-binding: t; -*-
@@ -814,7 +1025,9 @@ it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
   (setq fill-column 80)
   (electric-indent-local-mode -1)
   (auto-fill-mode 1)
-  (display-fill-column-indicator-mode 1))
+  (display-fill-column-indicator-mode 1)
+  (add-hook 'post-command-hook
+            #'tsp/org--hide-image-preview-after-move nil t))
 
 (defun tsp/org-redisplay-inline-images ()
   "Refresh inline images after evaluating an Org source block."
@@ -831,6 +1044,7 @@ it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
 (defconst tsp/org-projects-file (expand-file-name "projects.org" tsp/org-directory))
 (defconst tsp/org-calendar-file (expand-file-name "calendar.org" tsp/org-directory))
 (defconst tsp/org-archive-directory (expand-file-name "archive/" tsp/org-directory))
+(defconst tsp/org-assets-directory (expand-file-name "assets/" tsp/org-directory))
 (defconst tsp/org-roam-directory (expand-file-name "roam/" tsp/org-directory))
 (defconst tsp/org-roam-dailies-directory
   (expand-file-name "daily/" tsp/org-roam-directory))
@@ -852,6 +1066,7 @@ it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
 (defun tsp/org-bootstrap ()
   "Create the directories and core files used by the Org workflow."
   (dolist (directory (append (list tsp/org-directory tsp/org-archive-directory
+                                   tsp/org-assets-directory
                                    tsp/org-roam-directory
                                    tsp/org-roam-dailies-directory)
                              tsp/org-roam-note-directories))
@@ -864,6 +1079,151 @@ it with =C-c C-v t= (or =M-x org-babel-tangle=) to regenerate
   (tsp/org-bootstrap-file tsp/org-calendar-file "Calendar" "Events"))
 
 (tsp/org-bootstrap)
+
+(defvar-local tsp/org-temporary-image-overlays nil
+  "Image overlays belonging to the current temporary preview.")
+
+(defvar-local tsp/org-temporary-image-bounds nil
+  "Markers bounding the image link currently being previewed.")
+
+(defun tsp/org--clear-temporary-image-preview ()
+  "Remove the temporary image preview in the current buffer."
+  (mapc (lambda (overlay)
+          (when (overlayp overlay)
+            (delete-overlay overlay)))
+        tsp/org-temporary-image-overlays)
+  (setq tsp/org-temporary-image-overlays nil)
+  (when tsp/org-temporary-image-bounds
+    (mapc (lambda (marker) (set-marker marker nil))
+          tsp/org-temporary-image-bounds)
+    (setq tsp/org-temporary-image-bounds nil)))
+
+(defun tsp/org--hide-image-preview-after-move ()
+  "Hide the temporary preview after point leaves its image link."
+  (when tsp/org-temporary-image-bounds
+    (let ((begin (marker-position (car tsp/org-temporary-image-bounds)))
+          (end (marker-position (cadr tsp/org-temporary-image-bounds))))
+      (unless (and begin end (<= begin (point)) (< (point) end))
+        (tsp/org--clear-temporary-image-preview)))))
+
+(defun tsp/org-preview-image-at-point ()
+  "Temporarily display the Org image link at point.
+The preview is removed as soon as point moves outside the link."
+  (interactive)
+  (let* ((link (org-element-lineage (org-element-context) '(link) t))
+         (type (and link (org-element-property :type link)))
+         (path (and link (org-element-property :path link))))
+    (unless (and link
+                 (member type '("file" "attachment"))
+                 path
+                 (string-match-p (image-file-name-regexp) path))
+      (user-error "Point is not on an image link"))
+    (tsp/org--clear-temporary-image-preview)
+    (let ((begin (org-element-property :begin link))
+          (end (org-element-property :end link)))
+      (org-display-inline-images t t begin end)
+      (setq tsp/org-temporary-image-overlays
+            (seq-filter (lambda (overlay)
+                          (overlay-get overlay 'org-image-overlay))
+                        (overlays-in begin end))
+            tsp/org-temporary-image-bounds
+            (list (copy-marker begin) (copy-marker end t)))
+      (unless tsp/org-temporary-image-overlays
+        (setq tsp/org-temporary-image-bounds nil)
+        (user-error "Could not display this image")))))
+
+(defun tsp/org-delete-image-at-point ()
+  "Trash the pasted image at point and remove its Org link.
+For safety, only image files inside `tsp/org-assets-directory' are removed."
+  (interactive)
+  (let* ((link (org-element-lineage (org-element-context) '(link) t))
+         (type (and link (org-element-property :type link)))
+         (path (and link (org-element-property :path link)))
+         (base (if buffer-file-name
+                   (file-name-directory buffer-file-name)
+                 tsp/org-directory))
+         (file (and (equal type "file") path
+                    (expand-file-name (org-link-unescape path) base))))
+    (unless (and link file
+                 (string-match-p (image-file-name-regexp) file))
+      (user-error "Point is not on a local image link"))
+    (unless (and (file-exists-p file)
+                 (file-in-directory-p (file-truename file)
+                                      (file-truename tsp/org-assets-directory)))
+      (user-error "Refusing to delete an image outside %s"
+                  tsp/org-assets-directory))
+    (when (yes-or-no-p (format "Trash %s and remove its Org link? "
+                               (file-name-nondirectory file)))
+      (let ((begin (org-element-property :begin link))
+            (end (- (org-element-property :end link)
+                    (or (org-element-property :post-blank link) 0))))
+        (tsp/org--clear-temporary-image-preview)
+        (move-file-to-trash file)
+        (delete-region begin end)
+        (message "Moved %s to trash and removed its link"
+                 (file-name-nondirectory file))))))
+
+(defun tsp/org--clipboard-image-spec ()
+  "Return a clipboard image command and extension, or signal a user error."
+  (cond
+   ((executable-find "wl-paste")
+    (let ((types (with-temp-buffer
+                   (when (zerop (call-process "wl-paste" nil t nil "--list-types"))
+                     (buffer-string)))))
+      (cond
+       ((string-match-p "image/png" types)
+        '("png" "wl-paste" "--no-newline" "--type" "image/png"))
+       ((string-match-p "image/jpeg" types)
+        '("jpg" "wl-paste" "--no-newline" "--type" "image/jpeg"))
+       ((string-match-p "image/webp" types)
+        '("webp" "wl-paste" "--no-newline" "--type" "image/webp"))
+       ((string-match-p "image/gif" types)
+        '("gif" "wl-paste" "--no-newline" "--type" "image/gif"))
+       (t (user-error "The clipboard does not contain an image")))))
+   ((executable-find "xclip")
+    ;; Xclip returns a non-zero status when the requested image target is absent.
+    (let ((target (seq-find
+                   (lambda (candidate)
+                     (with-temp-buffer
+                       (zerop (call-process "xclip" nil t nil "-selection" "clipboard"
+                                            "-t" (car candidate) "-o"))))
+                   '(("image/png" . "png") ("image/jpeg" . "jpg")
+                     ("image/webp" . "webp") ("image/gif" . "gif")))))
+      (if target
+          (list (cdr target) "xclip" "-selection" "clipboard"
+                "-t" (car target) "-o")
+        (user-error "The clipboard does not contain an image"))))
+   ((executable-find "pngpaste") '("png" "pngpaste"))
+   (t (user-error "Install wl-clipboard, xclip, or pngpaste to paste clipboard images"))))
+
+(defun tsp/org-paste-clipboard-image ()
+  "Save the clipboard image under `tsp/org-assets-directory' and insert its link."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "This command is only available in Org buffers"))
+  (let* ((spec (tsp/org--clipboard-image-spec))
+         (extension (car spec))
+         (program (cadr spec))
+         (arguments (cddr spec))
+         (name (format-time-string "clipboard-%Y%m%d-%H%M%S-%3N"))
+         (file (expand-file-name (concat name "." extension)
+                                 tsp/org-assets-directory)))
+    (make-directory tsp/org-assets-directory t)
+    (if (string= program "pngpaste")
+        (unless (zerop (call-process program nil nil nil file))
+          (user-error "Could not read a PNG image from the clipboard"))
+      (let ((coding-system-for-write 'binary))
+        (with-temp-buffer
+          (set-buffer-multibyte nil)
+          (unless (zerop (apply #'call-process program nil t nil arguments))
+            (user-error "Could not read an image from the clipboard"))
+          (write-region (point-min) (point-max) file nil 'silent))))
+    (let* ((base (if buffer-file-name
+                     (file-name-directory buffer-file-name)
+                   tsp/org-directory))
+           (link (file-relative-name file base)))
+      (insert (format "[[file:%s]]" link))
+      (message "Saved clipboard image to %s" file))))
 
 (defvar tsp/org-git-sync-running nil
   "Non-nil while an Org Git synchronization is running.")
@@ -1049,12 +1409,18 @@ left untouched for manual recovery."
    ("C-c l" . org-store-link)
    ("C-c o i" . org-clock-in)
    ("C-c o o" . org-clock-out)
-   ("C-c o g" . org-clock-goto))
+   ("C-c o g" . org-clock-goto)
+   :map org-mode-map
+   ("C-c C-v" . tsp/org-paste-clipboard-image)
+   ("C-c C-p" . tsp/org-preview-image-at-point)
+   ("C-c C-x i" . tsp/org-delete-image-at-point))
   :hook
   ((org-mode . tsp/org-mode-setup)
    (org-babel-after-execute . tsp/org-redisplay-inline-images))
   :init
   (setq org-directory tsp/org-directory
+        org-startup-with-inline-images nil
+        org-image-actual-width 600
         org-default-notes-file tsp/org-inbox-file
         org-agenda-files (list tsp/org-inbox-file tsp/org-tasks-file
                                tsp/org-projects-file tsp/org-calendar-file)
@@ -1501,6 +1867,10 @@ Call ORIGINAL for strings that do not contain Khmer."
   (setq telega-server-libs-prefix
         (expand-file-name "~/.local")
         telega-use-images t
+        telega-root-show-avatars nil
+        telega-user-show-avatars nil
+        telega-chat-show-avatars nil
+        telega-completions-username-show-avatars nil
         telega-emoji-use-images nil
         telega-symbol-width 1
         telega-open-file-function 'org-open-file)
@@ -1518,7 +1888,20 @@ Call ORIGINAL for strings that do not contain Khmer."
                            'telega-msg-location-live-for)
     (advice-add 'telega-msg-location-live-for
                 :around #'tsp/telega-location-live-for-compatible))
+  (dolist (handler '(telega--on-updateChatActiveStories
+                     telega--on-updateChatLastMessage
+                     telega--on-updateChatPosition))
+    (unless (advice-member-p #'tsp/telega-ignore-early-chat-update handler)
+      (advice-add handler :around #'tsp/telega-ignore-early-chat-update)))
   (telega-notifications-mode 1))
+
+(defun tsp/telega-ignore-early-chat-update (original event)
+  "Ignore EVENT until its chat has been added to telega's local cache."
+  (let* ((active-stories (plist-get event :active_stories))
+         (chat-id (or (plist-get event :chat_id)
+                      (plist-get active-stories :chat_id))))
+    (when (and chat-id (telega-chat-get chat-id 'offline))
+      (funcall original event))))
 
 (defun tsp/telega-location-live-for-compatible (original msg)
   "Handle ordinary locations from TDLib versions with no live fields."
@@ -1732,6 +2115,7 @@ Call ORIGINAL for strings that do not contain Khmer."
   (emms-directory (tsp/emacs-state-file "emms/"))
   (emms-source-file-default-directory "~/pCloud/My Music/")
   (emms-browser-covers #'emms-browser-cache-thumbnail-async)
+  (emms-playing-time-display-format " [%s]")
   (emms-volume-change-amount 5)
   :config
   (require 'emms-setup)
@@ -1739,6 +2123,49 @@ Call ORIGINAL for strings that do not contain Khmer."
   (setq emms-player-list '(emms-player-mpv))
   (require 'emms-info-native)
   (setq emms-info-functions '(emms-info-native))
+  (require 'emms-browser)
+
+  (defcustom tsp/emms-mode-line-cover-height 16
+    "Height in pixels of the EMMS cover shown in the mode line."
+    :type 'integer
+    :group 'emms)
+
+  (defun tsp/emms-mode-line-cover ()
+    "Return the current track's cover art for the mode line."
+    (let* ((track (emms-playlist-current-selected-track))
+           (description (and track (emms-track-description track)))
+           (artist (and track (emms-track-get track 'info-artist)))
+           (title (and track (emms-track-get track 'info-title)))
+           (album (and track (emms-track-get track 'info-album)))
+           (label (cond
+                   ((and artist title) (format "%s - %s" artist title))
+                   (title title)
+                   (description description)
+                   (t "Unknown track")))
+           (help (if album
+                     (format "%s — %s" album description)
+                   description))
+           (path (and track (emms-track-file-p track)
+                      (emms-track-name track)))
+           (cover (and path (display-graphic-p)
+                       (ignore-errors
+                         (emms-browser-get-cover-from-path path 'small))))
+           (image (and cover
+                       (ignore-errors
+                         (create-image cover nil nil
+                                       :height tsp/emms-mode-line-cover-height
+                                       :ascent 'center)))))
+      (concat
+       " "
+       (propertize (if image " " "♫")
+                   'display image
+                   'help-echo help
+                   'mouse-face 'mode-line-highlight)
+       " "
+       (propertize label 'help-echo help))))
+
+  (setq emms-mode-line-mode-line-function #'tsp/emms-mode-line-cover)
+
   (setq emms-browser-info-title-format "%i%T. %t"
         emms-browser-playlist-info-title-format "%i%T. %t")
   (require 'emms-volume)
@@ -1814,6 +2241,9 @@ playlist buffers removed."
                    (setcdr track (delq (intern "...") (cdr track)))
                    (when (and (emms-track-file-p track)
                               (file-in-directory-p path library))
+                     ;; Native readers only overwrite tags they find, so clear
+                     ;; optional values that may have been removed from a file.
+                     (emms-track-set track 'info-discnumber nil)
                      (emms-info-native track)))
                  emms-cache-db)
         (emms-cache-sync t)
