@@ -1893,7 +1893,140 @@ Call ORIGINAL for strings that do not contain Khmer."
                      telega--on-updateChatPosition))
     (unless (advice-member-p #'tsp/telega-ignore-early-chat-update handler)
       (advice-add handler :around #'tsp/telega-ignore-early-chat-update)))
+  (keymap-set telega-chat-mode-map "C-c C-v"
+              #'tsp/telega-chatbuf-attach-clipboard)
+  (keymap-set telega-msg-button-map "C" #'tsp/telega-copy-image)
+  (keymap-set telega-msg-button-map "E" #'tsp/telega-open-externally)
+  (keymap-set telega-msg-button-map "F" #'tsp/telega-reveal-in-nautilus)
   (telega-notifications-mode 1))
+
+(defconst tsp/telega-clipboard-image-types
+  '(("image/png" . "png")
+    ("image/jpeg" . "jpg")
+    ("image/webp" . "webp")
+    ("image/gif" . "gif"))
+  "Supported clipboard image MIME types and filename extensions.")
+
+(defun tsp/telega--clipboard-image-spec ()
+  "Return the Wayland clipboard image MIME type and extension."
+  (with-temp-buffer
+    (unless (zerop (call-process "wl-paste" nil t nil "--list-types"))
+      (user-error "Could not inspect the Wayland clipboard"))
+    (let ((types (split-string (buffer-string) "[\n\r]+" t)))
+      (or (seq-find (lambda (spec) (member (car spec) types))
+                    tsp/telega-clipboard-image-types)
+          (user-error "The clipboard does not contain a supported image")))))
+
+(defun tsp/telega-chatbuf-attach-clipboard (as-file-p)
+  "Attach a clipboard image to the current Telega chat.
+With a prefix argument AS-FILE-P, attach it as a document."
+  (interactive "P")
+  (if (not (executable-find "wl-paste"))
+      (telega-chatbuf-attach-clipboard as-file-p)
+    (pcase-let* ((`(,mime . ,extension)
+                  (tsp/telega--clipboard-image-spec))
+                 (file (telega-temp-name "clipboard-"
+                                         (concat "." extension))))
+      (with-temp-buffer
+        (set-buffer-multibyte nil)
+        (unless (zerop (call-process "wl-paste" nil t nil
+                                     "--no-newline" "--type" mime))
+          (user-error "Could not read the clipboard image"))
+        (let ((coding-system-for-write 'binary))
+          (write-region (point-min) (point-max) file nil 'quiet)))
+      (telega-chatbuf-attach-media file (when as-file-p 'preview)))))
+
+(defun tsp/telega--with-message-file (msg action description)
+  "Run ACTION with MSG's local file, downloading it when necessary.
+DESCRIPTION names the operation in progress messages."
+  (unless msg
+    (user-error "Point is not on a Telega message"))
+  (let ((file (telega-msg--content-file msg)))
+    (unless file
+      (user-error "This message has no associated file"))
+    (unless (or (telega-file--downloaded-p file)
+                (telega-file--downloading-p file)
+                (telega-file--can-download-p file))
+      (user-error "The message file cannot be downloaded"))
+    (unless (telega-file--downloaded-p file)
+      (message "Telega: downloading file to %s..." description))
+    (telega-file--download file
+      :priority 32
+      :update-callback
+      (lambda (downloaded-file)
+        (telega-msg-redisplay msg)
+        (when (telega-file--downloaded-p downloaded-file)
+          (let ((path (telega--tl-get downloaded-file :local :path)))
+            (unless (and path (file-exists-p path))
+              (user-error "Telega downloaded the file but no local path exists"))
+            (funcall action path)))))))
+
+(defun tsp/telega--file-mime-type (file)
+  "Return FILE's MIME type using the system `file' utility."
+  (unless (executable-find "file")
+    (user-error "Install the `file' utility to detect image types"))
+  (with-temp-buffer
+    (unless (zerop (call-process "file" nil t nil
+                                 "--brief" "--mime-type" "--" file))
+      (user-error "Could not determine the downloaded file's MIME type"))
+    (string-trim (buffer-string))))
+
+(defun tsp/telega-copy-image (msg)
+  "Copy the image belonging to Telega message MSG to the clipboard."
+  (interactive (list (telega-msg-for-interactive)))
+  (unless (executable-find "wl-copy")
+    (user-error "Install wl-clipboard to copy images"))
+  (tsp/telega--with-message-file
+   msg
+   (lambda (file)
+     (let ((mime (tsp/telega--file-mime-type file)))
+       (unless (string-prefix-p "image/" mime)
+         (user-error "This message's file is not an image"))
+       ;; Cursor Clip records PNG selections but ignores a selection that only
+       ;; offers image/jpeg.  Normalize other image formats so the image is
+       ;; both pasteable and visible in the Mod+V clipboard history.
+       (let ((clipboard-file file)
+             (temporary-p nil))
+         (unless (string= mime "image/png")
+           (unless (executable-find "magick")
+             (user-error "Install ImageMagick to copy non-PNG images"))
+           (setq clipboard-file (telega-temp-name "clipboard-copy-" ".png")
+                 temporary-p t)
+           (unless (zerop (call-process "magick" nil nil nil
+                                        file clipboard-file))
+             (user-error "Could not convert the image to PNG")))
+         (unwind-protect
+             (unless (zerop (call-process "wl-copy" clipboard-file nil nil
+                                          "--type" "image/png"))
+               (user-error "Could not copy the image to the clipboard"))
+           (when (and temporary-p (file-exists-p clipboard-file))
+             (delete-file clipboard-file)))
+         (message "Copied Telega image to the clipboard as PNG"))))
+   "copy it to the clipboard"))
+
+(defun tsp/telega-open-externally (msg)
+  "Open the file belonging to Telega message MSG using `xdg-open'."
+  (interactive (list (telega-msg-for-interactive)))
+  (unless (executable-find "xdg-open")
+    (user-error "Could not find xdg-open"))
+  (tsp/telega--with-message-file
+   msg
+   (lambda (file)
+     (start-process "telega-xdg-open" nil "xdg-open" file)
+     (message "Opened %s externally" (file-name-nondirectory file)))
+   "open it externally"))
+
+(defun tsp/telega-reveal-in-nautilus (msg)
+  "Reveal the file belonging to Telega message MSG in Nautilus."
+  (interactive (list (telega-msg-for-interactive)))
+  (unless (executable-find "nautilus")
+    (user-error "Could not find Nautilus"))
+  (tsp/telega--with-message-file
+   msg
+   (lambda (file)
+     (start-process "telega-nautilus" nil "nautilus" "--select" file)
+     (message "Revealed %s in Nautilus" (file-name-nondirectory file)))
+   "reveal it in Nautilus"))
 
 (defun tsp/telega-ignore-early-chat-update (original event)
   "Ignore EVENT until its chat has been added to telega's local cache."
