@@ -5,7 +5,10 @@
 
 (defun tsp/org-mode-setup ()
   "Custom setup for Org mode."
-  (setq fill-column 80)
+  (setq fill-column 80
+        ;; Keep hard wrapping, but avoid Org's context-aware parser on every
+        ;; fill-triggering space.  Plain `do-auto-fill' is enough for prose.
+        normal-auto-fill-function #'do-auto-fill)
   (electric-indent-local-mode -1)
   (auto-fill-mode 1)
   (display-fill-column-indicator-mode 1)
