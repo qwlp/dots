@@ -92,5 +92,10 @@
   :vc (:url "https://github.com/mattt-b/odin-mode")
   :mode "\\.odin\\'")
 
+(use-package jai-mode
+  :ensure t
+  :vc (:url "https://github.com/elp-revive/jai-mode")
+  :mode "\\.jai\\'")
+
 (provide 'tsp-prog)
 ;;; tsp-prog.el ends here
