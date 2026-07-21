@@ -451,7 +451,7 @@ DESCRIPTION names the operation in progress messages."
         emms-show-format "Now playing: %s")
   :custom
   (emms-directory (tsp/emacs-state-file "emms/"))
-  (emms-source-file-default-directory "~/pCloud/My Music/")
+  (emms-source-file-default-directory "~/Music/")
   (emms-browser-covers #'emms-browser-cache-thumbnail-async)
   (emms-playing-time-display-format " [%s]")
   (emms-volume-change-amount 5)

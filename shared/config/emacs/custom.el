@@ -7,16 +7,16 @@
  '(package-selected-packages
    '(all-the-icons avy consult corfu dashboard emms exec-path-from-shell
                    ghostel go-mode ido-completing-read+ indent-bars
-                   jai-mode magit marginalia naysayer-theme nov
+                   jai-ts-mode magit marginalia naysayer-theme nov
                    odin-mode orderless org-roam org-superstar smex
                    symbol-overlay-mc telega typst-ts-mode verb vertico
                    ytr))
  '(package-vc-selected-packages
-   '((jai-mode :url "https://github.com/elp-revive/jai-mode")
+   '((jai-ts-mode :url "https://github.com/cpoile/jai-ts-mode")
      (odin-mode :url "https://github.com/mattt-b/odin-mode"))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(default ((t (:font "IosevkaTerm Nerd Font 16")))))
+ '(default ((t (:font "IosevkaTerm Nerd Font 18")))))

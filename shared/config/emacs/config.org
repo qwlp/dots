@@ -2249,7 +2249,7 @@ DESCRIPTION names the operation in progress messages."
         emms-show-format "Now playing: %s")
   :custom
   (emms-directory (tsp/emacs-state-file "emms/"))
-  (emms-source-file-default-directory "~/pCloud/My Music/")
+  (emms-source-file-default-directory "~/Music/")
   (emms-browser-covers #'emms-browser-cache-thumbnail-async)
   (emms-playing-time-display-format " [%s]")
   (emms-volume-change-amount 5)
@@ -2411,15 +2411,34 @@ playlist buffers removed."
 ;; This file is tangled from ../config.org. Edit that file instead.
 
 (require 'treesit nil t)
+(require 'ansi-color)
 
 (defvar treesit-language-source-alist nil)
 (defvar treesit-extra-load-path nil)
+
+;; Compilation commands often emit terminal color escapes.  Interpret them
+;; before font-lock sees the output instead of displaying them as ^[[...m.
+(add-hook 'compilation-filter-hook #'ansi-color-compilation-filter)
+
+(defun tsp/compile-and-focus ()
+  "Run `compile' and select its compilation buffer."
+  (interactive)
+  (pop-to-buffer (call-interactively #'compile)))
+
+(defun tsp/recompile-and-focus ()
+  "Run `recompile' and select its compilation buffer."
+  (interactive)
+  (pop-to-buffer (call-interactively #'recompile)))
+
+(keymap-global-set "C-c b c" #'tsp/compile-and-focus)
+(keymap-global-set "C-c b r" #'tsp/recompile-and-focus)
 
 (defconst tsp/treesit-language-sources
   '((c "https://github.com/tree-sitter/tree-sitter-c")
     (cpp "https://github.com/tree-sitter/tree-sitter-cpp")
     (go "https://github.com/tree-sitter/tree-sitter-go")
     (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
+    (jai "https://github.com/constantitus/tree-sitter-jai")
     (typst "https://github.com/uben0/tree-sitter-typst"))
   "Tree-sitter grammars managed by this config.")
 
@@ -2499,9 +2518,8 @@ playlist buffers removed."
   :vc (:url "https://github.com/mattt-b/odin-mode")
   :mode "\\.odin\\'")
 
-(use-package jai-mode
-  :ensure t
-  :vc (:url "https://github.com/elp-revive/jai-mode")
+(use-package jai-ts-mode
+  :vc (:url "https://github.com/cpoile/jai-ts-mode")
   :mode "\\.jai\\'")
 
 (provide 'tsp-prog)
