@@ -6,7 +6,7 @@
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
    '(all-the-icons avy consult corfu dashboard emms exec-path-from-shell
-                   ghostel go-mode ido-completing-read+ indent-bars
+                   ghostel ido-completing-read+ indent-bars
                    jai-ts-mode magit marginalia naysayer-theme nov
                    odin-mode orderless org-roam org-superstar smex
                    symbol-overlay-mc telega typst-ts-mode verb vertico

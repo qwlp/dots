@@ -61,7 +61,8 @@
       bidi-inhibit-bpa t
       inhibit-compacting-font-caches t
       redisplay-skip-fontification-on-input t
-      fast-but-imprecise-scrolling t)
+      fast-but-imprecise-scrolling t
+      scroll-error-top-bottom t)
 
 (setq-default bidi-display-reordering t
               bidi-paragraph-direction nil
@@ -71,6 +72,9 @@
 
 (setq-default c-basic-offset 4)
 
+;; Insert matching closing delimiters and skip over them when typed.
+(electric-pair-mode 1)
+
 (defun tsp/scroll-up-and-center ()
   "Scroll forward and center point in the window."
   (interactive)
@@ -78,10 +82,17 @@
   (recenter))
 
 (defun tsp/scroll-down-and-center ()
-  "Scroll backward and center point in the window."
+  "Scroll backward and center point in the window.
+Move to the beginning of the buffer if scrolling makes no progress."
   (interactive)
-  (call-interactively #'scroll-down-command)
-  (recenter))
+  (let ((old-point (point))
+        (old-window-start (window-start)))
+    (call-interactively #'scroll-down-command)
+    (recenter)
+    (when (and (= (point) old-point)
+               (= (window-start) old-window-start))
+      (goto-char (point-min))
+      (recenter))))
 
 (keymap-global-set "C-v" #'tsp/scroll-up-and-center)
 (keymap-global-set "M-v" #'tsp/scroll-down-and-center)

@@ -92,8 +92,135 @@
    ("M-g o" . consult-outline)
    ("M-g i" . consult-imenu)
    ("M-s g" . consult-grep)
-   ("M-s r" . consult-ripgrep)
    ("M-s f" . consult-find)))
+
+;; fff.el uses the same native Rust search engine as fff.nvim.  Install its
+;; native dependencies once with scripts/install-fff-el.sh.
+(add-to-list 'load-path
+             (expand-file-name "site-lisp/fff/" tsp/emacs-state-directory))
+
+(use-package fff
+  :ensure nil
+  :commands (fff-find-file fff-grep fff-grep-fuzzy)
+  :bind (("C-c f f" . fff-find-file)
+         ("C-c f g" . fff-grep)
+         ("C-c f G" . fff-grep-fuzzy)
+         ("M-s r" . fff-grep))
+  :init
+  (setq fff-max-results 200
+        fff-smart-case t
+        fff-frecency-db-path
+        (expand-file-name "fff/frecency" tsp/emacs-state-directory)
+        fff-history-db-path
+        (expand-file-name "fff/history" tsp/emacs-state-directory))
+  :config
+  (defun tsp/fff-highlight-match (string query mode)
+    "Return STRING with QUERY matches highlighted according to MODE."
+    (let ((result (copy-sequence string))
+          (case-fold-search (and fff-smart-case
+                                 (string= query (downcase query)))))
+      (if (eq mode 'fuzzy)
+          (let ((position 0))
+            (dolist (character (string-to-list query))
+              (when-let ((match (string-match
+                                 (regexp-quote (char-to-string character))
+                                 result position)))
+                (add-face-text-property match (1+ match)
+                                        'consult-highlight-match nil result)
+                (setq position (1+ match)))))
+        (unless (string-empty-p query)
+          (let ((regexp (regexp-quote query))
+                (position 0))
+            (while (string-match regexp result position)
+              (add-face-text-property (match-beginning 0) (match-end 0)
+                                      'consult-highlight-match nil result)
+              (setq position (max (1+ (match-beginning 0)) (match-end 0)))))))
+      result))
+
+  (defun tsp/fff-preview-state (&optional mode)
+    "Return a Consult state function which previews fff result plists."
+    (let ((open (consult--temporary-files))
+          (preview (consult--buffer-preview))
+          overlays)
+      (lambda (action candidate)
+        (mapc #'delete-overlay overlays)
+        (setq overlays nil)
+        (unless candidate
+          (funcall open))
+        (let ((buffer (and candidate
+                           (eq action 'preview)
+                           (when-let ((path (plist-get candidate :path)))
+                             (funcall open path)))))
+          (funcall preview action buffer)
+          (when-let ((window (and buffer (get-buffer-window buffer))))
+            (with-selected-window window
+              (widen)
+              (goto-char (point-min))
+              (forward-line (max 0 (1- (or (plist-get candidate :line) 1))))
+              (move-to-column (max 0 (or (plist-get candidate :col) 0)))
+              (when (and mode (not (string-empty-p fff--last-query)))
+                (let ((case-fold-search (and fff-smart-case
+                                             (string= fff--last-query
+                                                      (downcase fff--last-query))))
+                      (end (line-end-position)))
+                  (save-excursion
+                    (beginning-of-line)
+                    (if (eq mode 'fuzzy)
+                        (dolist (character (string-to-list fff--last-query))
+                          (when (search-forward (char-to-string character) end t)
+                            (let ((overlay (make-overlay (1- (point)) (point))))
+                              (overlay-put overlay 'face 'consult-highlight-match)
+                              (push overlay overlays))))
+                      (while (search-forward fff--last-query end t)
+                        (let ((overlay (make-overlay (match-beginning 0)
+                                                     (match-end 0))))
+                          (overlay-put overlay 'face 'consult-highlight-match)
+                          (push overlay overlays)))))))
+              (recenter)))))))
+
+  ;; Upstream fff.el currently omits Consult's preview state.  Keep its native
+  ;; candidate generation, but add file/line preview to both picker variants.
+  (defun tsp/fff-pick-file-with-preview ()
+    (let ((lookup (make-hash-table :test 'equal)))
+      (when-let ((choice
+                  (consult--read
+                   (consult--async-dynamic
+                    (lambda (input)
+                      (mapcar (lambda (item)
+                                (let ((display (tsp/fff-highlight-match
+                                                (car item) input 'fuzzy)))
+                                  (puthash display (cdr item) lookup)
+                                  display))
+                              (fff--file-candidates input))))
+                   :prompt "fff › " :sort nil :category 'file
+                   :lookup (lambda (candidate _candidates _input _narrow)
+                             (gethash candidate lookup))
+                   :state (tsp/fff-preview-state))))
+        (fff--open-result choice))))
+
+  (defun tsp/fff-pick-grep-with-preview (mode)
+    (let ((lookup (make-hash-table :test 'equal)))
+      (when-let ((choice
+                  (consult--read
+                   (consult--async-dynamic
+                    (lambda (input)
+                      (mapcar (lambda (item)
+                                (let ((display (tsp/fff-highlight-match
+                                                (car item) input mode)))
+                                  (puthash display (cdr item) lookup)
+                                  display))
+                              (fff--grep-candidates input mode))))
+                   :prompt (if (eq mode 'fuzzy)
+                               "fff grep fuzzy › "
+                             "fff grep › ")
+                   :sort nil
+                   :lookup (lambda (candidate _candidates _input _narrow)
+                             (gethash candidate lookup))
+                   :state (tsp/fff-preview-state mode))))
+        (fff--open-result choice))))
+
+  (advice-add 'fff--pick-file :override #'tsp/fff-pick-file-with-preview)
+  (advice-add 'fff--pick-grep :override #'tsp/fff-pick-grep-with-preview))
 
 (use-package corfu
   :ensure t

@@ -26,8 +26,13 @@
   (setq mc/cmds-to-run-once
         (delq 'org-self-insert-command mc/cmds-to-run-once))
   (add-to-list 'mc/cmds-to-run-for-all 'org-self-insert-command)
+  (dolist (command '(mc/vertical-align mc/vertical-align-with-space))
+    (setq mc/cmds-to-run-for-all
+          (delq command mc/cmds-to-run-for-all))
+    (add-to-list 'mc/cmds-to-run-once command))
   :bind
-  (("C-S-c C-S-c" . mc/edit-lines)
+  (("C-c v" . mc/vertical-align-with-space)
+   ("C-S-c C-S-c" . mc/edit-lines)
    ("C->" . mc/mark-next-like-this)
    ("C-<" . mc/mark-previous-like-this)
    ("C-c C-<" . mc/mark-all-like-this)

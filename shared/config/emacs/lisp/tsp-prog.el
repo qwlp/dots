@@ -62,10 +62,33 @@
                       language (error-message-string error-data)))))))))
 
 (defun tsp/go-use-four-space-indentation ()
-  "Indent Go buffers with four spaces instead of Go mode's tabs."
+  "Indent Go buffers with four spaces instead of tabs."
   (setq-local indent-tabs-mode nil
               tab-width 4
               go-ts-mode-indent-offset 4))
+
+(defun tsp/gofmt-buffer ()
+  "Format the current buffer using the gofmt executable."
+  (let ((formatted (generate-new-buffer " *gofmt output*"))
+        (errors (make-temp-file "gofmt-errors-")))
+    (unwind-protect
+        (let ((status (call-process-region
+                       (point-min) (point-max) "gofmt" nil
+                       (list formatted errors) nil)))
+          (if (zerop status)
+              (replace-buffer-contents formatted)
+            (user-error "gofmt failed: %s"
+                        (with-temp-buffer
+                          (insert-file-contents errors)
+                          (string-trim (buffer-string))))))
+      (kill-buffer formatted)
+      (delete-file errors))))
+
+(defun tsp/go-enable-gofmt-on-save ()
+  "Format the current Go buffer with gofmt before saving."
+  (add-hook 'before-save-hook #'tsp/gofmt-buffer nil t))
+
+(add-hook 'go-ts-mode-hook #'tsp/go-enable-gofmt-on-save)
 
 ;; Font-lock plus stipples keeps indentation guides cheap: no overlays,
 ;; tree-sitter queries, current-scope tracking, or work on blank lines.
