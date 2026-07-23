@@ -7,6 +7,14 @@ profiles = [
 ]
 
 [[entries]]
+origin = "Home"
+key = ".pi/agent/settings.json"
+profiles = [
+    "desktop-arch",
+    "laptop-arch",
+]
+
+[[entries]]
 origin = "XdgConfig"
 key = "kitty"
 profiles = [
