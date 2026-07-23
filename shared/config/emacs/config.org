@@ -269,6 +269,16 @@ region keep their positions within the moved text."
   (interactive)
   (tsp/move-lines 1))
 
+(defun tsp/duplicate-line-above ()
+  "Duplicate the current line above it, keeping point on the new line."
+  (interactive)
+  (let* ((beg (line-beginning-position))
+         (text (buffer-substring beg (line-end-position)))
+         (offset (- (point) beg)))
+    (goto-char beg)
+    (insert text "\n")
+    (goto-char (+ beg (min offset (length text))))))
+
 ;; Keep line editing under a dedicated user prefix so mode-specific editing
 ;; keys (especially Org's Meta-arrow bindings) remain untouched.
 (defvar-keymap tsp/line-edit-map
@@ -296,6 +306,12 @@ region keep their positions within the moved text."
 ;; to symbol-overlay and Control-n/p keep normal line navigation.
 (keymap-global-set "M-N" #'tsp/move-lines-down)
 (keymap-global-set "M-P" #'tsp/move-lines-up)
+
+;; Duplicate below with Control+Shift+d and above with Control+Shift+i.
+(when (eq (keymap-global-lookup "C-S-u") #'tsp/duplicate-line-above)
+  (keymap-global-unset "C-S-u"))
+(keymap-global-set "C-S-d" #'duplicate-line)
+(keymap-global-set "C-S-i" #'tsp/duplicate-line-above)
 
 (add-hook 'emacs-startup-hook
           (lambda ()
@@ -714,6 +730,13 @@ versions reject.  Keep the corrected theme here so tangling reproduces it.
 
 (use-package avy
   :ensure t
+  :custom
+  (avy-timeout-seconds 0.2)
+  (avy-all-windows nil)
+  (avy-single-candidate-jump t)
+  (avy-background t)
+  (avy-style 'at-full)
+  (avy-keys '(?a ?s ?d ?f ?j ?k ?l ?\; ?g ?h))
   :bind
   (("C-s" . avy-goto-char-timer)))
 
@@ -746,10 +769,8 @@ versions reject.  Keep the corrected theme here so tangling reproduces it.
 (use-package fff
   :ensure nil
   :commands (fff-find-file fff-grep fff-grep-fuzzy)
-  :bind (("C-c f f" . fff-find-file)
-         ("C-c f g" . fff-grep)
-         ("C-c f G" . fff-grep-fuzzy)
-         ("M-s r" . fff-grep))
+  :bind (("C-c f" . fff-find-file)
+         ("C-c g" . fff-grep))
   :init
   (setq fff-max-results 200
         fff-smart-case t

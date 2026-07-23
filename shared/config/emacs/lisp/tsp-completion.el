@@ -70,6 +70,13 @@
 
 (use-package avy
   :ensure t
+  :custom
+  (avy-timeout-seconds 0.2)
+  (avy-all-windows nil)
+  (avy-single-candidate-jump t)
+  (avy-background t)
+  (avy-style 'at-full)
+  (avy-keys '(?a ?s ?d ?f ?j ?k ?l ?\; ?g ?h))
   :bind
   (("C-s" . avy-goto-char-timer)))
 
@@ -102,10 +109,8 @@
 (use-package fff
   :ensure nil
   :commands (fff-find-file fff-grep fff-grep-fuzzy)
-  :bind (("C-c f f" . fff-find-file)
-         ("C-c f g" . fff-grep)
-         ("C-c f G" . fff-grep-fuzzy)
-         ("M-s r" . fff-grep))
+  :bind (("C-c f" . fff-find-file)
+         ("C-c g" . fff-grep))
   :init
   (setq fff-max-results 200
         fff-smart-case t

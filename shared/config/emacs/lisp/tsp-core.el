@@ -184,6 +184,16 @@ region keep their positions within the moved text."
   (interactive)
   (tsp/move-lines 1))
 
+(defun tsp/duplicate-line-above ()
+  "Duplicate the current line above it, keeping point on the new line."
+  (interactive)
+  (let* ((beg (line-beginning-position))
+         (text (buffer-substring beg (line-end-position)))
+         (offset (- (point) beg)))
+    (goto-char beg)
+    (insert text "\n")
+    (goto-char (+ beg (min offset (length text))))))
+
 ;; Keep line editing under a dedicated user prefix so mode-specific editing
 ;; keys (especially Org's Meta-arrow bindings) remain untouched.
 (defvar-keymap tsp/line-edit-map
@@ -211,6 +221,12 @@ region keep their positions within the moved text."
 ;; to symbol-overlay and Control-n/p keep normal line navigation.
 (keymap-global-set "M-N" #'tsp/move-lines-down)
 (keymap-global-set "M-P" #'tsp/move-lines-up)
+
+;; Duplicate below with Control+Shift+d and above with Control+Shift+i.
+(when (eq (keymap-global-lookup "C-S-u") #'tsp/duplicate-line-above)
+  (keymap-global-unset "C-S-u"))
+(keymap-global-set "C-S-d" #'duplicate-line)
+(keymap-global-set "C-S-i" #'tsp/duplicate-line-above)
 
 (add-hook 'emacs-startup-hook
           (lambda ()
