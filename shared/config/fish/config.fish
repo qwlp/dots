@@ -31,6 +31,7 @@ if test -f "$HOME/.zprofile"
 end
 
 fish_add_path --global --move \
+    "$HOME/.bun/bin" \
     "$HOME/go/bin" \
     "$HOME/.local/bin/" \
     "$HOME/.local/share/coursier/bin" \
