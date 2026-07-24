@@ -6,6 +6,7 @@
   "hideThinkingBlock": true,
   "defaultThinkingLevel": "minimal",
   "packages": [
-    "npm:@ff-labs/pi-fff"
+    "npm:@ff-labs/pi-fff",
+    "git:github.com/majorgilles/pi-grill-me"
   ]
 }

@@ -9,6 +9,9 @@
 (defvar treesit-language-source-alist nil)
 (defvar treesit-extra-load-path nil)
 
+;; Save modified buffers automatically before compiling instead of prompting.
+(setq compilation-ask-about-save nil)
+
 ;; Compilation commands often emit terminal color escapes.  Interpret them
 ;; before font-lock sees the output instead of displaying them as ^[[...m.
 (add-hook 'compilation-filter-hook #'ansi-color-compilation-filter)
@@ -61,11 +64,32 @@
              (message "Could not install Tree-sitter grammar for %s: %s"
                       language (error-message-string error-data)))))))))
 
-(defun tsp/go-use-four-space-indentation ()
-  "Indent Go buffers with four spaces instead of tabs."
-  (setq-local indent-tabs-mode nil
+(defun tsp/treesit-grand-parent-bol (_node parent &rest _)
+  "Return the first non-whitespace position on PARENT's parent line."
+  (save-excursion
+    (goto-char (treesit-node-start (treesit-node-parent parent)))
+    (back-to-indentation)
+    (point)))
+
+(defun tsp/go-setup-buffer ()
+  "Configure canonical indentation and formatting for a Go buffer."
+  (setq-local indent-tabs-mode t
               tab-width 4
-              go-ts-mode-indent-offset 4))
+              go-ts-mode-indent-offset 4
+              tab-always-indent t)
+  ;; Emacs 30's Go rules omit nodes directly inside a statement_list, so a
+  ;; statement starting in column zero cannot be indented with Tab.
+  (setq-local treesit-simple-indent-rules
+              (copy-tree treesit-simple-indent-rules))
+  (push '((parent-is "statement_list")
+          tsp/treesit-grand-parent-bol
+          go-ts-mode-indent-offset)
+        (alist-get 'go treesit-simple-indent-rules))
+  ;; Bind both terminal and graphical Tab events buffer-locally.  This also
+  ;; keeps completion keymaps from turning Tab into a completion-only command.
+  (local-set-key (kbd "TAB") #'indent-for-tab-command)
+  (local-set-key (kbd "<tab>") #'indent-for-tab-command)
+  (add-hook 'before-save-hook #'tsp/gofmt-buffer nil t))
 
 (defun tsp/gofmt-buffer ()
   "Format the current buffer using the gofmt executable."
@@ -83,12 +107,6 @@
                           (string-trim (buffer-string))))))
       (kill-buffer formatted)
       (delete-file errors))))
-
-(defun tsp/go-enable-gofmt-on-save ()
-  "Format the current Go buffer with gofmt before saving."
-  (add-hook 'before-save-hook #'tsp/gofmt-buffer nil t))
-
-(add-hook 'go-ts-mode-hook #'tsp/go-enable-gofmt-on-save)
 
 ;; Font-lock plus stipples keeps indentation guides cheap: no overlays,
 ;; tree-sitter queries, current-scope tracking, or work on blank lines.
@@ -123,7 +141,7 @@
   (("\\.go\\'" . go-ts-mode)
    ("/go\\.mod\\'" . go-mod-ts-mode))
   :hook
-  ((go-ts-mode go-mod-ts-mode) . tsp/go-use-four-space-indentation))
+  (go-ts-mode . tsp/go-setup-buffer))
 
 (use-package typst-ts-mode
   :ensure t

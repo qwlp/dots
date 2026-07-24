@@ -55,10 +55,19 @@
   (("M-a" . symbol-overlay-mc-mark-all)
    ("C-c n" . symbol-overlay-mc-mark-all)))
 
+(defun tsp/dired-find-file-vertical-split ()
+  "Open the file at point in a new split to the right."
+  (interactive)
+  (let ((file (dired-get-file-for-visit)))
+    (select-window (split-window-right))
+    (find-file file)))
+
 (use-package dired-x
   :ensure nil
   :after dired
   :hook (dired-mode . dired-omit-mode)
+  :bind (:map dired-mode-map
+              ("|" . tsp/dired-find-file-vertical-split))
   :config
   (setq dired-omit-files (concat dired-omit-files "\\|^\\..+$")))
 

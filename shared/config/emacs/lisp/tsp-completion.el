@@ -160,9 +160,12 @@
           (when-let ((window (and buffer (get-buffer-window buffer))))
             (with-selected-window window
               (widen)
-              (goto-char (point-min))
-              (forward-line (max 0 (1- (or (plist-get candidate :line) 1))))
-              (move-to-column (max 0 (or (plist-get candidate :col) 0)))
+              ;; File results have no line information.  In that case, leave
+              ;; point alone so revisiting an existing buffer keeps its place.
+              (when-let ((line (plist-get candidate :line)))
+                (goto-char (point-min))
+                (forward-line (max 0 (1- line)))
+                (move-to-column (max 0 (or (plist-get candidate :col) 0))))
               (when (and mode (not (string-empty-p fff--last-query)))
                 (let ((case-fold-search (and fff-smart-case
                                              (string= fff--last-query

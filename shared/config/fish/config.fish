@@ -2,6 +2,7 @@
 set -gx EDITOR "$HOME/.local/share/bob/nvim-bin/nvim"
 set -gx MANPAGER "$HOME/.local/share/bob/nvim-bin/nvim +Man!"
 set -gx KUBE_EDITOR "$HOME/.local/share/bob/nvim-bin/nvim"
+set -gx PI_PERMISSION_LEVEL "bypassed"
 # Enable a rich Git prompt without Starship
 set -g __fish_git_prompt_show_informative_status 0
 set -g __fish_git_prompt_showcolorhints 1
