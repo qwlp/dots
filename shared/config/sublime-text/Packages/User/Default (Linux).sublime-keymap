@@ -1,0 +1,37 @@
+[
+	{ "keys": ["alt+k"], "command": "select_lines", "args": {"forward": false} },
+	{ "keys": ["alt+j"], "command": "select_lines", "args": {"forward": true} },
+	{ "keys": ["alt+d"], "command": "find_under_expand" },
+
+	// for window movement
+	{ "keys": ["ctrl+j"], "command": "new_pane" },
+	{ "keys": ["alt+q"], "command": "close_pane" },
+	{ "keys": ["alt+h"], "command": "focus_neighboring_group", "args": {"forward": false} },
+	{ "keys": ["alt+l"], "command": "focus_neighboring_group" },
+	{ "keys": ["ctrl+shift+h"], "command": "move_to_neighboring_group", "args": {"forward": false} },
+	{ "keys": ["ctrl+shift+l"], "command": "move_to_neighboring_group" },
+
+	// side bar
+	{ "keys": ["ctrl+shift+f"], "command": "toggle_side_bar" },
+	{ "keys": ["alt+f"], "command": "focus_side_bar" },
+
+	// Vintage half-page movement, followed by centering the caret
+	{
+		"keys": ["ctrl+d"],
+		"command": "vintage_centered_scroll",
+		"args": {"forward": true},
+		"context": [
+			{"key": "setting.command_mode"},
+			{"key": "setting.vintage_ctrl_keys"}
+		]
+	},
+	{
+		"keys": ["ctrl+u"],
+		"command": "vintage_centered_scroll",
+		"args": {"forward": false},
+		"context": [
+			{"key": "setting.command_mode"},
+			{"key": "setting.vintage_ctrl_keys"}
+		]
+	},
+]

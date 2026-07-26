@@ -1,0 +1,13 @@
+{
+	"theme": "Naysayer.sublime-theme",
+	"dark_theme": "Naysayer.sublime-theme",
+	"light_theme": "Naysayer.sublime-theme",
+	"color_scheme": "Naysayer.sublime-color-scheme",
+	"dark_color_scheme": "Naysayer.sublime-color-scheme",
+	"light_color_scheme": "Naysayer.sublime-color-scheme",
+	"font_face": "LythMono Nerd Font",
+	"font_size": 11,
+	"diff_algorithm": "match_git",
+	"diff_style": "auto",
+	"editor_path": "/home/tsp/bins/sublime_text_build_4200_x64/sublime_text/sublime_text",
+}

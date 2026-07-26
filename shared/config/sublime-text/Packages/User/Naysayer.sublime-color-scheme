@@ -1,0 +1,177 @@
+{
+	"name": "Naysayer",
+	"author": "Ported from nickav/naysayer-theme.el",
+	"variables":
+	{
+		"background": "#062329",
+		"foreground": "#D1B897",
+		"line": "#0B3335",
+		"gutter": "#062329",
+		"gutter_foreground": "#126367",
+		"selection": "#0000FF",
+		"white": "#FFFFFF",
+		"comment": "#44B340",
+		"punctuation": "#8CDE94",
+		"variable": "#C1D1E3",
+		"string": "#2EC09C",
+		"constant": "#7AD0C6",
+		"error": "#FF0000",
+		"warning": "#FFAA00",
+		"yellow": "#E6DB74",
+		"orange": "#FD971F",
+		"red": "#F92672",
+		"magenta": "#FD5FF0",
+		"blue": "#66D9EF",
+		"green": "#A6E22E",
+		"cyan": "#A1EFE4",
+		"violet": "#AE81FF"
+	},
+	"globals":
+	{
+		"background": "var(background)",
+		"foreground": "var(foreground)",
+		"caret": "var(magenta)",
+		"block_caret": "var(magenta)",
+		"block_caret_border": "var(white)",
+		"line_highlight": "var(line)",
+		"selection": "var(selection)",
+		"selection_border": "var(blue)",
+		"inactive_selection": "#103E64",
+		"inactive_selection_border": "#126367",
+		"selection_corner_style": "square",
+		"gutter": "var(gutter)",
+		"gutter_foreground": "var(gutter_foreground)",
+		"gutter_foreground_highlight": "var(white)",
+		"line_diff_width": "2",
+		"line_diff_added": "var(green)",
+		"line_diff_modified": "var(blue)",
+		"line_diff_deleted": "var(red)",
+		"misspelling": "var(error)",
+		"fold_marker": "var(punctuation)",
+		"minimap_border": "#126367",
+		"accent": "var(string)",
+		"popup_css":
+		"html { background-color: #0B3335; color: #D1B897; } a { color: #66D9EF; }"
+	},
+	"rules":
+	[
+		{
+			"name": "Comments",
+			"scope": "comment, punctuation.definition.comment",
+			"foreground": "var(comment)"
+		},
+		{
+			"name": "Strings",
+			"scope": "string, punctuation.definition.string",
+			"foreground": "var(string)"
+		},
+		{
+			"name": "Numbers and constants",
+			"scope": "constant, constant.numeric, constant.language, support.constant",
+			"foreground": "var(constant)"
+		},
+		{
+			"name": "Keywords",
+			"scope": "keyword, storage.type, storage.modifier, keyword.operator.word",
+			"foreground": "var(white)"
+		},
+		{
+			"name": "Operators and punctuation",
+			"scope": "keyword.operator, punctuation.separator, punctuation.terminator, punctuation.section, punctuation.accessor",
+			"foreground": "var(punctuation)"
+		},
+		{
+			"name": "Types",
+			"scope": "entity.name.type, entity.name.class, entity.name.struct, entity.name.enum, support.type, support.class, meta.type",
+			"foreground": "var(punctuation)"
+		},
+		{
+			"name": "Functions",
+			"scope": "entity.name.function, support.function, meta.function-call variable.function",
+			"foreground": "var(white)"
+		},
+		{
+			"name": "Methods and properties",
+			"scope": "entity.name.function.method, variable.function, variable.other.member, variable.other.property, support.variable.property",
+			"foreground": "var(variable)"
+		},
+		{
+			"name": "Variables and parameters",
+			"scope": "variable, variable.parameter, entity.name.variable",
+			"foreground": "var(variable)"
+		},
+		{
+			"name": "Built-ins",
+			"scope": "support, support.function.builtin, variable.language",
+			"foreground": "var(white)"
+		},
+		{
+			"name": "Preprocessor and macros",
+			"scope": "meta.preprocessor, keyword.control.import, entity.name.function.preprocessor",
+			"foreground": "var(punctuation)"
+		},
+		{
+			"name": "Tags",
+			"scope": "entity.name.tag",
+			"foreground": "var(white)"
+		},
+		{
+			"name": "Attributes",
+			"scope": "entity.other.attribute-name",
+			"foreground": "var(variable)"
+		},
+		{
+			"name": "Headings",
+			"scope": "markup.heading, entity.name.section",
+			"foreground": "var(white)",
+			"font_style": "bold"
+		},
+		{
+			"name": "Links",
+			"scope": "markup.underline.link, string.other.link",
+			"foreground": "var(blue)",
+			"font_style": "underline"
+		},
+		{
+			"name": "Inserted",
+			"scope": "markup.inserted, meta.diff.header.to-file",
+			"foreground": "var(green)"
+		},
+		{
+			"name": "Deleted",
+			"scope": "markup.deleted, meta.diff.header.from-file",
+			"foreground": "var(red)"
+		},
+		{
+			"name": "Changed",
+			"scope": "markup.changed",
+			"foreground": "var(yellow)"
+		},
+		{
+			"name": "Invalid",
+			"scope": "invalid",
+			"foreground": "var(white)",
+			"background": "var(error)"
+		},
+		{
+			"name": "Deprecated",
+			"scope": "invalid.deprecated",
+			"foreground": "var(warning)"
+		},
+		{
+			"name": "JSON keys",
+			"scope": "meta.mapping.key string, meta.object-literal.key string",
+			"foreground": "var(variable)"
+		},
+		{
+			"name": "Escape sequences",
+			"scope": "constant.character.escape",
+			"foreground": "var(cyan)"
+		},
+		{
+			"name": "Regex",
+			"scope": "string.regexp",
+			"foreground": "var(cyan)"
+		}
+	]
+}

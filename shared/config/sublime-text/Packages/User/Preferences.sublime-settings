@@ -1,0 +1,15 @@
+{
+	"font_face": "LythMono Nerd Font",
+	"font_size": 16,
+	"folder_exclude_patterns": [],
+	"file_exclude_patterns": [],
+	"theme": "Naysayer.sublime-theme",
+	"ignored_packages": [
+	],
+	"color_scheme": "Packages/User/Naysayer.sublime-color-scheme",
+    "hardware_acceleration": "opengl",
+    "scroll_speed": 0.0,
+	"index_files": true,
+	"vintage_ctrl_keys": true,
+	"sublime_merge_path": "/home/tsp/bins/sublime_merge_build_2125_x64/sublime_merge-x64-tar/sublime_merge",
+}

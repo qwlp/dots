@@ -1,0 +1,8 @@
+/Installed Packages/
+/Lib/
+/Local/
+/Log/
+/Trash/
+/Packages/User/Package Control.user-ca-bundle
+*.sublime-workspace
+*.sublime_session

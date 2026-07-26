@@ -48,6 +48,22 @@ profiles = [
 
 [[entries]]
 origin = "XdgConfig"
+key = "sublime-text"
+profiles = [
+    "desktop-arch",
+    "laptop-arch",
+]
+
+[[entries]]
+origin = "XdgConfig"
+key = "sublime-merge"
+profiles = [
+    "desktop-arch",
+    "laptop-arch",
+]
+
+[[entries]]
+origin = "XdgConfig"
 key = "waybar"
 profiles = [
     "desktop-arch",

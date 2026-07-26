@@ -1,0 +1,47 @@
+{
+	"name": "Naysayer",
+	"variables":
+	{
+		"background": "#062329",
+		"foreground": "#D1B897",
+		"white": "#FFFFFF",
+		"comment": "#44B340",
+		"punctuation": "#8CDE94",
+		"variable": "#C1D1E3",
+		"string": "#2EC09C",
+		"constant": "#7AD0C6"
+	},
+	"globals":
+	{
+		"background": "var(background)",
+		"foreground": "var(foreground)",
+		"caret": "#FD5FF0",
+		"block_caret": "#FD5FF0",
+		"block_caret_border": "#FFFFFF",
+		"line_highlight": "#0B3335",
+		"selection": "#0000FF",
+		"gutter": "var(background)",
+		"gutter_foreground": "#126367",
+		"gutter_foreground_highlight": "var(white)",
+		"line_diff_added": "#A6E22E",
+		"line_diff_modified": "#66D9EF",
+		"line_diff_deleted": "#F92672",
+		"accent": "var(string)"
+	},
+	"rules":
+	[
+		{"scope": "comment, punctuation.definition.comment", "foreground": "var(comment)"},
+		{"scope": "string", "foreground": "var(string)"},
+		{"scope": "constant, constant.numeric, support.constant", "foreground": "var(constant)"},
+		{"scope": "keyword, storage.type, storage.modifier", "foreground": "var(white)"},
+		{"scope": "keyword.operator, punctuation.separator, punctuation.terminator", "foreground": "var(punctuation)"},
+		{"scope": "entity.name.type, support.type", "foreground": "var(punctuation)"},
+		{"scope": "entity.name.function, support.function", "foreground": "var(white)"},
+		{"scope": "variable, variable.parameter, variable.other.member", "foreground": "var(variable)"},
+		{"scope": "meta.preprocessor", "foreground": "var(punctuation)"},
+		{"scope": "markup.inserted", "foreground": "#A6E22E"},
+		{"scope": "markup.deleted", "foreground": "#F92672"},
+		{"scope": "markup.changed", "foreground": "#E6DB74"},
+		{"scope": "invalid", "foreground": "#FFFFFF", "background": "#FF0000"}
+	]
+}
