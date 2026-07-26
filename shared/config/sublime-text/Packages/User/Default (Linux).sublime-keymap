@@ -2,7 +2,62 @@
 	{ "keys": ["alt+k"], "command": "select_lines", "args": {"forward": false} },
 	{ "keys": ["alt+j"], "command": "select_lines", "args": {"forward": true} },
 	{ "keys": ["alt+d"], "command": "find_under_expand" },
+	{ "keys": ["alt+g"], "command": "show_overlay", "args": {"overlay": "goto", "text": ":"} },
+	{ "keys": ["ctrl+shift+o"], "command": "prompt_open_folder" },
 
+	// Open the selected Find in Files result
+	{
+		"keys": ["enter"],
+		"command": "next_result",
+		"context": [
+			{"key": "selector", "operator": "equal", "operand": "text.find-in-files"}
+		]
+	},
+
+	// Jump to a visible word with Jumper in Vintage normal mode
+	{
+		"keys": ["s"],
+		"command": "jumper",
+		"args": {"regex": "\\w+"},
+		"context": [
+			{"key": "setting.command_mode"},
+			{"key": "setting.is_widget", "operator": "equal", "operand": false}
+		]
+	},
+	{
+		"keys": ["ctrl+f"],
+		"command": "dired",
+		"args": {"immediate": true},
+		"context": [
+			{"key": "setting.command_mode"},
+			{"key": "setting.is_widget", "operator": "equal", "operand": false}
+		]
+	},
+	// Vim-style jumplist and definition navigation in Vintage normal mode
+	{
+		"keys": ["ctrl+o"],
+		"command": "jump_back",
+		"context": [
+			{"key": "setting.command_mode"},
+			{"key": "setting.is_widget", "operator": "equal", "operand": false}
+		]
+	},
+	{
+		"keys": ["ctrl+i"],
+		"command": "jump_forward",
+		"context": [
+			{"key": "setting.command_mode"},
+			{"key": "setting.is_widget", "operator": "equal", "operand": false}
+		]
+	},
+	{
+		"keys": ["g", "d"],
+		"command": "goto_definition",
+		"context": [
+			{"key": "setting.command_mode"},
+			{"key": "setting.is_widget", "operator": "equal", "operand": false}
+		]
+	},
 	// for window movement
 	{ "keys": ["ctrl+j"], "command": "new_pane" },
 	{ "keys": ["alt+q"], "command": "close_pane" },
@@ -10,10 +65,12 @@
 	{ "keys": ["alt+l"], "command": "focus_neighboring_group" },
 	{ "keys": ["ctrl+shift+h"], "command": "move_to_neighboring_group", "args": {"forward": false} },
 	{ "keys": ["ctrl+shift+l"], "command": "move_to_neighboring_group" },
-
 	// side bar
-	{ "keys": ["ctrl+shift+f"], "command": "toggle_side_bar" },
+	{ "keys": ["alt+s"], "command": "toggle_side_bar" },
 	{ "keys": ["alt+f"], "command": "focus_side_bar" },
+
+	// Cancel the currently running Go build
+	{ "keys": ["ctrl+shift+c"], "command": "golang_build_cancel" },
 
 	// Vintage half-page movement, followed by centering the caret
 	{

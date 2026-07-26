@@ -7,9 +7,15 @@
 	"ignored_packages": [
 	],
 	"color_scheme": "Packages/User/Naysayer.sublime-color-scheme",
-    "hardware_acceleration": "opengl",
-    "scroll_speed": 0.0,
+	"hardware_acceleration": "opengl",
+	"scroll_speed": 0.0,
+	"line_numbers": false,
+	"gutter": false,
+	"hot_exit": false,
+	"remember_open_files": false,
 	"index_files": true,
 	"vintage_ctrl_keys": true,
+	"vintage_start_in_command_mode": true,
+	"show_minimap": false,
 	"sublime_merge_path": "/home/tsp/bins/sublime_merge_build_2125_x64/sublime_merge-x64-tar/sublime_merge",
 }
