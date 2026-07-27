@@ -4,7 +4,7 @@
   min-height: 0;
   min-width: 0;
   font-family: "Noto Sans", "Noto Sans Symbols 2", sans-serif;
-  font-size: 13px;
+  font-size: 10px;
   box-shadow: none;
   text-shadow: none;
 }
@@ -42,7 +42,7 @@ tooltip label {
   min-height: 48px;
   color: #f4f4f4;
   font-family: "Symbols Nerd Font";
-  font-size: 22px;
+  font-size: 16.5px;
 }
 
 #custom-start:hover,
@@ -100,7 +100,7 @@ tooltip label {
   padding: 0;
   margin: 0;
   font-family: "Symbols Nerd Font";
-  font-size: 18px;
+  font-size: 13.5px;
 }
 
 #network.disconnected,
@@ -119,5 +119,5 @@ tooltip label {
 #clock {
   min-width: 47px;
   padding: 6px 0;
-  font-size: 11px;
+  font-size: 8px;
 }

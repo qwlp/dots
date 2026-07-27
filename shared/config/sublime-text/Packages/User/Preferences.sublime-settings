@@ -1,6 +1,6 @@
 {
 	"font_face": "LythMono Nerd Font",
-	"font_size": 16,
+	"font_size": 12,
 	"folder_exclude_patterns": [],
 	"file_exclude_patterns": [],
 	"theme": "Naysayer.sublime-theme",
@@ -8,7 +8,7 @@
 	],
 	"color_scheme": "Packages/User/Naysayer.sublime-color-scheme",
 	"hardware_acceleration": "opengl",
-	"scroll_speed": 0.0,
+	"scroll_speed": 2.0,
 	"line_numbers": false,
 	"gutter": false,
 	"hot_exit": false,
