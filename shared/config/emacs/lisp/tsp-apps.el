@@ -42,7 +42,7 @@
 (use-package symbol-overlay
   :ensure t
   :bind
-  (("M-i" . symbol-overlay-put)
+  (("M-I" . symbol-overlay-put)
    ("M-n" . symbol-overlay-switch-forward)
    ("M-p" . symbol-overlay-switch-backward)
    ("<f7>" . symbol-overlay-mode)

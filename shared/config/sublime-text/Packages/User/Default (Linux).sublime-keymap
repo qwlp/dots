@@ -72,6 +72,30 @@
 	// Cancel the currently running Go build
 	{ "keys": ["ctrl+shift+c"], "command": "golang_build_cancel" },
 
+	// Accept the selected auto-completion
+	{
+		"keys": ["ctrl+y"],
+		"command": "commit_completion",
+		"context": [
+			{"key": "auto_complete_visible"}
+		]
+	},
+
+	// In visual-line mode, make D delete the selection just like d
+	{
+		"keys": ["D"],
+		"command": "set_action",
+		"args": {
+			"action": "vi_delete",
+			"description": "Delete"
+		},
+		"context": [
+			{"key": "setting.command_mode"},
+			{"key": "selection_empty", "operator": "equal", "operand": false, "match_all": false},
+			{"key": "vi_motion_mode", "operator": "equal", "operand": "line"}
+		]
+	},
+
 	// Vintage half-page movement, followed by centering the caret
 	{
 		"keys": ["ctrl+d"],

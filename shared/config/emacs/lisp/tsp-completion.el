@@ -78,7 +78,36 @@
   (avy-style 'at-full)
   (avy-keys '(?a ?s ?d ?f ?j ?k ?l ?\; ?g ?h))
   :bind
-  (("C-s" . avy-goto-char-timer)))
+  (("M-s" . avy-goto-char-timer)))
+
+(use-package better-jumper
+  :ensure t
+  :demand t
+  :custom
+  (better-jumper-context 'window)
+  (better-jumper-add-jump-behavior 'replace)
+  (better-jumper-max-length 200)
+  :bind
+  (("M-o" . better-jumper-jump-backward)
+   ("M-i" . better-jumper-jump-forward))
+  :config
+  (better-jumper-mode 1)
+
+  (defun tsp/better-jumper-set-jump (&rest _)
+    "Record point before a command which may move somewhere else."
+    (better-jumper-set-jump))
+
+  ;; better-jumper deliberately leaves the definition of a jump to the user.
+  ;; Record the origin of the navigation commands used in this config.
+  (dolist (command '(avy-goto-char-timer
+                     consult-line
+                     consult-goto-line
+                     consult-imenu
+                     consult-outline
+                     fff--open-result
+                     xref-find-definitions
+                     xref-find-definitions-other-window))
+    (advice-add command :before #'tsp/better-jumper-set-jump)))
 
 (use-package consult
   :ensure t
@@ -97,20 +126,32 @@
    ("M-g g" . consult-goto-line)
    ("M-g M-g" . consult-goto-line)
    ("M-g o" . consult-outline)
-   ("M-g i" . consult-imenu)
-   ("M-s g" . consult-grep)
-   ("M-s f" . consult-find)))
+   ("M-g i" . consult-imenu)))
 
 ;; fff.el uses the same native Rust search engine as fff.nvim.  Install its
 ;; native dependencies once with scripts/install-fff-el.sh.
 (add-to-list 'load-path
              (expand-file-name "site-lisp/fff/" tsp/emacs-state-directory))
 
+(defun tsp/fff-query-at-point ()
+  "Return the active region or symbol at point for an fff grep."
+  (if (use-region-p)
+      (buffer-substring-no-properties (region-beginning) (region-end))
+    (thing-at-point 'symbol t)))
+
+(defun tsp/fff-grep-dwim (&optional empty)
+  "Run fff grep, initially searching for the text at point.
+With prefix argument EMPTY, start with an empty query."
+  (interactive "P")
+  (require 'fff)
+  (fff--ensure-instance)
+  (fff--pick-grep 'plain (unless empty (tsp/fff-query-at-point))))
+
 (use-package fff
   :ensure nil
   :commands (fff-find-file fff-grep fff-grep-fuzzy)
   :bind (("C-c f" . fff-find-file)
-         ("C-c g" . fff-grep))
+         ("C-c g" . tsp/fff-grep-dwim))
   :init
   (setq fff-max-results 200
         fff-smart-case t
@@ -206,7 +247,7 @@
                    :state (tsp/fff-preview-state))))
         (fff--open-result choice))))
 
-  (defun tsp/fff-pick-grep-with-preview (mode)
+  (defun tsp/fff-pick-grep-with-preview (mode &optional initial)
     (let ((lookup (make-hash-table :test 'equal)))
       (when-let ((choice
                   (consult--read
@@ -222,6 +263,7 @@
                                "fff grep fuzzy › "
                              "fff grep › ")
                    :sort nil
+                   :initial initial
                    :lookup (lambda (candidate _candidates _input _narrow)
                              (gethash candidate lookup))
                    :state (tsp/fff-preview-state mode))))
