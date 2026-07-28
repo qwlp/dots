@@ -386,6 +386,37 @@ left untouched for manual recovery."
              (equal (marker-buffer org-clock-marker) (current-buffer)))
     (org-clock-out)))
 
+(defvar tsp/org-project-refile-in-progress nil
+  "Non-nil while automatically refiling a project after a state change.")
+
+(defun tsp/org-project-parent-section ()
+  "Return the top-level section containing the heading at point."
+  (save-excursion
+    (org-back-to-heading t)
+    (while (org-up-heading-safe))
+    (org-get-heading t t t t)))
+
+(defun tsp/org-refile-project-for-state ()
+  "Move projects between Active and Completed according to `org-state'."
+  (when (and (not tsp/org-project-refile-in-progress)
+             org-state
+             buffer-file-name
+             (file-equal-p buffer-file-name tsp/org-projects-file)
+             (member "project" (org-get-tags nil t)))
+    (let ((target (if (member org-state org-done-keywords)
+                      "Completed"
+                    "Active")))
+      (unless (equal target (tsp/org-project-parent-section))
+        (let ((target-position
+               (save-excursion
+                 (goto-char (point-min))
+                 (org-find-exact-headline-in-buffer target))))
+          (when target-position
+            (let ((tsp/org-project-refile-in-progress t))
+              (org-refile nil nil
+                          (list target tsp/org-projects-file nil
+                                target-position)))))))))
+
 (use-package org
   :ensure nil
   :bind
@@ -507,6 +538,8 @@ left untouched for manual recovery."
   (require 'org-clock)
   (org-clock-persistence-insinuate)
   (add-hook 'org-after-todo-state-change-hook #'tsp/org-clock-out-if-done)
+  (add-hook 'org-after-todo-state-change-hook
+            #'tsp/org-refile-project-for-state)
   (require 'org-tempo)
   (dolist (template '(("el" . "src emacs-lisp")
                       ("py" . "src python")
