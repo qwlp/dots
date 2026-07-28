@@ -33,6 +33,22 @@
 (when (tsp/battery-available-p)
   (display-battery-mode 1))
 
+(use-package pulsar
+  :custom
+  (pulsar-delay 0.03)
+  (pulsar-iterations 12)
+  (pulsar-face 'pulsar-cyan)
+  (pulsar-highlight-face 'pulsar-cyan)
+  (pulsar-window-change-face 'pulsar-cyan)
+  (pulsar-pulse-on-window-change t)
+  :config
+  (dolist (command '(tsp/scroll-up-and-center
+                     tsp/scroll-down-and-center
+                     better-jumper-jump-backward
+                     better-jumper-jump-forward))
+    (add-to-list 'pulsar-pulse-functions command))
+  (pulsar-global-mode 1))
+
 (defconst tsp/script-fonts
   '((khmer . "Noto Sans Khmer")
     (thai . "Noto Sans Thai")
