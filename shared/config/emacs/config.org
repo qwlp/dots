@@ -160,6 +160,15 @@
 ;; Insert matching closing delimiters and skip over them when typed.
 (electric-pair-mode 1)
 
+;; Keep high-resolution trackpad and mouse-wheel scrolling pixel-precise.
+;; `ultra-scroll' enables the built-in `pixel-scroll-precision-mode' itself.
+(use-package ultra-scroll
+  :init
+  (setq scroll-conservatively 3
+        scroll-margin 0)
+  :config
+  (ultra-scroll-mode 1))
+
 (defun tsp/scroll-up-and-center ()
   "Scroll forward and center point in the window."
   (interactive)
@@ -375,6 +384,81 @@ sessions."
 (keymap-global-set "C-c i e" #'emoji-search)
 (keymap-global-set "C-c i E" #'emoji-list)
 (keymap-global-set "C-c i r" #'emoji-recent)
+
+;; Window selection, layout history, numbering, and temporary popups.
+(use-package ace-window
+  :ensure t
+  :bind
+  (("C-x o" . ace-window)
+   ("C-x O" . tsp/ace-window-dispatch))
+  :custom
+  (aw-scope 'frame)
+  (aw-background t)
+  (aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l))
+  ;; Keep the action keys distinct from the home-row selection labels.
+  (aw-dispatch-alist
+   '((?x aw-delete-window "Delete window")
+     (?m aw-swap-window "Swap windows")
+     (?v aw-split-window-vert "Split window right")
+     (?b aw-split-window-horz "Split window below")
+     (?o delete-other-windows "Maximize window")
+     (?? aw-show-dispatch-help)))
+  :config
+  (defun tsp/ace-window-dispatch ()
+    "Select an Ace Window action, even when only one or two windows exist."
+    (interactive)
+    (let ((aw-dispatch-always t))
+      (ace-window))))
+
+(winner-mode 1)
+(tab-bar-history-mode -1)
+(tab-bar-mode -1)
+
+;; Match Kitty's pane-management keys.
+(keymap-global-set "M-V" #'split-window-right)
+(keymap-global-set "M-M" #'split-window-below)
+(keymap-global-set "M-W" #'delete-window)
+
+(use-package winum
+  :ensure t
+  :demand t
+  :custom
+  (winum-auto-setup-mode-line t)
+  :bind
+  (("M-0" . winum-select-window-0-or-10)
+   ("M-1" . winum-select-window-1)
+   ("M-2" . winum-select-window-2)
+   ("M-3" . winum-select-window-3)
+   ("M-4" . winum-select-window-4)
+   ("M-5" . winum-select-window-5)
+   ("M-6" . winum-select-window-6)
+   ("M-7" . winum-select-window-7)
+   ("M-8" . winum-select-window-8)
+   ("M-9" . winum-select-window-9))
+  :config
+  (winum-mode 1))
+
+(use-package popper
+  :ensure t
+  :bind
+  (("C-`" . popper-toggle)
+   ("C-M-`" . popper-cycle))
+  :custom
+  (popper-reference-buffers
+   '("\\*Messages\\*"
+     "\\*Warnings\\*"
+     "\\*Help\\*"
+     "\\*Async Shell Command\\*"
+     "\\*Shell Command Output\\*"
+     help-mode
+     compilation-mode
+     shell-mode
+     eshell-mode
+     term-mode
+     vterm-mode))
+  :config
+  (popper-mode 1)
+  (popper-echo-mode 1))
 
 (provide 'tsp-core)
 ;;; tsp-core.el ends here
@@ -1221,10 +1305,14 @@ be captured as Org headings rather than diary entries.
 
 ** Writing Org documents
 
-In Org buffers, long lines are filled at 80 columns.  Type =<el=, =<py=, or
-=<sh= followed by =TAB= to insert an Emacs Lisp, Python, or shell source block.
+In Org buffers, long lines are filled at 80 columns.  Type a comma followed by
+any language and =TAB=, such as =,py= or =,java=, to insert a source block.
+The aliases =el=, =py=, and =sh= expand to =emacs-lisp=, =python=, and =shell=;
+other language names are used as typed.
 Run the block with =C-c C-c=; inline images are refreshed afterward.  Links open
 with =RET=, and non-Org files use the desktop's normal application.  Press
+=C-c o p= on a project heading to open the link in its inherited =DIR= property.
+Press
 =C-c C-v= to save an image from the system clipboard in =assets/= and insert an
 image link.  Images stay hidden by default: put point on an image link and press
 =C-c C-p= to preview only that image; the preview disappears when point leaves
@@ -1259,6 +1347,33 @@ evaluate the changed forms.
   (when (derived-mode-p 'org-mode)
     (org-redisplay-inline-images)))
 
+(defconst tsp/org-source-language-aliases
+  '(("el" . "emacs-lisp")
+    ("py" . "python")
+    ("sh" . "shell"))
+  "Short names accepted by `tsp/org-expand-source-block'.")
+
+(defun tsp/org-expand-source-block ()
+  "Expand an indented `,LANGUAGE' at point into an Org source block.
+Return non-nil when an expansion was performed, for `org-tab-first-hook'."
+  (when (looking-back
+         "^\\([[:blank:]]*\\),\\([[:alnum:]_+.-]+\\)"
+         (line-beginning-position))
+    (let* ((indent (match-string-no-properties 1))
+           (short-name (match-string-no-properties 2))
+           (language (or (cdr (assoc-string
+                               short-name
+                               tsp/org-source-language-aliases
+                               t))
+                         short-name)))
+      (delete-region (line-beginning-position) (point))
+      (insert indent "#+begin_src " language "\n"
+              indent "\n"
+              indent "#+end_src")
+      (forward-line -1)
+      (end-of-line)
+      t)))
+
 (defconst tsp/org-directory
   (file-name-as-directory
    (expand-file-name (or (getenv "ORG_DIRECTORY") "~/org")))
@@ -1278,6 +1393,17 @@ evaluate the changed forms.
             (expand-file-name directory tsp/org-roam-directory))
           '("meetings/" "events/" "ideas/" "projects/" "references/"))
   "Directories used by typed Org-roam note captures.")
+
+(defun tsp/org-open-project-directory ()
+  "Open the inherited DIR link and show it in the frame's only window."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "This command must be used in an Org buffer"))
+  (let ((directory-link (org-entry-get nil "DIR" t)))
+    (unless directory-link
+      (user-error "This heading has no DIR property"))
+    (org-link-open-from-string directory-link)
+    (delete-other-windows)))
 
 (defun tsp/org-bootstrap-file (file title &rest headings)
   "Create FILE with TITLE and HEADINGS when it does not exist."
@@ -1666,6 +1792,7 @@ left untouched for manual recovery."
    ("C-c o i" . org-clock-in)
    ("C-c o o" . org-clock-out)
    ("C-c o g" . org-clock-goto)
+   ("C-c o p" . tsp/org-open-project-directory)
    :map org-mode-map
    ("C-c C-v" . tsp/org-paste-clipboard-image)
    ("C-c C-p" . tsp/org-preview-image-at-point)
@@ -1745,6 +1872,9 @@ left untouched for manual recovery."
         org-fontify-whole-heading-line nil
         org-fontify-done-headline nil
         org-src-fontify-natively t
+        ;; Let language modes own source indentation.  In particular, avoid
+        ;; offsetting Java's 4-space indentation by Org's default 2 spaces.
+        org-edit-src-content-indentation 0
         org-fold-catch-invisible-edits 'smart
         org-insert-heading-respect-content t
         org-M-RET-may-split-line '((default . nil))
@@ -1779,11 +1909,7 @@ left untouched for manual recovery."
   (add-hook 'org-after-todo-state-change-hook #'tsp/org-clock-out-if-done)
   (add-hook 'org-after-todo-state-change-hook
             #'tsp/org-refile-project-for-state)
-  (require 'org-tempo)
-  (dolist (template '(("el" . "src emacs-lisp")
-                      ("py" . "src python")
-                      ("sh" . "src shell")))
-    (add-to-list 'org-structure-template-alist template))
+  (add-hook 'org-tab-first-hook #'tsp/org-expand-source-block)
   (when (boundp 'org-file-apps-gnu)
     (setcdr (assq t org-file-apps-gnu) 'browse-url-xdg-open)))
 

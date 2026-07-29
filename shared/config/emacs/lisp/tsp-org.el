@@ -20,6 +20,33 @@
   (when (derived-mode-p 'org-mode)
     (org-redisplay-inline-images)))
 
+(defconst tsp/org-source-language-aliases
+  '(("el" . "emacs-lisp")
+    ("py" . "python")
+    ("sh" . "shell"))
+  "Short names accepted by `tsp/org-expand-source-block'.")
+
+(defun tsp/org-expand-source-block ()
+  "Expand an indented `,LANGUAGE' at point into an Org source block.
+Return non-nil when an expansion was performed, for `org-tab-first-hook'."
+  (when (looking-back
+         "^\\([[:blank:]]*\\),\\([[:alnum:]_+.-]+\\)"
+         (line-beginning-position))
+    (let* ((indent (match-string-no-properties 1))
+           (short-name (match-string-no-properties 2))
+           (language (or (cdr (assoc-string
+                               short-name
+                               tsp/org-source-language-aliases
+                               t))
+                         short-name)))
+      (delete-region (line-beginning-position) (point))
+      (insert indent "#+begin_src " language "\n"
+              indent "\n"
+              indent "#+end_src")
+      (forward-line -1)
+      (end-of-line)
+      t)))
+
 (defconst tsp/org-directory
   (file-name-as-directory
    (expand-file-name (or (getenv "ORG_DIRECTORY") "~/org")))
@@ -39,6 +66,17 @@
             (expand-file-name directory tsp/org-roam-directory))
           '("meetings/" "events/" "ideas/" "projects/" "references/"))
   "Directories used by typed Org-roam note captures.")
+
+(defun tsp/org-open-project-directory ()
+  "Open the inherited DIR link and show it in the frame's only window."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "This command must be used in an Org buffer"))
+  (let ((directory-link (org-entry-get nil "DIR" t)))
+    (unless directory-link
+      (user-error "This heading has no DIR property"))
+    (org-link-open-from-string directory-link)
+    (delete-other-windows)))
 
 (defun tsp/org-bootstrap-file (file title &rest headings)
   "Create FILE with TITLE and HEADINGS when it does not exist."
@@ -427,6 +465,7 @@ left untouched for manual recovery."
    ("C-c o i" . org-clock-in)
    ("C-c o o" . org-clock-out)
    ("C-c o g" . org-clock-goto)
+   ("C-c o p" . tsp/org-open-project-directory)
    :map org-mode-map
    ("C-c C-v" . tsp/org-paste-clipboard-image)
    ("C-c C-p" . tsp/org-preview-image-at-point)
@@ -506,6 +545,9 @@ left untouched for manual recovery."
         org-fontify-whole-heading-line nil
         org-fontify-done-headline nil
         org-src-fontify-natively t
+        ;; Let language modes own source indentation.  In particular, avoid
+        ;; offsetting Java's 4-space indentation by Org's default 2 spaces.
+        org-edit-src-content-indentation 0
         org-fold-catch-invisible-edits 'smart
         org-insert-heading-respect-content t
         org-M-RET-may-split-line '((default . nil))
@@ -540,11 +582,7 @@ left untouched for manual recovery."
   (add-hook 'org-after-todo-state-change-hook #'tsp/org-clock-out-if-done)
   (add-hook 'org-after-todo-state-change-hook
             #'tsp/org-refile-project-for-state)
-  (require 'org-tempo)
-  (dolist (template '(("el" . "src emacs-lisp")
-                      ("py" . "src python")
-                      ("sh" . "src shell")))
-    (add-to-list 'org-structure-template-alist template))
+  (add-hook 'org-tab-first-hook #'tsp/org-expand-source-block)
   (when (boundp 'org-file-apps-gnu)
     (setcdr (assq t org-file-apps-gnu) 'browse-url-xdg-open)))
 

@@ -75,6 +75,15 @@
 ;; Insert matching closing delimiters and skip over them when typed.
 (electric-pair-mode 1)
 
+;; Keep high-resolution trackpad and mouse-wheel scrolling pixel-precise.
+;; `ultra-scroll' enables the built-in `pixel-scroll-precision-mode' itself.
+(use-package ultra-scroll
+  :init
+  (setq scroll-conservatively 3
+        scroll-margin 0)
+  :config
+  (ultra-scroll-mode 1))
+
 (defun tsp/scroll-up-and-center ()
   "Scroll forward and center point in the window."
   (interactive)
@@ -290,6 +299,81 @@ sessions."
 (keymap-global-set "C-c i e" #'emoji-search)
 (keymap-global-set "C-c i E" #'emoji-list)
 (keymap-global-set "C-c i r" #'emoji-recent)
+
+;; Window selection, layout history, numbering, and temporary popups.
+(use-package ace-window
+  :ensure t
+  :bind
+  (("C-x o" . ace-window)
+   ("C-x O" . tsp/ace-window-dispatch))
+  :custom
+  (aw-scope 'frame)
+  (aw-background t)
+  (aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l))
+  ;; Keep the action keys distinct from the home-row selection labels.
+  (aw-dispatch-alist
+   '((?x aw-delete-window "Delete window")
+     (?m aw-swap-window "Swap windows")
+     (?v aw-split-window-vert "Split window right")
+     (?b aw-split-window-horz "Split window below")
+     (?o delete-other-windows "Maximize window")
+     (?? aw-show-dispatch-help)))
+  :config
+  (defun tsp/ace-window-dispatch ()
+    "Select an Ace Window action, even when only one or two windows exist."
+    (interactive)
+    (let ((aw-dispatch-always t))
+      (ace-window))))
+
+(winner-mode 1)
+(tab-bar-history-mode -1)
+(tab-bar-mode -1)
+
+;; Match Kitty's pane-management keys.
+(keymap-global-set "M-V" #'split-window-right)
+(keymap-global-set "M-M" #'split-window-below)
+(keymap-global-set "M-W" #'delete-window)
+
+(use-package winum
+  :ensure t
+  :demand t
+  :custom
+  (winum-auto-setup-mode-line t)
+  :bind
+  (("M-0" . winum-select-window-0-or-10)
+   ("M-1" . winum-select-window-1)
+   ("M-2" . winum-select-window-2)
+   ("M-3" . winum-select-window-3)
+   ("M-4" . winum-select-window-4)
+   ("M-5" . winum-select-window-5)
+   ("M-6" . winum-select-window-6)
+   ("M-7" . winum-select-window-7)
+   ("M-8" . winum-select-window-8)
+   ("M-9" . winum-select-window-9))
+  :config
+  (winum-mode 1))
+
+(use-package popper
+  :ensure t
+  :bind
+  (("C-`" . popper-toggle)
+   ("C-M-`" . popper-cycle))
+  :custom
+  (popper-reference-buffers
+   '("\\*Messages\\*"
+     "\\*Warnings\\*"
+     "\\*Help\\*"
+     "\\*Async Shell Command\\*"
+     "\\*Shell Command Output\\*"
+     help-mode
+     compilation-mode
+     shell-mode
+     eshell-mode
+     term-mode
+     vterm-mode))
+  :config
+  (popper-mode 1)
+  (popper-echo-mode 1))
 
 (provide 'tsp-core)
 ;;; tsp-core.el ends here
