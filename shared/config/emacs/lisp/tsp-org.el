@@ -12,6 +12,9 @@
   (electric-indent-local-mode -1)
   (auto-fill-mode 1)
   (display-fill-column-indicator-mode 1)
+  (add-hook 'post-self-insert-hook
+            #'tsp/org-auto-expand-source-block nil t)
+  (add-hook 'before-save-hook #'tsp/org-format-java-blocks nil t)
   (add-hook 'post-command-hook
             #'tsp/org--hide-image-preview-after-move nil t))
 
@@ -25,6 +28,9 @@
     ("py" . "python")
     ("sh" . "shell"))
   "Short names accepted by `tsp/org-expand-source-block'.")
+
+(defconst tsp/org-auto-source-languages '("java")
+  "Source block names expanded immediately after they are typed.")
 
 (defun tsp/org-expand-source-block ()
   "Expand an indented `,LANGUAGE' at point into an Org source block.
@@ -46,6 +52,61 @@ Return non-nil when an expansion was performed, for `org-tab-first-hook'."
       (forward-line -1)
       (end-of-line)
       t)))
+
+(defun tsp/org-auto-expand-source-block ()
+  "Expand configured `,LANGUAGE' shortcuts without requiring Tab."
+  (when (and (characterp last-command-event)
+             (memq (char-syntax last-command-event) '(?w ?_))
+             (looking-back
+              (concat "^\\([[:blank:]]*\\),\\("
+                      (regexp-opt tsp/org-auto-source-languages)
+                      "\\)")
+              (line-beginning-position)))
+    (tsp/org-expand-source-block)))
+
+(defun tsp/org--clang-format-java (source)
+  "Return Java SOURCE formatted by clang-format."
+  (let ((output (generate-new-buffer " *clang-format Java output*"))
+        (errors (make-temp-file "clang-format-java-errors-")))
+    (unwind-protect
+        (with-temp-buffer
+          (insert source)
+          (let ((status (call-process-region
+                         (point-min) (point-max) "clang-format" nil
+                         (list output errors) nil
+                         "--assume-filename=Block.java")))
+            (unless (and (integerp status) (zerop status))
+              (user-error
+               "Could not format Java Org block: %s"
+               (with-temp-buffer
+                 (insert-file-contents errors)
+                 (string-trim (buffer-string)))))
+            (with-current-buffer output
+              (string-remove-suffix "\n" (buffer-string)))))
+      (kill-buffer output)
+      (delete-file errors))))
+
+(defun tsp/org-format-java-blocks ()
+  "Format every Java source block in the current Org buffer."
+  (when (derived-mode-p 'org-mode)
+    (let (blocks)
+      (org-babel-map-src-blocks nil
+        (when (string-equal lang "java")
+          (push (copy-marker beg-block) blocks)))
+      (when blocks
+        (unless (executable-find "clang-format")
+          (user-error "Cannot format Java Org blocks: clang-format not found"))
+        ;; BLOCKS is in reverse buffer order, so edits cannot move blocks that
+        ;; have not been visited yet.
+        (save-excursion
+          (dolist (block blocks)
+            (goto-char block)
+            (let* ((info (org-babel-get-src-block-info 'light))
+                   (body (nth 1 info))
+                   (formatted (tsp/org--clang-format-java body)))
+              (unless (string-equal body formatted)
+                (org-babel-update-block-body formatted)))
+            (set-marker block nil)))))))
 
 (defconst tsp/org-directory
   (file-name-as-directory

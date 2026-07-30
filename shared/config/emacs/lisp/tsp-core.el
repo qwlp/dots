@@ -231,11 +231,13 @@ region keep their positions within the moved text."
 (keymap-global-set "M-N" #'tsp/move-lines-down)
 (keymap-global-set "M-P" #'tsp/move-lines-up)
 
-;; Duplicate below with Control+Shift+d and above with Control+Shift+i.
-(when (eq (keymap-global-lookup "C-S-u") #'tsp/duplicate-line-above)
-  (keymap-global-unset "C-S-u"))
-(keymap-global-set "C-S-d" #'duplicate-line)
-(keymap-global-set "C-S-i" #'tsp/duplicate-line-above)
+;; Duplicate below with Control+Shift+j and above with Control+Shift+k.
+(when (eq (keymap-global-lookup "C-S-d") #'duplicate-line)
+  (keymap-global-unset "C-S-d"))
+(when (eq (keymap-global-lookup "C-S-i") #'tsp/duplicate-line-above)
+  (keymap-global-unset "C-S-i"))
+(keymap-global-set "C-S-j" #'duplicate-line)
+(keymap-global-set "C-S-k" #'tsp/duplicate-line-above)
 
 (add-hook 'emacs-startup-hook
           (lambda ()
