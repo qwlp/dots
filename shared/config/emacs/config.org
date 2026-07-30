@@ -157,7 +157,20 @@
 
 (setq-default c-basic-offset 4)
 
-;; Insert matching closing delimiters and skip over them when typed.
+;; Insert matching closing delimiters and skip over them when typed, except
+;; for angle brackets, which are commonly comparison operators or Java
+;; generic delimiters entered before their contents.
+(defun tsp/electric-pair-inhibit-angle-brackets (char)
+  "Prevent automatic pairing of angle brackets for CHAR."
+  (or (eq char ?<)
+      (electric-pair-default-inhibit char)))
+
+(setq electric-pair-inhibit-predicate
+      #'tsp/electric-pair-inhibit-angle-brackets
+      ;; Typing an existing closing delimiter should move over it rather than
+      ;; insert a duplicate.
+      electric-pair-skip-self t)
+
 (electric-pair-mode 1)
 
 ;; Keep high-resolution trackpad and mouse-wheel scrolling pixel-precise.
@@ -1313,7 +1326,8 @@ the language and =TAB=, such as =,py=, to insert a source block.
 The aliases =el=, =py=, and =sh= expand to =emacs-lisp=, =python=, and =shell=;
 other language names are used as typed.
 Java source blocks are formatted with =clang-format= whenever the Org file is
-saved.  Run a block with =C-c C-c=; inline images are refreshed afterward.
+saved and can be compiled and run with =C-c C-c=; inline images are refreshed
+afterward.
 Links open with =RET=, and non-Org files use the desktop's normal application.  Press
 =C-c o p= on a project heading to open the link in its inherited =DIR= property.
 Press
@@ -1970,6 +1984,10 @@ left untouched for manual recovery."
   :config
   (require 'org-habit)
   (require 'org-clock)
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (java . t)))
   (org-clock-persistence-insinuate)
   (add-hook 'org-after-todo-state-change-hook #'tsp/org-clock-out-if-done)
   (add-hook 'org-after-todo-state-change-hook

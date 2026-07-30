@@ -72,7 +72,20 @@
 
 (setq-default c-basic-offset 4)
 
-;; Insert matching closing delimiters and skip over them when typed.
+;; Insert matching closing delimiters and skip over them when typed, except
+;; for angle brackets, which are commonly comparison operators or Java
+;; generic delimiters entered before their contents.
+(defun tsp/electric-pair-inhibit-angle-brackets (char)
+  "Prevent automatic pairing of angle brackets for CHAR."
+  (or (eq char ?<)
+      (electric-pair-default-inhibit char)))
+
+(setq electric-pair-inhibit-predicate
+      #'tsp/electric-pair-inhibit-angle-brackets
+      ;; Typing an existing closing delimiter should move over it rather than
+      ;; insert a duplicate.
+      electric-pair-skip-self t)
+
 (electric-pair-mode 1)
 
 ;; Keep high-resolution trackpad and mouse-wheel scrolling pixel-precise.

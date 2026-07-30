@@ -639,6 +639,10 @@ left untouched for manual recovery."
   :config
   (require 'org-habit)
   (require 'org-clock)
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (java . t)))
   (org-clock-persistence-insinuate)
   (add-hook 'org-after-todo-state-change-hook #'tsp/org-clock-out-if-done)
   (add-hook 'org-after-todo-state-change-hook
