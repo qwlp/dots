@@ -334,8 +334,25 @@ For safety, only image files inside `tsp/org-assets-directory' are removed."
                                tsp/org-webdav-sync-service))
       (message "Final Org WebDAV sync failed to start"))))
 
+(defun tsp/org-webdav-sync-on-client-open ()
+  "Queue an Org WebDAV synchronization for a new Emacs client frame."
+  (tsp/org-webdav-sync-on-startup))
+
+(defun tsp/org-webdav-sync-on-client-close (frame)
+  "Save Org buffers and queue a WebDAV sync when client FRAME closes."
+  (when (and (frame-parameter frame 'client)
+             (not (frame-parameter frame 'tsp-org-webdav-close-sync)))
+    ;; `delete-frame-functions' can run more than once for the same frame.
+    (set-frame-parameter frame 'tsp-org-webdav-close-sync t)
+    (tsp/org-webdav-sync-on-shutdown)))
+
 (add-hook 'emacs-startup-hook #'tsp/org-webdav-sync-on-startup)
 (add-hook 'kill-emacs-hook #'tsp/org-webdav-sync-on-shutdown)
+(with-eval-after-load 'server
+  (add-hook 'server-after-make-frame-hook
+            #'tsp/org-webdav-sync-on-client-open)
+  (add-hook 'delete-frame-functions
+            #'tsp/org-webdav-sync-on-client-close))
 
 (defun tsp/org-git-run (&rest arguments)
   "Run Git with ARGUMENTS in `tsp/org-directory'.
