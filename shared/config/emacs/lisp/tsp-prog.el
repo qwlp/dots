@@ -35,6 +35,7 @@
     (go "https://github.com/tree-sitter/tree-sitter-go")
     (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
     (jai "https://github.com/constantitus/tree-sitter-jai")
+    (java "https://github.com/tree-sitter/tree-sitter-java")
     (typst "https://github.com/uben0/tree-sitter-typst"))
   "Tree-sitter grammars managed by this config.")
 
@@ -134,6 +135,12 @@
   :mode ("\\.c\\'" . c-ts-mode))
 
 (add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
+
+(use-package java-ts-mode
+  :ensure nil
+  :mode ("\\.java\\'" . java-ts-mode))
+
+(add-to-list 'major-mode-remap-alist '(java-mode . java-ts-mode))
 
 (use-package go-ts-mode
   :ensure nil

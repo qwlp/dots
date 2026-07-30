@@ -12,9 +12,10 @@
   (electric-indent-local-mode -1)
   (auto-fill-mode 1)
   (display-fill-column-indicator-mode 1)
+  ;; Clean up the formatter hook when reloading over an older configuration.
+  (remove-hook 'before-save-hook #'tsp/org-format-java-blocks t)
   (add-hook 'post-self-insert-hook
             #'tsp/org-auto-expand-source-block nil t)
-  (add-hook 'before-save-hook #'tsp/org-format-java-blocks nil t)
   (add-hook 'post-command-hook
             #'tsp/org--hide-image-preview-after-move nil t))
 
@@ -31,6 +32,36 @@
 
 (defconst tsp/org-auto-source-languages '("java")
   "Source block names expanded immediately after they are typed.")
+
+(defun org-babel-edit-prep:java (_info)
+  "Use two-space indentation while editing Java Org source blocks."
+  (setq-local c-basic-offset 2
+              java-ts-mode-indent-offset 2
+              tab-width 2
+              indent-tabs-mode nil))
+
+(defun tsp/org-tab-dwim ()
+  "Indent source code at point; otherwise perform normal Org cycling."
+  (interactive)
+  (if (org-in-src-block-p 'inside)
+      (org-babel-do-in-edit-buffer
+       (indent-according-to-mode))
+    (org-cycle)))
+
+(defun tsp/org-return-dwim ()
+  "Insert an indented source line at point; otherwise perform Org Return."
+  (interactive)
+  (if (org-in-src-block-p 'inside)
+      (org-babel-do-in-edit-buffer
+       (if (eq (char-after) ?})
+           (progn
+             (newline)
+             (indent-according-to-mode)
+             (beginning-of-line)
+             (open-line 1)
+             (indent-according-to-mode))
+         (newline-and-indent)))
+    (org-return)))
 
 (defun tsp/org-expand-source-block ()
   "Expand an indented `,LANGUAGE' at point into an Org source block.
@@ -63,50 +94,6 @@ Return non-nil when an expansion was performed, for `org-tab-first-hook'."
                       "\\)")
               (line-beginning-position)))
     (tsp/org-expand-source-block)))
-
-(defun tsp/org--clang-format-java (source)
-  "Return Java SOURCE formatted by clang-format."
-  (let ((output (generate-new-buffer " *clang-format Java output*"))
-        (errors (make-temp-file "clang-format-java-errors-")))
-    (unwind-protect
-        (with-temp-buffer
-          (insert source)
-          (let ((status (call-process-region
-                         (point-min) (point-max) "clang-format" nil
-                         (list output errors) nil
-                         "--assume-filename=Block.java")))
-            (unless (and (integerp status) (zerop status))
-              (user-error
-               "Could not format Java Org block: %s"
-               (with-temp-buffer
-                 (insert-file-contents errors)
-                 (string-trim (buffer-string)))))
-            (with-current-buffer output
-              (string-remove-suffix "\n" (buffer-string)))))
-      (kill-buffer output)
-      (delete-file errors))))
-
-(defun tsp/org-format-java-blocks ()
-  "Format every Java source block in the current Org buffer."
-  (when (derived-mode-p 'org-mode)
-    (let (blocks)
-      (org-babel-map-src-blocks nil
-        (when (string-equal lang "java")
-          (push (copy-marker beg-block) blocks)))
-      (when blocks
-        (unless (executable-find "clang-format")
-          (user-error "Cannot format Java Org blocks: clang-format not found"))
-        ;; BLOCKS is in reverse buffer order, so edits cannot move blocks that
-        ;; have not been visited yet.
-        (save-excursion
-          (dolist (block blocks)
-            (goto-char block)
-            (let* ((info (org-babel-get-src-block-info 'light))
-                   (body (nth 1 info))
-                   (formatted (tsp/org--clang-format-java body)))
-              (unless (string-equal body formatted)
-                (org-babel-update-block-body formatted)))
-            (set-marker block nil)))))))
 
 (defconst tsp/org-directory
   (file-name-as-directory
@@ -528,6 +515,10 @@ left untouched for manual recovery."
    ("C-c o g" . org-clock-goto)
    ("C-c o p" . tsp/org-open-project-directory)
    :map org-mode-map
+   ("TAB" . tsp/org-tab-dwim)
+   ("<tab>" . tsp/org-tab-dwim)
+   ("RET" . tsp/org-return-dwim)
+   ("<return>" . tsp/org-return-dwim)
    ("C-c C-v" . tsp/org-paste-clipboard-image)
    ("C-c C-p" . tsp/org-preview-image-at-point)
    ("C-c C-x i" . tsp/org-delete-image-at-point))
@@ -606,8 +597,8 @@ left untouched for manual recovery."
         org-fontify-whole-heading-line nil
         org-fontify-done-headline nil
         org-src-fontify-natively t
-        ;; Let language modes own source indentation.  In particular, avoid
-        ;; offsetting Java's 4-space indentation by Org's default 2 spaces.
+        ;; Let language modes own source indentation instead of adding Org's
+        ;; own offset on top of their configured indentation.
         org-edit-src-content-indentation 0
         org-fold-catch-invisible-edits 'smart
         org-insert-heading-respect-content t
@@ -639,6 +630,7 @@ left untouched for manual recovery."
   :config
   (require 'org-habit)
   (require 'org-clock)
+  (add-to-list 'org-src-lang-modes '("java" . java-ts))
   (org-babel-do-load-languages
    'org-babel-load-languages
    '((emacs-lisp . t)
