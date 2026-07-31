@@ -1,0 +1,15 @@
+[Unit]
+Description=MEGAcmd server and background synchronizations
+Documentation=https://github.com/meganz/MEGAcmd
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/mega-cmd-server --do-not-log-to-stdout
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+[Install]
+WantedBy=default.target
