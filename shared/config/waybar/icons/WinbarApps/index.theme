@@ -2,7 +2,7 @@
 Name=WinbarApps
 Comment=Unmodified application logos for the vertical Waybar
 Directories=256x256/apps,scalable/apps
-Inherits=hicolor
+Inherits=WhiteSur,hicolor
 
 [scalable/apps]
 Size=48

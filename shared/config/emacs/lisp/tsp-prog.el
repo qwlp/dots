@@ -122,13 +122,26 @@
   (indent-bars-highlight-current-depth nil)
   (indent-bars-treesit-support nil))
 
+(defvar tsp/org-export-fontifying-code nil
+  "Non-nil while Org is preparing a source block for HTML export.")
+
 (defun tsp/enable-indent-bars-after-major-mode ()
   "Enable indentation bars after a programming mode finishes initializing."
-  (when (derived-mode-p 'prog-mode)
+  (when (and (derived-mode-p 'prog-mode)
+             (not tsp/org-export-fontifying-code))
     (indent-bars-mode 1)))
 
 (add-hook 'after-change-major-mode-hook
           #'tsp/enable-indent-bars-after-major-mode)
+
+(defun tsp/org-html-fontify-code-without-indent-bars (original code language)
+  "Call ORIGINAL for CODE and LANGUAGE without exported indentation guides."
+  (let ((tsp/org-export-fontifying-code t))
+    (funcall original code language)))
+
+(with-eval-after-load 'ox-html
+  (advice-add 'org-html-fontify-code :around
+              #'tsp/org-html-fontify-code-without-indent-bars))
 
 (use-package c-ts-mode
   :ensure nil

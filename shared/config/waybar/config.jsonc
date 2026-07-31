@@ -31,7 +31,12 @@
   "wlr/taskbar": {
     "format": "{icon}",
     "icon-size": 28,
-    "icon-theme": "WinbarApps",
+    "icon-theme": ["WinbarApps", "WhiteSur", "hicolor"],
+    "app_ids-mapping": {
+      "jetbrains-idea": "idea",
+      "jetbrains-idea-ce": "idea",
+      "idea": "idea"
+    },
     "tooltip-format": "{title}",
     "on-click": "activate",
     "on-click-middle": "close",
