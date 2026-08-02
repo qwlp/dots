@@ -67,6 +67,7 @@
 (setq-default bidi-display-reordering t
               bidi-paragraph-direction nil
               cursor-in-non-selected-windows nil
+              cursor-type 'bar
               indent-tabs-mode nil
               tab-width 4)
 
