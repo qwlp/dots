@@ -1320,9 +1320,9 @@ be captured as Org headings rather than diary entries.
 
 ** Writing Org documents
 
-In Org buffers, long lines are filled at 80 columns.  Type =,java= to insert a
-Java source block immediately.  For other languages, type a comma followed by
-the language and =TAB=, such as =,py=, to insert a source block.
+In Org buffers, long lines are filled at 80 columns.  Type =,java= or =,py= to
+insert a Java or Python source block immediately.  For other languages, type a
+comma followed by the language and =TAB= to insert a source block.
 The aliases =el=, =py=, and =sh= expand to =emacs-lisp=, =python=, and =shell=;
 other language names are used as typed.  Java source blocks can be compiled and
 run with =C-c C-c=; inline images are refreshed afterward.
@@ -1373,7 +1373,7 @@ evaluate the changed forms.
     ("sh" . "shell"))
   "Short names accepted by `tsp/org-expand-source-block'.")
 
-(defconst tsp/org-auto-source-languages '("java")
+(defconst tsp/org-auto-source-languages '("java" "py")
   "Source block names expanded immediately after they are typed.")
 
 (defun org-babel-edit-prep:java (_info)

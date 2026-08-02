@@ -30,7 +30,7 @@
     ("sh" . "shell"))
   "Short names accepted by `tsp/org-expand-source-block'.")
 
-(defconst tsp/org-auto-source-languages '("java")
+(defconst tsp/org-auto-source-languages '("java" "py")
   "Source block names expanded immediately after they are typed.")
 
 (defun org-babel-edit-prep:java (_info)
