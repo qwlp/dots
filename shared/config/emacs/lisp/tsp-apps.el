@@ -10,6 +10,74 @@
   (setq ghostel-module-auto-install 'download)
   (setq-default ghostel-glyph-scale-floor 1.0))
 
+(defun tsp/change-inner-word ()
+  "Kill the symbol or word at point, like Vim's `ciw'."
+  (interactive)
+  (if-let ((bounds (or (bounds-of-thing-at-point 'symbol)
+                       (bounds-of-thing-at-point 'word))))
+      (kill-region (car bounds) (cdr bounds))
+    (user-error "Point is not on a word")))
+
+(defun tsp/unescaped-delimiter-p (position)
+  "Return non-nil when the delimiter at POSITION is not escaped."
+  (save-excursion
+    (goto-char position)
+    (let ((backslashes 0))
+      (while (eq (char-before) ?\\)
+        (setq backslashes (1+ backslashes))
+        (backward-char))
+      (zerop (% backslashes 2)))))
+
+(defun tsp/inner-quote-bounds ()
+  "Return the bounds inside the nearest enclosing quote pair."
+  (let ((origin (point))
+        (pairs '((?\" . ?\") (?' . ?') (?` . ?`)
+                 (?“ . ?”) (?‘ . ?’) (?« . ?»)
+                 (?‹ . ?›) (?「 . ?」) (?『 . ?』)))
+        best)
+    (dolist (pair pairs best)
+      (save-excursion
+        (goto-char origin)
+        (let (opening closing)
+          (while (and (not opening)
+                      (search-backward (char-to-string (car pair)) nil t))
+            (when (tsp/unescaped-delimiter-p (point))
+              (setq opening (point))))
+          (when opening
+            (goto-char origin)
+            (while (and (not closing)
+                        (search-forward (char-to-string (cdr pair)) nil t))
+              (let ((position (1- (point))))
+                (when (tsp/unescaped-delimiter-p position)
+                  (setq closing position))))
+            (when (and closing
+                       (or (not best) (> opening (car best))))
+              (setq best (cons (1+ opening) closing)))))))))
+
+(defun tsp/change-inner-quotes ()
+  "Kill text inside the nearest enclosing quote pair."
+  (interactive)
+  (if-let ((bounds (tsp/inner-quote-bounds)))
+      (kill-region (car bounds) (cdr bounds))
+    (user-error "Point is not inside quotes")))
+
+(defun tsp/change-inner-brackets ()
+  "Kill text inside the nearest enclosing parentheses or brackets."
+  (interactive)
+  (let* ((opening (if (memq (char-after) '(?\( ?\[ ?\{))
+                      (point)
+                    (nth 1 (syntax-ppss))))
+         (closing (and opening (scan-sexps opening 1))))
+    (if closing
+        (kill-region (1+ opening) (1- closing))
+      (user-error "Point is not inside brackets"))))
+
+(define-prefix-command 'tsp/change-map)
+(keymap-set tsp/change-map "w" #'tsp/change-inner-word)
+(keymap-set tsp/change-map "q" #'tsp/change-inner-quotes)
+(keymap-set tsp/change-map "b" #'tsp/change-inner-brackets)
+(keymap-global-set "M-c" #'tsp/change-map)
+
 (use-package multiple-cursors
   :ensure t
   :init

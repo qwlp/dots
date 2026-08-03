@@ -5,13 +5,13 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  '(package-selected-packages
-   '(all-the-icons avy consult corfu dashboard emms exec-path-from-shell
-                   ghostel ido-completing-read+ indent-bars
-                   jai-ts-mode magit marginalia naysayer-theme nov
-                   odin-mode orderless org-roam org-superstar smex
-                   symbol-overlay-mc telega typst-ts-mode ultra-scroll
-                   verb vertico winum ytr))
-  '(package-vc-selected-packages
+   '(all-the-icons avy change-inner consult corfu dashboard emms
+                   exec-path-from-shell ghostel ido-completing-read+
+                   indent-bars jai-ts-mode magit marginalia
+                   naysayer-theme nov odin-mode orderless org-roam
+                   org-superstar smex symbol-overlay-mc telega
+                   typst-ts-mode ultra-scroll verb vertico winum ytr))
+ '(package-vc-selected-packages
    '((jai-ts-mode :url "https://github.com/cpoile/jai-ts-mode")
      (odin-mode :url "https://github.com/mattt-b/odin-mode"))))
 (custom-set-faces
