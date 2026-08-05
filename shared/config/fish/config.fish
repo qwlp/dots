@@ -62,6 +62,7 @@ alias poweroff="systemctl poweroff --no-wall"
 alias tpc="typst compile"
 alias h="hx"
 alias cy="codex --yolo"
+alias pdfpc="pdfpc --windowed=both"
 
 alias llt="eza -la --sort=modified --icons=always"
 alias lls="eza -la --sort=size --icons=always"
