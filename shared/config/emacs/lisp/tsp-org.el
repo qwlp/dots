@@ -30,7 +30,7 @@
     ("sh" . "shell"))
   "Short names accepted by `tsp/org-expand-source-block'.")
 
-(defconst tsp/org-auto-source-languages '("java" "py")
+(defconst tsp/org-auto-source-languages '("go" "java" "py")
   "Source block names expanded immediately after they are typed.")
 
 (defun org-babel-edit-prep:java (_info)
@@ -661,6 +661,7 @@ break them."
   :config
   (require 'org-habit)
   (require 'org-clock)
+  (add-to-list 'org-src-lang-modes '("go" . go-ts))
   (add-to-list 'org-src-lang-modes '("java" . java-ts))
   (org-babel-do-load-languages
    'org-babel-load-languages

@@ -15,7 +15,6 @@
 (require 'package)
 
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
-(add-to-list 'package-pinned-packages '(telega . "melpa"))
 (package-initialize)
 
 (unless (package-installed-p 'use-package)

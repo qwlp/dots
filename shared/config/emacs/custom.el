@@ -9,7 +9,7 @@
                    exec-path-from-shell ghostel ido-completing-read+
                    indent-bars jai-ts-mode magit marginalia
                    naysayer-theme nov odin-mode orderless org-roam
-                   org-superstar smex symbol-overlay-mc telega
+                   org-superstar smex symbol-overlay-mc
                    typst-ts-mode ultra-scroll verb vertico winum ytr))
  '(package-vc-selected-packages
    '((jai-ts-mode :url "https://github.com/cpoile/jai-ts-mode")
