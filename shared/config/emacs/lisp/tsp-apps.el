@@ -8,7 +8,25 @@
   :commands ghostel
   :init
   (setq ghostel-module-auto-install 'download)
-  (setq-default ghostel-glyph-scale-floor 1.0))
+  (setq-default ghostel-glyph-scale-floor 1.0)
+  :custom-face
+  (ghostel-default ((t (:foreground "#d1b897" :background "#062329"))))
+  (ghostel-color-black ((t (:foreground "#062329"))))
+  (ghostel-color-red ((t (:foreground "#f92672"))))
+  (ghostel-color-green ((t (:foreground "#44b340"))))
+  (ghostel-color-yellow ((t (:foreground "#fd971f"))))
+  (ghostel-color-blue ((t (:foreground "#66d9ef"))))
+  (ghostel-color-magenta ((t (:foreground "#ae81ff"))))
+  (ghostel-color-cyan ((t (:foreground "#2ec09c"))))
+  (ghostel-color-white ((t (:foreground "#d1b897"))))
+  (ghostel-color-bright-black ((t (:foreground "#126367"))))
+  (ghostel-color-bright-red ((t (:foreground "#ff0000"))))
+  (ghostel-color-bright-green ((t (:foreground "#a6e22e"))))
+  (ghostel-color-bright-yellow ((t (:foreground "#e6db74"))))
+  (ghostel-color-bright-blue ((t (:foreground "#c1d1e3"))))
+  (ghostel-color-bright-magenta ((t (:foreground "#fd5ff0"))))
+  (ghostel-color-bright-cyan ((t (:foreground "#a1efe4"))))
+  (ghostel-color-bright-white ((t (:foreground "#ffffff")))))
 
 (defun tsp/change-inner-word ()
   "Kill the symbol or word at point, like Vim's `ciw'."

@@ -80,6 +80,8 @@
   :bind
   (("M-s" . avy-goto-char-timer)))
 
+(declare-function tsp/better-jumper-set-jump "tsp-completion")
+
 (use-package better-jumper
   :ensure t
   :demand t
@@ -146,6 +148,11 @@ With prefix argument EMPTY, start with an empty query."
   (require 'fff)
   (fff--ensure-instance)
   (fff--pick-grep 'plain (unless empty (tsp/fff-query-at-point))))
+
+(declare-function tsp/fff-highlight-match "tsp-completion")
+(declare-function tsp/fff-preview-state "tsp-completion")
+(declare-function tsp/fff-pick-file-with-preview "tsp-completion")
+(declare-function tsp/fff-pick-grep-with-preview "tsp-completion")
 
 (use-package fff
   :ensure nil
@@ -248,7 +255,8 @@ With prefix argument EMPTY, start with an empty query."
         (fff--open-result choice))))
 
   (defun tsp/fff-pick-grep-with-preview (mode &optional initial)
-    (let ((lookup (make-hash-table :test 'equal)))
+    (let ((consult-async-split-style 'none)
+          (lookup (make-hash-table :test 'equal)))
       (when-let ((choice
                   (consult--read
                    (consult--async-dynamic
@@ -277,6 +285,9 @@ With prefix argument EMPTY, start with an empty query."
   :demand t
   :init
   (setq corfu-cycle t
+        ;; Let Emacs' Completion Preview provide inline ghost text; Corfu is
+        ;; available only when completion is invoked manually.
+        corfu-preview-current nil
         ;; Keep manual completion available everywhere, but do not run every
         ;; buffer's CAPF from an idle timer.  In particular, Elisp completion
         ;; and the TAGS fallback can be expensive enough to block redisplay.
@@ -286,12 +297,53 @@ With prefix argument EMPTY, start with an empty query."
   :config
   (global-corfu-mode))
 
-(defun tsp/corfu-enable-auto-completion ()
-  "Enable automatic Corfu popups in inexpensive programming buffers."
-  (unless (derived-mode-p 'emacs-lisp-mode 'lisp-interaction-mode)
-    (setq-local corfu-auto t)))
+(use-package completion-preview
+  :ensure nil
+  :bind (:map completion-preview-active-mode-map
+         ("C-." . completion-preview-insert))
+  :custom
+  (completion-preview-commands
+   '(self-insert-command
+     org-self-insert-command
+     insert-char
+     delete-backward-char
+     backward-delete-char-untabify
+     analyze-text-conversion
+     completion-preview-complete))
+  (completion-preview-minimum-symbol-length 3)
+  (completion-preview-idle-delay nil)
+  :custom-face
+  (completion-preview ((t (:foreground "#607f7f"))))
+  (completion-preview-common
+   ((t (:inherit completion-preview :underline t))))
+  (completion-preview-exact
+   ((t (:inherit completion-preview-common :underline "#44b340")))))
 
-(add-hook 'prog-mode-hook #'tsp/corfu-enable-auto-completion)
+(use-package cape
+  :ensure t
+  :commands cape-dabbrev
+  :custom
+  (cape-dabbrev-buffer-function #'current-buffer))
+
+(defun tsp/enable-completion-preview ()
+  "Enable dabbrev-backed inline completion in ordinary editable buffers."
+  ;; Ensure reloading this configuration also closes and disables any Corfu
+  ;; popup previously enabled buffer-locally.
+  (setq-local corfu-auto nil)
+  (if (or (minibufferp)
+          buffer-read-only
+          (derived-mode-p 'emacs-lisp-mode
+                          'lisp-interaction-mode
+                          'special-mode
+                          'ghostel-mode))
+      (completion-preview-mode -1)
+    (add-hook 'completion-at-point-functions #'cape-dabbrev t t)
+    (completion-preview-mode 1)))
+
+(add-hook 'after-change-major-mode-hook #'tsp/enable-completion-preview)
+
+;; `tsp/reload-config' does not rerun major-mode hooks in the current buffer.
+(tsp/enable-completion-preview)
 
 (use-package which-key
   :ensure t

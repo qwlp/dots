@@ -85,7 +85,10 @@
       #'tsp/electric-pair-inhibit-angle-brackets
       ;; Typing an existing closing delimiter should move over it rather than
       ;; insert a duplicate.
-      electric-pair-skip-self t)
+      electric-pair-skip-self t
+      ;; Do not treat a matching delimiter after whitespace as the delimiter
+      ;; at point; this otherwise makes quotes jump across blank lines.
+      electric-pair-skip-whitespace nil)
 
 (electric-pair-mode 1)
 
