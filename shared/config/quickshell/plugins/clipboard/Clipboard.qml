@@ -19,6 +19,7 @@ Item {
 
   property string historyPath: Quickshell.env("HOME") + "/.local/state/tsp/clipboard-history.json"
   property string captureScript: Quickshell.shellDir + "/plugins/clipboard/capture.sh"
+  property string pasteScript: Quickshell.shellDir + "/plugins/clipboard/paste.sh"
   // Shares the [menu] surface tokens — themes that style the menu also
   // style the clipboard. Selected-row colors composed in the
   // singleton so consumers drop them straight into Rectangle bindings.
@@ -216,9 +217,9 @@ Item {
     if (!row) return
     root.opened = false
     if (row.entryType === "image") {
-      Quickshell.execDetached([root.tspPath + "/bin/omarchy-clipboard-paste-file", row.mime, row.path])
+      Quickshell.execDetached([root.pasteScript, "image", row.mime, row.path])
     } else if (row.fullText) {
-      Quickshell.execDetached([root.tspPath + "/bin/omarchy-clipboard-paste-text", "--shift-insert", "--history-index", String(row.historyIndex)])
+      Quickshell.execDetached([root.pasteScript, "text", root.historyPath, String(row.historyIndex)])
     }
   }
 
@@ -226,9 +227,9 @@ Item {
     if (!row) return
     root.opened = false
     if (row.entryType === "image") {
-      Quickshell.execDetached([root.tspPath + "/bin/omarchy-clipboard-paste-file", "--copy-only", row.mime, row.path])
+      Quickshell.execDetached([root.pasteScript, "--copy-only", "image", row.mime, row.path])
     } else if (row.fullText) {
-      Quickshell.execDetached([root.tspPath + "/bin/omarchy-clipboard-paste-text", "--copy-only", "--history-index", String(row.historyIndex)])
+      Quickshell.execDetached([root.pasteScript, "--copy-only", "text", root.historyPath, String(row.historyIndex)])
     }
   }
 
