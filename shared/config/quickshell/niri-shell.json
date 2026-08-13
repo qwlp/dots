@@ -1,7 +1,7 @@
 {
   "version": 1,
   "bar": {
-    "position": "top",
+    "position": "right",
     "transparent": false,
     "centerAnchor": "omarchy.clock",
     "layout": {

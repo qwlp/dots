@@ -20,6 +20,10 @@ BarWidget {
     Quickshell.execDetached(["niri", "msg", "action", "focus-workspace", String(index)])
   }
 
+  function focusWindow(windowId) {
+    Quickshell.execDetached(["niri", "msg", "action", "focus-window", "--id", String(windowId)])
+  }
+
   function appsForWorkspace(workspaceId) {
     var seen = ({})
     var apps = []
@@ -29,7 +33,7 @@ BarWidget {
       var appId = String(window.app_id || "").trim()
       if (!appId || seen[appId]) continue
       seen[appId] = true
-      apps.push(appId)
+      apps.push({ appId: appId, windowId: window.id })
     }
     return apps
   }
@@ -120,7 +124,7 @@ BarWidget {
             model: workspaceButton.apps
 
             Item {
-              required property string modelData
+              required property var modelData
               width: Style.space(18)
               height: Style.space(18)
 
@@ -128,11 +132,18 @@ BarWidget {
                 anchors.centerIn: parent
                 width: Style.space(14)
                 height: width
-                source: root.iconForApp(parent.modelData)
+                source: root.iconForApp(parent.modelData.appId)
                 sourceSize.width: Math.round(width * Screen.devicePixelRatio)
                 sourceSize.height: Math.round(height * Screen.devicePixelRatio)
                 fillMode: Image.PreserveAspectFit
                 asynchronous: true
+              }
+
+              MouseArea {
+                anchors.fill: parent
+                acceptedButtons: Qt.LeftButton
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.focusWindow(parent.modelData.windowId)
               }
             }
           }

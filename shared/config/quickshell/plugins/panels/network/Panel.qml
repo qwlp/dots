@@ -66,6 +66,7 @@ Panel {
   ]
   readonly property string connectionPhrase: connectionPhrases[connectionPhraseIndex % connectionPhrases.length]
   readonly property bool networkManagerAvailable: Networking.backend === NetworkBackendType.NetworkManager
+  readonly property bool iwdAvailable: !networkManagerAvailable && !!info.wifi_iface
   readonly property var networkDevices: Networking.devices ? Networking.devices.values : []
   readonly property var wifiDevice: findDevice(DeviceType.Wifi)
   readonly property var wifiNetworkObjects: wifiDevice && wifiDevice.networks ? wifiDevice.networks.values : []
@@ -123,13 +124,13 @@ Panel {
   // within header actions, band pills, or DNS providers.
   property string focusSection: "dns"  // "header" | "band" | "dns" | "wifi"
   property int headerIndex: 0
-  readonly property bool canDisconnect: !!connectedWifiNetwork
+  readonly property bool canDisconnect: networkManagerAvailable && !!connectedWifiNetwork
   readonly property bool headerHasDisconnect: false
   readonly property bool canShareWifi: info.type === "wifi" && canShareNetwork(connectedWifiNetwork)
   // The hero switch is the Wi-Fi radio, so it only exists when there is a
   // radio to switch. On a wired box it would otherwise sit there reading
   // "off" beside a perfectly live Ethernet connection.
-  readonly property bool canToggleWifi: networkManagerAvailable && wifiStationAvailable
+  readonly property bool canToggleWifi: (networkManagerAvailable && wifiStationAvailable) || iwdAvailable
   readonly property int qrHeaderIndex: canShareWifi ? 0 : -1
   readonly property int speedHeaderIndex: canRunSpeedTest ? (canShareWifi ? 1 : 0) : -1
   readonly property int toggleHeaderIndex: canToggleWifi ? (canShareWifi ? 1 : 0) + (canRunSpeedTest ? 1 : 0) : -1
@@ -137,7 +138,8 @@ Panel {
   readonly property bool qrHeaderHasCursor: cursorActive && focusSection === "header" && headerIndex === qrHeaderIndex
   readonly property bool speedHeaderHasCursor: cursorActive && focusSection === "header" && headerIndex === speedHeaderIndex
   readonly property bool toggleHeaderHasCursor: cursorActive && focusSection === "header" && headerIndex === toggleHeaderIndex
-  readonly property string toggleHint: Networking.wifiEnabled ? "Turn Wi-Fi off" : "Turn Wi-Fi on"
+  readonly property bool wifiPowered: networkManagerAvailable ? Networking.wifiEnabled : info.wifi_powered === "on"
+  readonly property string toggleHint: wifiPowered ? "Turn Wi-Fi off" : "Turn Wi-Fi on"
   readonly property var dnsProviders: ["DHCP", "Cloudflare", "Google", "Custom"]
   property int dnsIndex: 0
   // ["2.4", "5", ...], or empty when there is nothing to choose between.
@@ -202,8 +204,13 @@ Panel {
   }
 
   function toggleNetwork() {
-    if (!networkManagerAvailable) return
-    Networking.wifiEnabled = !Networking.wifiEnabled
+    if (networkManagerAvailable) {
+      Networking.wifiEnabled = !Networking.wifiEnabled
+      return
+    }
+    if (!iwdAvailable || iwdActionProc.running) return
+    iwdActionProc.command = ["sh", Qt.resolvedUrl("network-status.sh").toString().replace("file://", ""), "power", wifiPowered ? "off" : "on"]
+    iwdActionProc.running = true
     Qt.callLater(function() { root.refresh(true) })
   }
 
@@ -432,13 +439,14 @@ Panel {
     connectKnown(net.ssid)
   }
 
-  // Bar pill state, derived from the native NetworkManager service so the
-  // icon reflects connection changes without polling. Wired is preferred
-  // when both are up, matching the default-route device.
+  // Prefer the native NetworkManager service when it exists. On iwd-only
+  // systems Quickshell.Networking has no backend, so use the active-route probe
+  // instead. This keeps the same panel portable between both configurations.
   readonly property var wiredDevice: findDevice(DeviceType.Wired)
   readonly property string kind: {
     if (wiredDevice && wiredDevice.connected) return "ethernet"
     if (connectedWifiNetwork) return "wifi"
+    if (!networkManagerAvailable && info.connected === "true" && (info.type === "wifi" || info.type === "ethernet")) return info.type
     return "disconnected"
   }
   // The optional detail probe can be unavailable or lag behind NetworkManager.
@@ -453,7 +461,7 @@ Panel {
   }
   readonly property int signalStrength: connectedWifiNetwork
     ? Math.round((connectedWifiNetwork.signalStrength || 0) * 100)
-    : -1
+    : (!networkManagerAvailable && info.signal !== undefined ? parseInt(info.signal, 10) : -1)
 
   function copyToClipboard(value) {
     if (!value || !root.bar) return
@@ -596,6 +604,14 @@ Panel {
   }
 
   function syncWifiNetworks() {
+    if (!networkManagerAvailable) {
+      wifiStationAvailable = iwdAvailable
+      if (opened && !iwdListProc.running) {
+        scanning = true
+        iwdListProc.running = true
+      }
+      return
+    }
     var nets = []
     var networks = wifiNetworkObjects || []
 
@@ -684,6 +700,7 @@ Panel {
   }
 
   function isProtected(security) {
+    if (typeof security === "string") return security !== "open"
     return Model.isProtected(security, WifiSecurityType.Open)
   }
 
@@ -807,15 +824,45 @@ Panel {
   implicitWidth: button.implicitWidth
   implicitHeight: button.implicitHeight
 
-  Component.onCompleted: refresh()
+  Component.onCompleted: {
+    refresh()
+    if (!networkManagerAvailable) detailsProc.running = true
+  }
 
   // Pulls everything we want about the active route's interface in one shot.
   Process {
     id: detailsProc
-    command: ["sh", "-c", "true"]
+    command: ["sh", Qt.resolvedUrl("network-status.sh").toString().replace("file://", "")]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: root.updateDetails(text)
+    }
+  }
+
+  Process {
+    id: iwdListProc
+    command: ["sh", Qt.resolvedUrl("network-status.sh").toString().replace("file://", ""), "networks"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var rows = []
+        var lines = String(text || "").trim().split("\n")
+        for (var i = 0; i < lines.length; i++) {
+          var fields = lines[i].split("\t")
+          if (fields.length < 4) continue
+          rows.push({ connected: fields[0] === "true", known: fields[0] === "true", signal: parseInt(fields[1], 10), security: fields[2], ssid: fields.slice(3).join("\t") })
+        }
+        root.wifiNetworks = Model.sortWifiRows(rows)
+        root.scanning = false
+      }
+    }
+  }
+
+  Process {
+    id: iwdActionProc
+    onExited: {
+      detailsProc.running = true
+      if (root.opened) iwdListProc.running = true
     }
   }
 
@@ -897,7 +944,9 @@ Panel {
     id: detailsPoll
     interval: 1500
     repeat: true
-    running: root.opened
+    // The fallback also drives the always-visible bar icon, so keep it alive
+    // while iwd is the network backend. NetworkManager remains event-driven.
+    running: root.opened || !root.networkManagerAvailable
     onTriggered: if (!detailsProc.running) detailsProc.running = true
   }
 
@@ -1145,7 +1194,7 @@ Panel {
           ToggleSwitch {
             id: powerSwitch
             visible: root.canToggleWifi
-            checked: Networking.wifiEnabled
+            checked: root.wifiPowered
             hasCursor: root.toggleHeaderHasCursor
             foreground: root.bar.foreground
             Layout.alignment: Qt.AlignVCenter
