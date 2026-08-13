@@ -183,8 +183,8 @@ Item {
       else if (!root.closing) root.resetSnapshot()
     }
     onIsRegisteredChanged: {
-      if (isRegistered) console.log("omarchy polkit agent registered")
-      else console.warn("omarchy polkit agent is not registered; another agent may be running")
+      if (isRegistered) console.log("tsp polkit agent registered")
+      else console.warn("tsp polkit agent is not registered; another agent may be running")
     }
   }
 
@@ -223,7 +223,7 @@ Item {
     visible: root.dialogVisible
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
-    WlrLayershell.namespace: "omarchy-polkit"
+    WlrLayershell.namespace: "tsp-polkit"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore

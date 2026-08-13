@@ -8,7 +8,7 @@ Item {
   id: root
 
   property var shell: null
-  property string omarchyPath: Quickshell.env("OMARCHY_PATH")
+  property string tspPath: (Quickshell.env("TSP_PATH") || Quickshell.env("OMARCHY_PATH"))
 
   readonly property int batteryThreshold: 10
   property string pendingPowerSource: ""

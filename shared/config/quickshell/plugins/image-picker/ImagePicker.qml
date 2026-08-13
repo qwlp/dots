@@ -11,7 +11,7 @@ Item {
   id: root
 
   // Injected by omarchy-shell; defaults to the session OMARCHY_PATH.
-  property string omarchyPath: Quickshell.env("OMARCHY_PATH")
+  property string tspPath: (Quickshell.env("TSP_PATH") || Quickshell.env("OMARCHY_PATH"))
   property string stateHome: Quickshell.env("HOME") + "/.local/state"
   property string imageDirs: Quickshell.env("OMARCHY_IMAGE_SELECTOR_DIRS") || Quickshell.env("OMARCHY_IMAGE_SELECTOR_DIR") || Quickshell.env("OMARCHY_STOCK_BACKGROUNDS_DIR") || (stateHome + "/omarchy/current/theme/backgrounds")
   property string imageRows: ""
@@ -49,7 +49,7 @@ Item {
   onOpenedChanged: if (!opened) layoutSettled = false
 
   function scriptPath(name) {
-    return omarchyPath + "/shell/plugins/image-picker/" + name
+    return tspPath + "/shell/plugins/image-picker/" + name
   }
 
   function focusPicker() {
@@ -365,7 +365,7 @@ Item {
     visible: root.opened
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
-    WlrLayershell.namespace: "omarchy-image-selector"
+    WlrLayershell.namespace: "tsp-image-selector"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: root.opened && root.imagesLoaded ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     exclusionMode: ExclusionMode.Ignore

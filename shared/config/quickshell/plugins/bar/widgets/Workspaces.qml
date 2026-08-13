@@ -7,7 +7,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "omarchy.workspaces"
+  moduleName: "tsp.workspaces"
   property var workspaces: []
   property var windows: []
 

@@ -47,7 +47,7 @@ Item {
 
   function dismiss() {
     if (shell && typeof shell.hide === "function")
-      shell.hide((manifest && manifest.id) || "omarchy.disk-speedtest")
+      shell.hide((manifest && manifest.id) || "tsp.disk-speedtest")
     else close()
   }
 
@@ -131,7 +131,7 @@ Item {
 
   SpeedTestOverlay {
     fontFamily: Style.font.family
-    layerNamespace: "omarchy-disk-speedtest"
+    layerNamespace: "tsp-disk-speedtest"
     title: root.diskName
     leftLabel: "READ"
     rightLabel: "WRITE"

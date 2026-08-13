@@ -31,7 +31,7 @@ function pinTrayToInner(entries, section) {
   var result = []
   var values = Array.isArray(entries) ? entries : []
   for (var i = 0; i < values.length; i++) {
-    if (entryId(values[i]) === "omarchy.tray") trayEntry = values[i]
+    if (entryId(values[i]) === "tsp.tray") trayEntry = values[i]
     else result.push(values[i])
   }
   if (trayEntry) {
@@ -208,12 +208,28 @@ function nearestDropTarget(candidates, point, vertical) {
   return best
 }
 
+// The three layout sections own equal bands of the bar, even when a section
+// has no visible widget to contribute a concrete insertion edge. Keeping this
+// decision separate from nearestDropTarget prevents an empty/hidden section
+// from becoming impossible to drop into.
+function dropRegion(point, width, height, vertical) {
+  var extent = Number(vertical ? height : width)
+  var axis = Number(vertical ? point && point.y : point && point.x)
+  if (!isFinite(extent) || extent <= 0 || !isFinite(axis)) return ""
+
+  var ratio = Math.max(0, Math.min(1, axis / extent))
+  if (ratio < 1 / 3) return "left"
+  if (ratio > 2 / 3) return "right"
+  return "center"
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
     isDrawnSlot: isDrawnSlot,
     pickDrawnSlot: pickDrawnSlot,
     pickPanelSlot: pickPanelSlot,
     nearestDropTarget: nearestDropTarget,
+    dropRegion: dropRegion,
     normalizePosition: normalizePosition,
     entrySettings: entrySettings,
     entryId: entryId,

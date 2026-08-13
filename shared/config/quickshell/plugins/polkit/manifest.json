@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "id": "omarchy.polkit",
+  "id": "tsp.polkit",
   "name": "Polkit Agent",
   "version": "1.0.0",
-  "author": "Omarchy",
+  "author": "TSP",
   "description": "Theme-aware authentication dialog for privileged actions.",
   "kinds": [
     "service"

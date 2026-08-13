@@ -1,7 +1,7 @@
 #!/bin/sh
 
 state=$(qs ipc call shell toggleBarVisibility) || exit
-flag=${XDG_STATE_HOME:-"$HOME/.local/state"}/omarchy/toggles/bar-off
+flag=${XDG_STATE_HOME:-"$HOME/.local/state"}/tsp/toggles/bar-off
 
 mkdir -p "${flag%/*}"
 case "$state" in

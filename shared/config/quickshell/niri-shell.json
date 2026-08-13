@@ -3,43 +3,43 @@
   "bar": {
     "position": "right",
     "transparent": false,
-    "centerAnchor": "omarchy.clock",
+    "centerAnchor": "tsp.clock",
     "layout": {
       "left": [
         {
-          "id": "omarchy.workspaces"
+          "id": "tsp.active-window",
+          "maxWidth": 360
         },
         {
-          "id": "omarchy.active-window",
-          "maxWidth": 360
+          "id": "tsp.workspaces"
         }
       ],
       "center": [
         {
-          "id": "omarchy.clock",
+          "id": "tsp.clock",
           "format": "dddd HH:mm",
           "formatAlt": "d MMMM yyyy",
           "verticalFormat": "HH\nmm"
         },
         {
-          "id": "omarchy.media"
+          "id": "tsp.media"
         }
       ],
       "right": [
         {
-          "id": "omarchy.tray"
+          "id": "tsp.tray"
         },
         {
-          "id": "omarchy.bluetooth"
+          "id": "tsp.bluetooth"
         },
         {
-          "id": "omarchy.network"
+          "id": "tsp.network"
         },
         {
-          "id": "omarchy.audio"
+          "id": "tsp.audio"
         },
         {
-          "id": "omarchy.power"
+          "id": "tsp.power"
         }
       ]
     }

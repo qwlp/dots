@@ -10,12 +10,12 @@ Item {
   id: root
 
   // Injected by omarchy-shell when this plugin is summoned.
-  property string omarchyPath: Quickshell.env("OMARCHY_PATH")
+  property string tspPath: (Quickshell.env("TSP_PATH") || Quickshell.env("OMARCHY_PATH"))
   property var shell: null
   property var manifest: null
 
   // Plugin lifecycle hooks. The host calls open(payloadJson) after
-  // `omarchy-shell shell summon omarchy.menu ...` and close() when hidden.
+  // `omarchy-shell shell summon tsp.menu ...` and close() when hidden.
   property string pendingInitialMenu: "root"
 
   function open(payloadJson) {
@@ -47,7 +47,7 @@ Item {
   // JSONC menu definitions. The shell parses both at startup and merges
   // the user file on top of the defaults, so the keybind → IPC → visible
   // path doesn't have to shell out to bash + jq on every open.
-  property string defaultMenuPath: omarchyPath + "/default/omarchy/omarchy-menu.jsonc"
+  property string defaultMenuPath: tspPath + "/default/omarchy/omarchy-menu.jsonc"
   property string userMenuPath: Quickshell.env("HOME") + "/.config/omarchy/extensions/omarchy-menu.jsonc"
   property var defaultMenuItems: []
   property var userMenuItems: []
@@ -245,6 +245,30 @@ Item {
   // re-declaring the whole row).
   function rebuildItemsFromSources() {
     var mergedMenu = MenuModel.mergeMenuSources(root.defaultMenuItems, root.userMenuItems)
+    // The application launcher is a first-party shell surface, not an
+    // optional row from the legacy Omarchy command-menu definition.  Keep its
+    // route available even when that external JSONC file is not installed
+    // (as is the case in the standalone Niri configuration).
+    if (!mergedMenu.items.apps) {
+      mergedMenu.items.apps = {
+        id: "apps",
+        parent: "root",
+        kind: "menu",
+        icon: "",
+        iconFont: "",
+        label: "Applications",
+        title: "Applications",
+        target: "",
+        description: "",
+        aliases: ["app", "application", "launcher"],
+        when: "",
+        checked: "",
+        action: "",
+        provider: "apps",
+        order: mergedMenu.itemOrder.length
+      }
+      mergedMenu.itemOrder.push("apps")
+    }
     root.providerRevision += 1
     root.providersLoaded = ({})
     root.providerQueue = []
@@ -253,6 +277,12 @@ Item {
     root.rowsLoaded = true
     root.evaluateGuards()
     if (root.opened) {
+      // open() can arrive as soon as the asynchronous plugin Loader resolves,
+      // before either FileView has populated the route table. In that case
+      // rebuildDisplay() temporarily falls back to root. Restore the route the
+      // caller actually requested once the sources have finished loading.
+      if (root.pendingInitialMenu && root.item(root.pendingInitialMenu))
+        root.activeMenu = root.pendingInitialMenu
       root.rebuildDisplay()
       if (!root.dmenuActive) {
         if (root.filterText.trim()) root.loadProvidersForSearch()
@@ -842,7 +872,7 @@ Item {
   // ----------------------------------------------------------- route surface
   //
   // The menu is opened through the standard plugin lifecycle:
-  // `omarchy-shell shell summon omarchy.menu '{"menu":"system"}'`.
+  // `omarchy-shell shell summon tsp.menu '{"menu":"system"}'`.
   // Callers may pass a real id (`system`, `setup.power`) or an alias declared
   // in JSONC (`power`, `reminder-set`). Unknown strings fall through to the
   // id-as-route behavior so misspellings still attempt to open the literal id.
@@ -1019,7 +1049,7 @@ Item {
     visible: root.opened && root.rowsLoaded
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
-    WlrLayershell.namespace: "omarchy-menu"
+    WlrLayershell.namespace: "tsp-menu"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore

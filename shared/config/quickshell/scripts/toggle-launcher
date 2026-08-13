@@ -1,0 +1,3 @@
+#!/bin/sh
+
+exec qs ipc call shell toggle tsp.menu '{"menu":"apps"}'

@@ -213,7 +213,7 @@ Item {
         })
       }
 
-      WlrLayershell.namespace: "omarchy-background"
+      WlrLayershell.namespace: "tsp-background"
       WlrLayershell.layer: WlrLayer.Background
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
       exclusionMode: ExclusionMode.Ignore

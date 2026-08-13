@@ -17,12 +17,12 @@ Item {
   // Injected by omarchy-shell (the first-party service loader).
   property var shell: null
 
-  property string omarchyPath: Quickshell.env("OMARCHY_PATH")
+  property string tspPath: (Quickshell.env("TSP_PATH") || Quickshell.env("OMARCHY_PATH"))
   readonly property string home: Quickshell.env("HOME")
   // History + DND live under XDG_STATE_HOME: they're persistent user state
   // (the notifications received, the last-set DND preference), not
   // regeneratable cache that a `rm -rf ~/.cache` should wipe.
-  readonly property string stateDir: home + "/.local/state/omarchy/"
+  readonly property string stateDir: home + "/.local/state/tsp/"
   readonly property string settingsPath: stateDir + "notifications.json"
   // One file per on-screen popup, so live toasts survive shell restarts.
   // A file exists exactly as long as its popup is showing: written when the
@@ -136,7 +136,7 @@ Item {
   //   - app_name is "notify-send" (the CLI default — means the sender
   //     didn't bother declaring an identity, so it's almost certainly
   //     ephemeral test/feedback noise)
-  //   - app_name is "omarchy-action" (Omarchy's own user-action toasts —
+  //   - app_name is "omarchy-action" (TSP's own user-action toasts —
   //     the user just triggered them)
   // Their toasts still land in history like any other once they've been on
   // screen; the distinction only decides whether a DND-silenced one is worth
@@ -313,7 +313,7 @@ Item {
     while (popupModel.count > 0) dismissPopup(0)
   }
 
-  // Run the popup's click action, then dismiss. Omarchy's own toasts carry the
+  // Run the popup's click action, then dismiss. TSP's own toasts carry the
   // action as a command in the `exec` role (see execFromHints), which the
   // persistence files preserve, so restored toasts stay clickable. Third-party
   // clients register a libnotify action under the canonical identifier
@@ -332,14 +332,12 @@ Item {
     // Restored rows have no live actions, and looking up liveRefs by their
     // old-generation id could fire an unrelated fresh notification's action.
     var ref = entry && !isRestoredRow(entry) ? liveRefs[entry.originalId] : null
-    var invoked = false
     try {
       if (ref && ref.actions) {
         for (var i = 0; i < ref.actions.length; i++) {
           var action = ref.actions[i]
           if (action && action.identifier === "default") {
             action.invoke()
-            invoked = true
             break
           }
         }
@@ -348,11 +346,13 @@ Item {
       // Notification already torn down by the server — fall through to focus.
       console.warn("invoke default failed:", e)
     }
-    // Chat apps (Slack, Discord, Vesktop, etc.) rarely register a "default"
-    // libnotify action — they just expect clicking the notification to
-    // focus their window. Fall back to focusing the sending app by class so
-    // that click-to-jump actually works.
-    if (!invoked) focusApp(entry)
+    // Invoking a notification action does not grant the sender focus on
+    // Wayland. This matters for clients such as AyuGram: they expose a
+    // "default" action, handle it successfully, but
+    // remain on the old workspace. Always follow the action by asking Niri to
+    // focus the sender. For clients without a default action this remains the
+    // normal click-to-focus fallback.
+    focusApp(entry)
     dismissPopup(index)
   }
 
@@ -844,7 +844,7 @@ Item {
       screen: modelData
       visible: popupModel.count > 0
 
-      WlrLayershell.namespace: "omarchy-notifications"
+      WlrLayershell.namespace: "tsp-notifications"
       WlrLayershell.layer: WlrLayer.Overlay
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
       exclusionMode: ExclusionMode.Ignore

@@ -9,7 +9,7 @@ Item {
   id: root
 
   property var shell: null
-  property string omarchyPath: ""
+  property string tspPath: ""
 
   readonly property string home: Quickshell.env("HOME")
   readonly property string stateHome: home + "/.local/state"
@@ -110,7 +110,7 @@ Item {
   function logEvent(event) {
     lastEvent = event
     lastEventAt = new Date().toISOString()
-    console.log("omarchy lock " + lastEventAt + " " + event)
+    console.log("tsp lock " + lastEventAt + " " + event)
   }
 
   function resetAuthenticationState() {
@@ -291,7 +291,7 @@ Item {
     visible: root.previewVisible
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
-    WlrLayershell.namespace: "omarchy-lock-preview"
+    WlrLayershell.namespace: "tsp-lock-preview"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
     exclusionMode: ExclusionMode.Ignore

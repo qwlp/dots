@@ -8,8 +8,8 @@ import "Model.js" as Model
 
 Panel {
   id: root
-  moduleName: "omarchy.monitor"
-  ipcTarget: "omarchy.monitor"
+  moduleName: "tsp.monitor"
+  ipcTarget: "tsp.monitor"
   manageIpc: false
 
   // manageIpc: false so this panel can own the single IpcHandler the target
@@ -218,7 +218,7 @@ Panel {
   }
 
   IpcHandler {
-    target: "omarchy.monitor"
+    target: "tsp.monitor"
 
     function brightness(percent: string): string { return root.brightnessIpc(percent) }
     function state(): string { return root.stateIpc() }
@@ -255,7 +255,7 @@ Panel {
 
   function showBrightnessOsd(percent) {
     if (!bar || !bar.shell) return
-    bar.shell.summon("omarchy.osd", JSON.stringify({
+    bar.shell.summon("tsp.osd", JSON.stringify({
       icon: "brightness",
       value: percent
     }))

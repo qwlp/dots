@@ -9,7 +9,7 @@ import "TrayModel.js" as TrayModel
 
 BarWidget {
   id: root
-  moduleName: "omarchy.tray"
+  moduleName: "tsp.tray"
 
   property bool expanded: false
   property bool managePopupOpen: false
@@ -182,7 +182,7 @@ BarWidget {
 
   function persistTrayState(pinned, hidden) {
     if (!root.bar || !root.bar.shell || typeof root.bar.shell.updateEntryInline !== "function") return
-    var id = root.moduleName || "omarchy.tray"
+    var id = root.moduleName || "tsp.tray"
     root.bar.shell.updateEntryInline(id, { id: id, pinned: pinned, hidden: hidden })
   }
 

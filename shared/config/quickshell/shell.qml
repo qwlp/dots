@@ -24,7 +24,7 @@ ShellRoot {
   // Standalone installation: all bundled components are relative to this file.
   // Keep the compatibility property while the bundled panels are gradually
   // being made independent of their original host.
-  property string omarchyPath: Quickshell.shellDir
+  property string tspPath: Quickshell.shellDir
   readonly property string shellPath: Quickshell.shellDir
   readonly property string firstPartyPluginsDir: shellPath + "/plugins"
   readonly property string defaultsPath: shellPath + "/config.json"
@@ -42,16 +42,16 @@ ShellRoot {
     bar: {
       position: "top",
       transparent: false,
-      centerAnchor: "omarchy.clock",
+      centerAnchor: "tsp.clock",
       layout: {
-        left: [{ id: "omarchy.workspaces" }, { id: "omarchy.active-window" }],
-        center: [{ id: "omarchy.clock", format: "dddd HH:mm" }],
+        left: [{ id: "tsp.workspaces" }, { id: "tsp.active-window" }],
+        center: [{ id: "tsp.clock", format: "dddd HH:mm" }],
         right: [
-          { id: "omarchy.tray" },
-          { id: "omarchy.bluetooth" },
-          { id: "omarchy.network" },
-          { id: "omarchy.audio" },
-          { id: "omarchy.power" }
+          { id: "tsp.tray" },
+          { id: "tsp.bluetooth" },
+          { id: "tsp.network" },
+          { id: "tsp.audio" },
+          { id: "tsp.power" }
         ]
       }
     },
@@ -168,7 +168,7 @@ ShellRoot {
 
   // Exposed as a property so child plugins (notifications, future panels)
   // can read barSize/barHidden/position to anchor relative to the active bar.
-  readonly property string defaultBarId: "omarchy.bar"
+  readonly property string defaultBarId: "tsp.bar"
   readonly property string selectedBarId: {
     var config = shell.barConfig
     if (Util.isPlainObject(config)) {
@@ -218,7 +218,7 @@ ShellRoot {
 
   function configureBar(target, manifest) {
     if (!target) return
-    if ("omarchyPath" in target) target.omarchyPath = shell.omarchyPath
+    if ("tspPath" in target) target.tspPath = shell.tspPath
     if ("shell" in target) target.shell = shell
     if ("manifest" in target) target.manifest = manifest
     if ("barWidgetRegistry" in target) target.barWidgetRegistry = shell.barWidgetRegistry
@@ -231,7 +231,7 @@ ShellRoot {
     id: defaultBarComponent
 
     Bar {
-      omarchyPath: shell.omarchyPath
+      tspPath: shell.tspPath
       barWidgetRegistry: shell.barWidgetRegistry
       barConfig: shell.barConfig
       shell: shell
@@ -307,7 +307,7 @@ ShellRoot {
         console.warn("service plugin createObject returned null for", key)
         return
       }
-      if ("omarchyPath" in inst) inst.omarchyPath = shell.omarchyPath
+      if ("tspPath" in inst) inst.tspPath = shell.tspPath
       if ("shell" in inst) inst.shell = shell
       if ("manifest" in inst) inst.manifest = manifest
       if ("barWidgetRegistry" in inst) inst.barWidgetRegistry = shell.barWidgetRegistry
@@ -332,9 +332,9 @@ ShellRoot {
       // Only compositor-neutral services are enabled in the Niri port.
       // Notifications/polkit may already be supplied by the desktop, while
       // idle/night-light were implemented through Hyprland helpers.
-      if (id !== "omarchy.battery"
-          && id !== "omarchy.media"
-          && id !== "omarchy.notifications") continue
+      if (id !== "tsp.battery"
+          && id !== "tsp.media"
+          && id !== "tsp.notifications") continue
       var m = plugins[id]
       if (!m) continue
       if (!Array.isArray(m.kinds) || m.kinds.indexOf("service") === -1) continue
@@ -440,7 +440,7 @@ ShellRoot {
     if (!m || !Array.isArray(m.kinds)) return false
     if (m.kinds.indexOf("bar-widget") === -1) return false
     // Plugins that are also panel/overlay/menu kinds are owned by the
-    // panel loader (e.g. omarchy.menu); let that path handle them.
+    // panel loader (e.g. tsp.menu); let that path handle them.
     var loaderKinds = ["panel", "overlay", "menu"]
     for (var i = 0; i < loaderKinds.length; i++) {
       if (m.kinds.indexOf(loaderKinds[i]) !== -1) return false
@@ -637,7 +637,7 @@ ShellRoot {
         asynchronous: true
         onLoaded: {
           if (!item) return
-          if ("omarchyPath" in item) item.omarchyPath = shell.omarchyPath
+          if ("tspPath" in item) item.tspPath = shell.tspPath
           if ("shell" in item) item.shell = shell
           if ("manifest" in item) item.manifest = panelEntry.manifest
           if ("barWidgetRegistry" in item) item.barWidgetRegistry = shell.barWidgetRegistry
@@ -825,7 +825,7 @@ ShellRoot {
   // --------------------------------------------------- image selector IPC
 
   function imagePickerItem() {
-    var loader = panelLoaders["omarchy.image-picker"]
+    var loader = panelLoaders["tsp.image-picker"]
     return loader && loader.item ? loader.item : null
   }
 
@@ -848,7 +848,7 @@ ShellRoot {
         showLabels: showLabels,
         filterable: filterable
       })
-      return shell.summon("omarchy.image-picker", payload) ? "ok" : "unknown"
+      return shell.summon("tsp.image-picker", payload) ? "ok" : "unknown"
     }
 
     function preload(imageRowsB64: string,
@@ -868,7 +868,7 @@ ShellRoot {
       if (picker && typeof picker.closeSelector === "function") {
         picker.closeSelector(doneFile || "")
       } else {
-        shell.hide("omarchy.image-picker")
+        shell.hide("tsp.image-picker")
       }
       return "ok"
     }
@@ -976,7 +976,7 @@ ShellRoot {
         var isBarOption = Array.isArray(kinds) && kinds.indexOf("bar") !== -1
         var isBarWidget = Array.isArray(kinds) && kinds.indexOf("bar-widget") !== -1
         var active = isBarOption && shell.isActiveBarOption(id)
-        var metadata = plugins[id].omarchy
+        var metadata = plugins[id].tsp
         var clonedFrom = Util.isPlainObject(metadata) ? String(metadata.clonedFrom || "") : ""
         out.push({
           id: id,

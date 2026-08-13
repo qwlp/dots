@@ -11,7 +11,7 @@ import "AppSearch.js" as AppSearch
 Item {
   id: root
 
-  property string omarchyPath: Quickshell.env("OMARCHY_PATH")
+  property string tspPath: (Quickshell.env("TSP_PATH") || Quickshell.env("OMARCHY_PATH"))
 
   property var configuredHiddenEntryIds: ({})
   property var desktopHiddenEntryIds: ({})
@@ -78,17 +78,25 @@ Item {
     var id = String(desktopId || "")
     if (!id) return
     root.beginLaunchFeedback(name)
-    // Start gtk-launch inside a scope under app-graphical.slice so apps do not
-    // inherit wayland-wm@.service. Keeping gtk-launch as the desktop-entry
-    // resolver supports IDs with spaces and entries that UWSM rejects.
-    // Keep the .desktop suffix or ids like org.telegram.desktop won't resolve.
-    Util.execDetached("uwsm-app -- gtk-launch " + Util.shellQuote(id + ".desktop"))
+    // Let Quickshell execute the entry it already parsed. The Niri setup does
+    // not install uwsm-app, so routing every launch through it made selection
+    // silently fail after the menu closed.
+    var entry = DesktopEntries.byId(id)
+    if (entry && typeof entry.execute === "function") {
+      entry.execute()
+      return
+    }
+
+    // Keep a resolver fallback for an entry that disappeared between the
+    // model refresh and activation. Preserve the suffix because ids such as
+    // org.telegram.desktop otherwise resolve incorrectly in gtk-launch.
+    Quickshell.execDetached(["gtk-launch", id + ".desktop"])
   }
 
   function remove(desktopId, name) {
     var id = String(desktopId || "")
     if (!id) return
-    Util.execDetached(Util.shellQuote(root.omarchyPath + "/bin/omarchy-remove-launcher-entry") + " " + Util.shellQuote(id) + " " + Util.shellQuote(String(name || id)))
+    Util.execDetached(Util.shellQuote(root.tspPath + "/bin/omarchy-remove-launcher-entry") + " " + Util.shellQuote(id) + " " + Util.shellQuote(String(name || id)))
   }
 
   function normalizeDesktopId(id) {
@@ -149,7 +157,7 @@ Item {
 
   function hiddenEntryScanCommand() {
     var desktop = [Quickshell.env("XDG_CURRENT_DESKTOP"), Quickshell.env("XDG_SESSION_DESKTOP"), Quickshell.env("DESKTOP_SESSION")].filter(function(v) { return String(v || "").length > 0 }).join(":")
-    var script = root.omarchyPath + "/shell/services/hidden-entries.sh"
+    var script = root.tspPath + "/shell/services/hidden-entries.sh"
     return Util.shellQuote(script) + " " + Util.shellQuote(desktop)
   }
 
@@ -214,7 +222,7 @@ Item {
   }
 
   FileView {
-    path: root.omarchyPath + "/default/omarchy/launcher.hides"
+    path: root.tspPath + "/default/omarchy/launcher.hides"
     watchChanges: true
     printErrors: false
     onLoaded: root.loadConfiguredHides(text())

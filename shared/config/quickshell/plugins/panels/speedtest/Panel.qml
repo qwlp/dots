@@ -63,7 +63,7 @@ Item {
 
   function dismiss() {
     if (root.shell && typeof root.shell.hide === "function")
-      root.shell.hide((root.manifest && root.manifest.id) || "omarchy.speedtest")
+      root.shell.hide((root.manifest && root.manifest.id) || "tsp.speedtest")
     else close()
   }
 
@@ -184,7 +184,7 @@ Item {
 
   SpeedTestOverlay {
     fontFamily: Style.font.family
-    layerNamespace: "omarchy-network-speedtest"
+    layerNamespace: "tsp-network-speedtest"
     title: root.connectionName
     leftLabel: "DOWNLOAD"
     rightLabel: "UPLOAD"

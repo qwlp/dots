@@ -18,7 +18,7 @@ import "Model.js" as Model
 Item {
   id: root
 
-  property string omarchyPath: Quickshell.env("OMARCHY_PATH")
+  property string tspPath: (Quickshell.env("TSP_PATH") || Quickshell.env("OMARCHY_PATH"))
   property var shell: null
   property var manifest: null
 
@@ -89,7 +89,7 @@ Item {
 
   function dismiss() {
     if (root.shell && typeof root.shell.hide === "function")
-      root.shell.hide((root.manifest && root.manifest.id) || "omarchy.wifiqr")
+      root.shell.hide((root.manifest && root.manifest.id) || "tsp.wifiqr")
     else close()
   }
 
@@ -215,7 +215,7 @@ Item {
     anchors { top: true; bottom: true; left: true; right: true }
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.namespace: "omarchy-network-qr"
+    WlrLayershell.namespace: "tsp-network-qr"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
 

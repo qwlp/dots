@@ -3,22 +3,22 @@
   "bar": {
     "position": "top",
     "transparent": false,
-    "centerAnchor": "omarchy.clock",
+    "centerAnchor": "tsp.clock",
     "layout": {
       "left": [
-        { "id": "omarchy.workspaces" },
-        { "id": "omarchy.active-window", "maxWidth": 360 }
+        { "id": "tsp.workspaces" },
+        { "id": "tsp.active-window", "maxWidth": 360 }
       ],
       "center": [
-        { "id": "omarchy.clock", "format": "dddd HH:mm", "formatAlt": "d MMMM yyyy" },
-        { "id": "omarchy.media" }
+        { "id": "tsp.clock", "format": "dddd HH:mm", "formatAlt": "d MMMM yyyy" },
+        { "id": "tsp.media" }
       ],
       "right": [
-        { "id": "omarchy.tray" },
-        { "id": "omarchy.bluetooth" },
-        { "id": "omarchy.network" },
-        { "id": "omarchy.audio" },
-        { "id": "omarchy.power" }
+        { "id": "tsp.tray" },
+        { "id": "tsp.bluetooth" },
+        { "id": "tsp.network" },
+        { "id": "tsp.audio" },
+        { "id": "tsp.power" }
       ]
     }
   },

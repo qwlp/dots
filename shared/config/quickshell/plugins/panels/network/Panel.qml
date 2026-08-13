@@ -10,8 +10,8 @@ import "Model.js" as Model
 
 Panel {
   id: root
-  moduleName: "omarchy.network"
-  ipcTarget: "omarchy.network"
+  moduleName: "tsp.network"
+  ipcTarget: "tsp.network"
   // manageIpc: false so this panel can own the single IpcHandler the target
   // permits — needed for the toggleNetwork method below.
   manageIpc: false
@@ -216,7 +216,7 @@ Panel {
 
   IpcHandler {
     enabled: root.ownsIpc
-    target: "omarchy.network"
+    target: "tsp.network"
 
     function open() { root.open() }
     function close() { root.close() }
@@ -471,7 +471,7 @@ Panel {
 
   readonly property string icon: Model.connectionIcon(kind, signalStrength)
 
-  // The share card is its own panel plugin (omarchy.wifiqr) so a replacement
+  // The share card is its own panel plugin (tsp.wifiqr) so a replacement
   // design can take it over; summon() routes to whichever implementation is
   // enabled. The panel's own button pins the interface it is showing. The
   // IPC route forces self-detection instead: details polling stops while the
@@ -484,13 +484,13 @@ Panel {
       payload.iface = info.iface
       if (info.ssid) payload.ssid = info.ssid
     }
-    bar.shell.summon("omarchy.wifiqr", JSON.stringify(payload))
+    bar.shell.summon("tsp.wifiqr", JSON.stringify(payload))
   }
 
   function refresh(scanWifi) {
     if (scanWifi === undefined) scanWifi = false
     // Connection and scanning use Quickshell.Networking directly. Optional
-    // Omarchy-only route, DNS and radio-band probes are intentionally absent.
+    // TSP-only route, DNS and radio-band probes are intentionally absent.
     // A closed panel has no nearby-network list to fill, and bare refresh()
     // reaches here from action completion, timeouts and construction.
     if (opened && wifiDevice) {
@@ -665,7 +665,7 @@ Panel {
     actionProc.running = true
   }
 
-  // The speed test is its own panel plugin (omarchy.speedtest) so a
+  // The speed test is its own panel plugin (tsp.speedtest) so a
   // replacement design can take it over; summon() routes to whichever
   // implementation is enabled. The payload names the connection when this
   // panel knows it; the plugin looks it up itself otherwise.
@@ -675,7 +675,7 @@ Panel {
     var connection = ""
     if (info.type === "wifi") connection = info.ssid || "Wi-Fi"
     else if (info.type === "ethernet") connection = "Ethernet"
-    bar.shell.summon("omarchy.speedtest", connection ? JSON.stringify({ connection: connection }) : "{}")
+    bar.shell.summon("tsp.speedtest", connection ? JSON.stringify({ connection: connection }) : "{}")
   }
 
   function dnsCommand(provider) {

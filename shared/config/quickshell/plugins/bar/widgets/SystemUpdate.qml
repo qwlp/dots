@@ -6,7 +6,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "omarchy.system-update"
+  moduleName: "tsp.system-update"
 
   property bool updateAvailable: false
 
@@ -25,7 +25,7 @@ BarWidget {
   implicitHeight: button.implicitHeight
 
   IpcHandler {
-    target: "omarchy.system-update"
+    target: "tsp.system-update"
 
     function refresh(): void {
       root.broadcast("refresh")
@@ -59,7 +59,7 @@ BarWidget {
     text: "\uf021"
     slotSize: Style.bar.statusSlot
     fontSize: Style.font.caption
-    tooltipText: "Pending Omarchy Updates"
+    tooltipText: "Pending TSP Updates"
     onPressed: root.runUpdate()
   }
 }

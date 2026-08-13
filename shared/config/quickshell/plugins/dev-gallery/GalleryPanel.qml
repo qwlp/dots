@@ -6,7 +6,7 @@ import qs.Commons
 
 // Visual reference + live playground for omarchy-shell's common UI
 // components. Summon with `omarchy dev ui-preview`, or directly via:
-//   omarchy-shell shell summon omarchy.dev-gallery "{}"
+//   omarchy-shell shell summon tsp.dev-gallery "{}"
 //
 // Every section here renders the REAL component (not a copy) so the
 // gallery doubles as a smoke test. When you add a new common component,
@@ -58,7 +58,7 @@ Item {
   // User-initiated close (Esc, window close button). Tell the shell so its
   // openPanelIds map stays consistent and `toggle` works on the next call.
   function requestClose() {
-    if (shell && typeof shell.hide === "function") shell.hide("omarchy.dev-gallery")
+    if (shell && typeof shell.hide === "function") shell.hide("tsp.dev-gallery")
     else window.visible = false
   }
 
@@ -276,7 +276,7 @@ Item {
 
   FloatingWindow {
     id: window
-    title: "Omarchy shell – dev gallery"
+    title: "TSP shell – dev gallery"
     color: root.background
     implicitWidth: 720
     implicitHeight: 760
@@ -284,7 +284,7 @@ Item {
 
     onVisibleChanged: {
       if (!visible && !root.closingFromHost && root.shell && typeof root.shell.hide === "function")
-        root.shell.hide("omarchy.dev-gallery")
+        root.shell.hide("tsp.dev-gallery")
     }
 
     FocusScope {
@@ -354,7 +354,7 @@ Item {
             spacing: Style.space(4)
 
             Text {
-              text: "Omarchy shell · dev gallery"
+              text: "TSP shell · dev gallery"
               color: root.foreground
               font.family: root.fontFamily
               font.pixelSize: Style.font.iconLarge
@@ -1584,7 +1584,7 @@ Item {
                   width: Style.spacing.dropdownWidth
                   label: "Center anchor"
                   fontFamily: root.fontFamily
-                  options: ["omarchy.clock", "omarchy.weather", "omarchy.power"]
+                  options: ["tsp.clock", "tsp.weather", "tsp.power"]
                   value: root.dropdownDemoValue
                   hasCursor: root.focusSection === "dropdown" && root.selectedIndex === 0
                   onHovered: function(h) {
@@ -1648,7 +1648,7 @@ Item {
                   options: [
                     { value: "Clock", label: "Clock", description: "Time + date display" },
                     { value: "Weather", label: "Weather", description: "Local conditions and forecast" },
-                    { value: "omarchy.power", label: "Power", description: "Charge level + power profile" },
+                    { value: "tsp.power", label: "Power", description: "Charge level + power profile" },
                     { value: "audio", label: "Audio", description: "Output sink + volume" },
                     { value: "network", label: "Network", description: "Wi-Fi + ethernet status" },
                     { value: "bluetooth", label: "Bluetooth", description: "Paired and nearby devices" },
@@ -1656,7 +1656,7 @@ Item {
                     { value: "Media", label: "Media", description: "Now-playing + transport" },
                     { value: "Workspaces", label: "Workspaces", description: "Hyprland workspace pills" },
                     { value: "system-tray", label: "System tray", description: "StatusNotifierItem icons" },
-                    { value: "omarchy-menu", label: "Omarchy menu", description: "Launcher / system menu" },
+                    { value: "omarchy-menu", label: "TSP menu", description: "Launcher / system menu" },
                     { value: "power-profiles", label: "Power profiles", description: "Performance / balanced / saver" },
                     { value: "hardware", label: "Hardware", description: "CPU, GPU, mem utilization" },
                     { value: "notifications", label: "Notifications", description: "Recent notification history" }

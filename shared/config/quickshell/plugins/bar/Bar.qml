@@ -10,8 +10,8 @@ import "BarModel.js" as BarModel
 Item {
   id: root
 
-  // The omarchy-shell host injects omarchyPath from OMARCHY_PATH.
-  required property string omarchyPath
+  // The omarchy-shell host injects tspPath from OMARCHY_PATH.
+  required property string tspPath
   // Injected by the host shell so bar slots can resolve enabled widgets.
   required property var barWidgetRegistry
   // Injected by the host shell every time shell.json is reloaded. Holds the
@@ -31,11 +31,11 @@ Item {
   property bool barHidden: false
   property string home: Quickshell.env("HOME")
   property string stateHome: home + "/.local/state"
-  property string omarchyConfigDir: home + "/.config/omarchy"
+  property string tspConfigDir: home + "/.config/omarchy"
   property var fallbackBarConfig: ({
     position: "top",
     transparent: false,
-    centerAnchor: "omarchy.clock",
+    centerAnchor: "tsp.clock",
     layout: { left: [], center: [], right: [] }
   })
   property var layoutConfig: fallbackBarConfig.layout
@@ -219,6 +219,24 @@ Item {
     if (!slot) return null
 
     try {
+      if (slot.virtualDropTarget === true) {
+        var markerPoint = root.barDragScreenPoint(root.vertical
+          ? { x: 0, y: slot.markerAxis }
+          : { x: slot.markerAxis, y: 0 })
+        var markerThickness = Style.spacing.xs
+        return root.vertical ? {
+          x: markerPoint.x,
+          y: markerPoint.y - markerThickness / 2,
+          width: root.barSize,
+          height: markerThickness
+        } : {
+          x: markerPoint.x - markerThickness / 2,
+          y: markerPoint.y,
+          width: markerThickness,
+          height: root.barSize
+        }
+      }
+
       var slotPoint = slot.mapToItem(null, 0, 0)
       var screenPoint = barDragScreenPoint(slotPoint)
       var thickness = Style.spacing.xs
@@ -490,7 +508,7 @@ Item {
     return ""
   }
 
-  // Resolve the live bar-widget instance for a plugin id (e.g. "omarchy.bluetooth").
+  // Resolve the live bar-widget instance for a plugin id (e.g. "tsp.bluetooth").
   // Only widgets that expose popup open/close methods count; plain indicators
   // (clock, workspaces, tray) return null. Used by shell.summon/toggle so
   // panel hotkeys route through the bar instead of a per-target IPC handler
@@ -573,7 +591,7 @@ Item {
   }
 
   function customModuleSource(entry) {
-    var source = BarModel.customModulePath(entry, home, omarchyConfigDir)
+    var source = BarModel.customModulePath(entry, home, tspConfigDir)
     return source ? Util.fileUrl(source) : ""
   }
 
@@ -687,10 +705,18 @@ Item {
         return null
     }
 
+    var targetRegion = BarModel.dropRegion(
+      scenePoint,
+      sourceWindow && sourceWindow.contentItem ? sourceWindow.contentItem.width : root.width,
+      sourceWindow && sourceWindow.contentItem ? sourceWindow.contentItem.height : root.height,
+      root.vertical)
+    if (!targetRegion) return null
+
     var candidates = []
     for (var i = 0; i < moduleSlots.length; i++) {
       var slot = moduleSlots[i]
-      if (!slot || slot === sourceSlot || !slot.visible || slot.width <= 0 || slot.height <= 0) continue
+      if (!slot || slot === sourceSlot || slot.region !== targetRegion ||
+          !slot.visible || slot.width <= 0 || slot.height <= 0) continue
       if (sourceWindow && !root.sameWindow(root.slotWindow(slot), sourceWindow)) continue
 
       var slotPoint = { x: slot.x, y: slot.y }
@@ -708,7 +734,21 @@ Item {
       })
     }
 
-    return BarModel.nearestDropTarget(candidates, scenePoint, root.vertical)
+    var concrete = BarModel.nearestDropTarget(candidates, scenePoint, root.vertical)
+    if (concrete) return concrete
+
+    // Empty sections and sections containing only hidden widgets still need a
+    // drop target. An empty moduleName makes dropBarModule append to the raw
+    // section, while markerAxis gives the drag ghost useful visual feedback.
+    return {
+      slot: {
+        virtualDropTarget: true,
+        region: targetRegion,
+        moduleName: "",
+        markerAxis: root.vertical ? scenePoint.y : scenePoint.x
+      },
+      after: false
+    }
   }
 
   function visibleModuleSlot(region, name, sourceSlot) {
@@ -936,11 +976,11 @@ Item {
   Process {
     id: barHiddenProbe
     running: true
-    command: ["bash", "-c", "[[ -f $HOME/.local/state/omarchy/toggles/bar-off ]] && echo yes || echo no"]
+    command: ["bash", "-c", "[[ -f $HOME/.local/state/tsp/toggles/bar-off ]] && echo yes || echo no"]
     stdout: SplitParser { onRead: function(line) { root.barHidden = String(line).trim() === "yes" } }
   }
   FileView {
-    path: root.home + "/.local/state/omarchy/toggles"
+    path: root.home + "/.local/state/tsp/toggles"
     watchChanges: true
     printErrors: false
     onFileChanged: barHiddenProbe.running = true
@@ -1018,7 +1058,7 @@ Item {
     implicitHeight: root.vertical ? 0 : root.barSize
     color: root.transparent ? "transparent" : root.background
     surfaceFormat.opaque: false
-    WlrLayershell.namespace: "omarchy-bar"
+    WlrLayershell.namespace: "tsp-bar"
     WlrLayershell.layer: WlrLayer.Top
 
     Loader {
@@ -1161,7 +1201,7 @@ Item {
     visible: active && sourceItem !== null
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.namespace: "omarchy-bar-drag-ghost"
+    WlrLayershell.namespace: "tsp-bar-drag-ghost"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 
@@ -1223,7 +1263,7 @@ Item {
     visible: root.barMoveActive && screenMatches
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
-    WlrLayershell.namespace: "omarchy-bar-move-ghost"
+    WlrLayershell.namespace: "tsp-bar-move-ghost"
     WlrLayershell.layer: WlrLayer.Overlay
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
 

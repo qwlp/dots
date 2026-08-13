@@ -12,7 +12,7 @@ import "Model.js" as Model
 // middle click opens the timezone picker.
 BarWidget {
   id: root
-  moduleName: "omarchy.clock"
+  moduleName: "tsp.clock"
 
   property date displayDate: clock.date
 
@@ -129,7 +129,7 @@ BarWidget {
 
   IpcHandler {
     enabled: root.ownsIpc
-    target: "omarchy.clock"
+    target: "tsp.clock"
 
     function refresh(): void { root.broadcast("refresh") }
     function cycleFormat(): void { root.cycleFormat() }

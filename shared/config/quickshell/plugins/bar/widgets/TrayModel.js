@@ -31,7 +31,7 @@ function layoutHasWidget(layout, id) {
 }
 
 function ownedByDedicatedWidget(item, layout) {
-  return layoutHasWidget(layout, "omarchy.dropbox") && isDropboxTrayItem(item)
+  return layoutHasWidget(layout, "tsp.dropbox") && isDropboxTrayItem(item)
 }
 
 if (typeof module !== "undefined") {

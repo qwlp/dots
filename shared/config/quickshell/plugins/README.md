@@ -1,10 +1,10 @@
 # First-party plugins
 
-These plugins ship with Omarchy and are discovered by the shell at startup.
+These plugins ship with TSP and are discovered by the shell at startup.
 They use the same `manifest.json` contract as third-party plugins; the
 only difference is that the shell flags them with `__isFirstParty: true`.
 First-party non-bar plugins are enabled unless listed in `disabledPlugins[]`;
-`omarchy.bar` is the default bar option and becomes inactive only while another
+`tsp.bar` is the default bar option and becomes inactive only while another
 `kind: "bar"` plugin is selected. Services and keep-loaded panels are mounted
 at startup; other panels, overlays, and menus are loaded on demand.
 
@@ -13,29 +13,29 @@ User-installed plugins live alongside these conceptually but on disk under
 
 | Plugin        | id                        | kinds                   | entry point                           |
 |---------------|---------------------------|-------------------------|---------------------------------------|
-| Bar           | `omarchy.bar`             | `bar`                   | `bar/Bar.qml`                         |
-| Image picker  | `omarchy.image-picker`    | `overlay`               | `image-picker/ImagePicker.qml`        |
-| Emojis        | `omarchy.emojis`          | `overlay`               | `emojis/Emojis.qml`                   |
-| Clipboard mgr | `omarchy.clipboard`       | `overlay`               | `clipboard/Clipboard.qml`             |
-| Reminders     | `omarchy.reminders`       | `overlay`               | `reminders/ReminderFlow.qml`          |
-| Omarchy menu  | `omarchy.menu`            | `menu`, `bar-widget`    | `menu/Menu.qml`, `menu/BarWidget.qml` |
-| Notifications | `omarchy.notifications`   | `service`               | `notifications/Service.qml`           |
-| Audio         | `omarchy.audio`           | `bar-widget`            | `panels/audio/Panel.qml`              |
-| Bluetooth     | `omarchy.bluetooth`       | `bar-widget`            | `panels/bluetooth/Panel.qml`          |
-| Clock         | `omarchy.clock`           | `bar-widget`            | `panels/clock/BarWidget.qml`          |
-| Monitor       | `omarchy.monitor`         | `bar-widget`            | `panels/monitor/Panel.qml`            |
-| Network       | `omarchy.network`         | `bar-widget`            | `panels/network/Panel.qml`            |
-| Power         | `omarchy.power`           | `bar-widget`            | `panels/power/Panel.qml`              |
-| Tailscale     | `omarchy.tailscale`       | `bar-widget`            | `panels/tailscale/Panel.qml`          |
-| Agents   | `omarchy.agents`     | `bar-widget`            | `agents/Panel.qml`               |
-| Weather       | `omarchy.weather`         | `bar-widget`            | `panels/weather/BarWidget.qml`        |
-| Media         | `omarchy.media`           | `service`, `bar-widget` | `services/media/Service.qml`, `services/media/BarWidget.qml` |
-| Battery       | `omarchy.battery`         | `service`               | `services/battery/Service.qml`        |
-| Idle          | `omarchy.idle`            | `service`               | `services/idle/Service.qml`           |
-| Night light   | `omarchy.nightlight`      | `service`               | `services/nightlight/Service.qml`     |
-| Lock screen   | `omarchy.lock`            | `service`               | `lock/Service.qml`                    |
-| OSD           | `omarchy.osd`             | `panel`                 | `osd/Osd.qml`                         |
-| Polkit agent  | `omarchy.polkit`          | `service`               | `polkit/PolkitAgent.qml`              |
+| Bar           | `tsp.bar`             | `bar`                   | `bar/Bar.qml`                         |
+| Image picker  | `tsp.image-picker`    | `overlay`               | `image-picker/ImagePicker.qml`        |
+| Emojis        | `tsp.emojis`          | `overlay`               | `emojis/Emojis.qml`                   |
+| Clipboard mgr | `tsp.clipboard`       | `overlay`               | `clipboard/Clipboard.qml`             |
+| Reminders     | `tsp.reminders`       | `overlay`               | `reminders/ReminderFlow.qml`          |
+| TSP menu  | `tsp.menu`            | `menu`, `bar-widget`    | `menu/Menu.qml`, `menu/BarWidget.qml` |
+| Notifications | `tsp.notifications`   | `service`               | `notifications/Service.qml`           |
+| Audio         | `tsp.audio`           | `bar-widget`            | `panels/audio/Panel.qml`              |
+| Bluetooth     | `tsp.bluetooth`       | `bar-widget`            | `panels/bluetooth/Panel.qml`          |
+| Clock         | `tsp.clock`           | `bar-widget`            | `panels/clock/BarWidget.qml`          |
+| Monitor       | `tsp.monitor`         | `bar-widget`            | `panels/monitor/Panel.qml`            |
+| Network       | `tsp.network`         | `bar-widget`            | `panels/network/Panel.qml`            |
+| Power         | `tsp.power`           | `bar-widget`            | `panels/power/Panel.qml`              |
+| Tailscale     | `tsp.tailscale`       | `bar-widget`            | `panels/tailscale/Panel.qml`          |
+| Agents   | `tsp.agents`     | `bar-widget`            | `agents/Panel.qml`               |
+| Weather       | `tsp.weather`         | `bar-widget`            | `panels/weather/BarWidget.qml`        |
+| Media         | `tsp.media`           | `service`, `bar-widget` | `services/media/Service.qml`, `services/media/BarWidget.qml` |
+| Battery       | `tsp.battery`         | `service`               | `services/battery/Service.qml`        |
+| Idle          | `tsp.idle`            | `service`               | `services/idle/Service.qml`           |
+| Night light   | `tsp.nightlight`      | `service`               | `services/nightlight/Service.qml`     |
+| Lock screen   | `tsp.lock`            | `service`               | `lock/Service.qml`                    |
+| OSD           | `tsp.osd`             | `panel`                 | `osd/Osd.qml`                         |
+| Polkit agent  | `tsp.polkit`          | `service`               | `polkit/PolkitAgent.qml`              |
 
 First-party bar-only widgets also carry manifests next to their QML files,
 e.g. `bar/widgets/Workspaces.manifest.json`. Rich popup widgets live in their
@@ -57,7 +57,7 @@ other caller that wants to present a directory of images with previews.
 
 Two ways to drive it:
 
-- Shell-level summon: `omarchy-shell shell summon omarchy.image-picker '<jsonPayload>'`.
+- Shell-level summon: `omarchy-shell shell summon tsp.image-picker '<jsonPayload>'`.
   The payload can carry `imageDirs`, `imageRows`, `selectedImage`,
   `selectionFile`, `doneFile`, `showLabels`, `filterable`. Best for
   in-shell callers that already speak JSON.
@@ -91,11 +91,11 @@ Quickshell's native `Quickshell.Services.Polkit.PolkitAgent` backend and
 runs inside the long-lived `omarchy-shell` process, replacing the old
 `polkit-gnome-authentication-agent-1` autostart.
 
-## Omarchy menu
+## TSP menu
 
-Quickshell-powered Omarchy command menu.
+Quickshell-powered TSP command menu.
 The menu UI lives in `menu/Menu.qml` as a first-party `menu` plugin and is
-summoned through the shell (`omarchy-shell shell summon omarchy.menu ...`),
+summoned through the shell (`omarchy-shell shell summon tsp.menu ...`),
 so it shares the long-running `omarchy-shell` process instead of starting a
 second Quickshell instance.
 
@@ -113,4 +113,4 @@ keybind → IPC → visible path costs ~30ms cold.
 
 ## Coming soon
 
-- `omarchy.theme-switcher` — folds theme switching into the shell.
+- `tsp.theme-switcher` — folds theme switching into the shell.
