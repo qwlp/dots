@@ -356,13 +356,14 @@ Item {
     dismissPopup(index)
   }
 
-  // Try to focus an existing Hyprland window matching the notification's
-  // sender. The helper handles case-insensitive class matching.
+  // Focus an existing Niri window matching the notification sender. appIcon
+  // is usually the desktop-entry/app-id and is more precise than appName.
   function focusApp(entry) {
     if (!entry || !entry.app) return
     focusAppProc.command = [
-      service.omarchyPath + "/bin/omarchy-hyprland-focus-app",
-      String(entry.app)
+      Quickshell.shellDir + "/scripts/focus-notification-app",
+      String(entry.app),
+      String(entry.appIcon || "")
     ]
     focusAppProc.running = true
   }
@@ -934,7 +935,7 @@ Item {
               urgency: cardSlot.urgency
               timestamp: cardSlot.timestamp
               cornerRadius: service.cornerRadius
-              fontFamily: service.shell && service.shell.bar ? service.shell.bar.fontFamily : ""
+              fontFamily: service.shell && service.shell.bar ? service.shell.bar.fontFamily : Style.font.family
               glyph: cardSlot.glyph
 
               onCloseRequested: service.dismissPopup(cardSlot.index)

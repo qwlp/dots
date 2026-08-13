@@ -25,15 +25,27 @@ BarWidget {
   }
 
   function appsForWorkspace(workspaceId) {
-    var seen = ({})
+    var byId = ({})
     var apps = []
     for (var i = 0; i < windows.length; i++) {
       var window = windows[i]
       if (!window || window.workspace_id !== workspaceId) continue
       var appId = String(window.app_id || "").trim()
-      if (!appId || seen[appId]) continue
-      seen[appId] = true
-      apps.push({ appId: appId, windowId: window.id })
+      if (!appId) continue
+      if (!byId[appId]) {
+        byId[appId] = { appId: appId, windows: [] }
+        apps.push(byId[appId])
+      }
+      byId[appId].windows.push(window)
+    }
+    for (var j = 0; j < apps.length; j++) {
+      apps[j].windows.sort(function(left, right) {
+        var leftTime = left.focus_timestamp || ({ secs: 0, nanos: 0 })
+        var rightTime = right.focus_timestamp || ({ secs: 0, nanos: 0 })
+        return rightTime.secs !== leftTime.secs
+          ? rightTime.secs - leftTime.secs
+          : rightTime.nanos - leftTime.nanos
+      })
     }
     return apps
   }
@@ -125,8 +137,31 @@ BarWidget {
 
             Item {
               required property var modelData
+              id: appIcon
               width: Style.space(18)
               height: Style.space(18)
+
+              readonly property bool hovering: iconMouse.containsMouse
+
+              function requestPreview() {
+                previewCloseTimer.stop()
+                previewOpenTimer.restart()
+              }
+
+              function scheduleClose() {
+                previewOpenTimer.stop()
+                previewCloseTimer.restart()
+              }
+
+              // PopupCard registers its owner with the bar-wide popout
+              // coordinator. Give the coordinator a real close operation so
+              // moving to another icon or panel cannot leave this native
+              // popup mapped underneath the next one.
+              function close() {
+                previewOpenTimer.stop()
+                previewCloseTimer.stop()
+                previewPopup.open = false
+              }
 
               Image {
                 anchors.centerIn: parent
@@ -140,10 +175,126 @@ BarWidget {
               }
 
               MouseArea {
+                id: iconMouse
                 anchors.fill: parent
                 acceptedButtons: Qt.LeftButton
+                hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.focusWindow(parent.modelData.windowId)
+                onEntered: appIcon.requestPreview()
+                onExited: appIcon.scheduleClose()
+                onClicked: {
+                  previewPopup.open = false
+                  root.focusWindow(appIcon.modelData.windows[0].id)
+                }
+              }
+
+              Timer {
+                id: previewOpenTimer
+                interval: 350
+                onTriggered: previewPopup.open = true
+              }
+
+              Timer {
+                id: previewCloseTimer
+                interval: 180
+                onTriggered: {
+                  if (!appIcon.hovering && !previewPopup.containsMouse)
+                    previewPopup.open = false
+                }
+              }
+
+              PopupCard {
+                id: previewPopup
+                anchorItem: appIcon
+                bar: root.bar
+                owner: appIcon
+                triggerMode: "hover"
+                padding: Style.space(8)
+
+                readonly property int itemWidth: Style.space(260)
+                readonly property int itemHeight: Style.space(40)
+                readonly property int itemSpacing: Style.space(8)
+                readonly property int windowCount: appIcon.modelData.windows.length
+                readonly property int primaryCapacity: Math.max(1, Math.floor(
+                  ((root.vertical ? availableCardHeight : availableCardWidth) + itemSpacing)
+                    / ((root.vertical ? itemHeight : itemWidth) + itemSpacing)))
+                readonly property int primaryCount: Math.min(windowCount, primaryCapacity)
+                readonly property int secondaryCount: Math.ceil(windowCount / primaryCapacity)
+
+                contentWidth: root.vertical
+                  ? secondaryCount * itemWidth + Math.max(0, secondaryCount - 1) * itemSpacing + padding * 2
+                  : primaryCount * itemWidth + Math.max(0, primaryCount - 1) * itemSpacing + padding * 2
+                contentHeight: root.vertical
+                  ? primaryCount * itemHeight + Math.max(0, primaryCount - 1) * itemSpacing + padding * 2
+                  : secondaryCount * itemHeight + Math.max(0, secondaryCount - 1) * itemSpacing + padding * 2
+
+                onContainsMouseChanged: {
+                  if (containsMouse) previewCloseTimer.stop()
+                  else appIcon.scheduleClose()
+                }
+
+                Grid {
+                  anchors.fill: parent
+                  columns: Math.max(1, root.vertical ? previewPopup.secondaryCount : previewPopup.primaryCount)
+                  rows: Math.max(1, root.vertical ? previewPopup.primaryCount : previewPopup.secondaryCount)
+                  spacing: previewPopup.itemSpacing
+
+                  Repeater {
+                    model: appIcon.modelData.windows
+
+                    Rectangle {
+                      id: windowPreview
+                      required property var modelData
+                      width: previewPopup.itemWidth
+                      height: previewPopup.itemHeight
+                      radius: Style.cornerRadius
+                      color: previewMouse.containsMouse
+                        ? Style.hoverFillFor(workspaceButton.foreground, workspaceButton.activeColor)
+                        : Qt.rgba(workspaceButton.foreground.r, workspaceButton.foreground.g, workspaceButton.foreground.b, 0.04)
+                      border.width: modelData.is_focused ? Math.max(1, Style.space(2)) : 0
+                      border.color: workspaceButton.activeColor
+                      clip: true
+
+                      Row {
+                        anchors.fill: parent
+                        anchors.leftMargin: Style.space(8)
+                        anchors.rightMargin: Style.space(8)
+                        spacing: Style.space(6)
+
+                        Image {
+                          anchors.verticalCenter: parent.verticalCenter
+                          width: Style.space(20)
+                          height: width
+                          source: root.iconForApp(appIcon.modelData.appId)
+                          sourceSize.width: Math.round(width * Screen.devicePixelRatio)
+                          sourceSize.height: Math.round(height * Screen.devicePixelRatio)
+                          fillMode: Image.PreserveAspectFit
+                        }
+
+                        Text {
+                          anchors.verticalCenter: parent.verticalCenter
+                          width: parent.width - Style.space(26)
+                          text: windowPreview.modelData.title || appIcon.modelData.appId
+                          color: workspaceButton.foreground
+                          font.family: workspaceButton.fontFamily
+                          font.pixelSize: Style.font.bodySmall
+                          elide: Text.ElideRight
+                        }
+                      }
+
+                      MouseArea {
+                        id: previewMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: {
+                          previewPopup.open = false
+                          root.focusWindow(windowPreview.modelData.id)
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }
           }

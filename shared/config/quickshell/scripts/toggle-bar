@@ -1,0 +1,10 @@
+#!/bin/sh
+
+state=$(qs ipc call shell toggleBarVisibility) || exit
+flag=${XDG_STATE_HOME:-"$HOME/.local/state"}/omarchy/toggles/bar-off
+
+mkdir -p "${flag%/*}"
+case "$state" in
+  hidden) touch "$flag" ;;
+  shown) rm -f "$flag" ;;
+esac

@@ -629,6 +629,7 @@ Panel {
   }
 
   IpcHandler {
+    enabled: root.ownsIpc
     target: "omarchy.bluetooth"
 
     function open() { root.open() }

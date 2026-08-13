@@ -27,8 +27,8 @@ BorderSurface {
   property double timestamp: 0
   property int cornerRadius: 0
 
-  // System monospace font injected by the container.
-  property string fontFamily: ""
+  // Shell UI font injected by the container; defaults to SF Pro Text.
+  property string fontFamily: Style.font.family
 
   readonly property bool hovered: hoverTracker.hovered
 
@@ -160,7 +160,7 @@ BorderSurface {
           Layout.fillWidth: true
           visible: root.summary.length > 0
           text: root.summary
-          font.family: "Liberation Sans"
+          font.family: root.fontFamily
           color: Color.notifications.text
           font.pixelSize: Style.font.title
           font.bold: true
@@ -175,7 +175,7 @@ BorderSurface {
           visible: root.sanitizedBody.length > 0
           text: root.styledBody
           textFormat: Text.StyledText
-          font.family: "Liberation Sans"
+          font.family: root.fontFamily
           color: root.bodyColor
           font.pixelSize: Style.font.title
           wrapMode: Text.WordWrap

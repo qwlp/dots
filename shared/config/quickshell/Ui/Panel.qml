@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import Quickshell.Io
 import qs.Commons
 
@@ -14,6 +15,8 @@ Item {
   property var settings: ({})
   property string ipcTarget: ""
   property bool manageIpc: true
+  readonly property bool ownsIpc: bar !== null
+    && (!bar.screen || bar.screen === Quickshell.screens[0])
   property alias controller: panelController
   property bool popoutSwitching: false
   property bool popoutSwitchClosing: false
@@ -46,7 +49,7 @@ Item {
   }
 
   IpcHandler {
-    enabled: root.manageIpc && root.ipcTarget !== ""
+    enabled: root.manageIpc && root.ownsIpc && root.ipcTarget !== ""
     target: root.ipcTarget
 
     function open(): void { root.open() }

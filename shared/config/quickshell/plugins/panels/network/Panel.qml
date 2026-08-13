@@ -215,6 +215,7 @@ Panel {
   }
 
   IpcHandler {
+    enabled: root.ownsIpc
     target: "omarchy.network"
 
     function open() { root.open() }

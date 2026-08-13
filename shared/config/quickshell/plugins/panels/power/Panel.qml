@@ -175,6 +175,7 @@ Panel {
   }
 
   IpcHandler {
+    enabled: root.ownsIpc
     target: "omarchy.power"
 
     function open() { root.open() }

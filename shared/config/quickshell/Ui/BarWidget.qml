@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import qs.Commons
 
 // Base item every bar widget extends. Codifies the three properties the
@@ -21,6 +22,10 @@ Item {
   // `bar ? bar.x : fallback` ternary out of every widget body.
   readonly property bool vertical: bar ? bar.vertical : false
   readonly property int barSize: bar ? bar.barSize : Style.bar.sizeHorizontal
+  // IpcHandler targets are process-global, while the bar is instantiated once
+  // per screen. Keep legacy per-widget IPC on one stable instance.
+  readonly property bool ownsIpc: bar !== null
+    && (!bar.screen || bar.screen === Quickshell.screens[0])
 
   // Run `method` on every live instance of this widget. An IPC target only
   // ever routes to one handler, but a bar surface exists per monitor, so the

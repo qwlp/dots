@@ -915,6 +915,14 @@ ShellRoot {
       return "no-bar"
     }
 
+    function toggleBarVisibility(): string {
+      if (!shell.bar) return "no-bar"
+
+      var hidden = !shell.bar.barHidden
+      shell.bar.barHidden = hidden
+      return hidden ? "hidden" : "shown"
+    }
+
     function setPluginEnabled(id: string, enabled: string): string {
       return shell.pluginRegistry.setEnabled(id, enabled === "true") ? "ok" : "unknown"
     }
