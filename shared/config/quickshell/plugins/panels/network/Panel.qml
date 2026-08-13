@@ -126,7 +126,12 @@ Panel {
   property int headerIndex: 0
   readonly property bool canDisconnect: networkManagerAvailable && !!connectedWifiNetwork
   readonly property bool headerHasDisconnect: false
-  readonly property bool canShareWifi: info.type === "wifi" && canShareNetwork(connectedWifiNetwork)
+  // NetworkManager exposes a connected network object; iwd does not. For the
+  // latter, the backend-neutral probe's active Wi-Fi interface and SSID are
+  // sufficient—the QR helper handles protected-profile authorization.
+  readonly property bool canShareWifi: kind === "wifi" && (networkManagerAvailable
+    ? canShareNetwork(connectedWifiNetwork)
+    : !!info.iface && !!info.ssid)
   // The hero switch is the Wi-Fi radio, so it only exists when there is a
   // radio to switch. On a wired box it would otherwise sit there reading
   // "off" beside a perfectly live Ethernet connection.

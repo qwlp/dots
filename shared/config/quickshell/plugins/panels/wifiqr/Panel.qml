@@ -218,7 +218,12 @@ Item {
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.namespace: "tsp-network-qr"
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
+    // Release our exclusive grab while a helper may be waiting on polkit.
+    // Otherwise this older overlay keeps receiving keys above the newly
+    // mapped authentication dialog until the user dismisses it with Escape.
+    WlrLayershell.keyboardFocus: (root.loading || pwProc.running)
+      ? WlrKeyboardFocus.None
+      : WlrKeyboardFocus.Exclusive
 
     // Deep scrim: the floating code needs the backdrop to carry the contrast
     // on any wallpaper.

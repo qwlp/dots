@@ -59,7 +59,10 @@ if [ -e "/sys/class/net/$iface/phy80211" ] || [ -d "/sys/class/net/$iface/wirele
 
   if command -v iwctl >/dev/null 2>&1; then
     station=$(iwctl station "$iface" show 2>/dev/null | sed 's/\033\[[0-9;]*m//g')
-    ssid=$(printf '%s\n' "$station" | sed -n 's/^[[:space:]]*Connected network[[:space:]]*//p' | head -n 1)
+    ssid=$(printf '%s\n' "$station" |
+      sed -n 's/^[[:space:]]*Connected network[[:space:]]*//p' |
+      sed 's/[[:space:]]*$//' |
+      head -n 1)
     rssi=$(printf '%s\n' "$station" | sed -n 's/^[[:space:]]*RSSI[[:space:]]*\(-\{0,1\}[0-9][0-9]*\).*/\1/p' | head -n 1)
     freq=$(printf '%s\n' "$station" | sed -n 's/^[[:space:]]*Frequency[[:space:]]*\([0-9][0-9]*\).*/\1/p' | head -n 1)
 

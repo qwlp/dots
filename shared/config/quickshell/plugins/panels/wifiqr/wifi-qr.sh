@@ -35,25 +35,50 @@ if command -v nmcli >/dev/null 2>&1 && nmcli -t -f DEVICE,TYPE,STATE device 2>/d
 else
   command -v iwctl >/dev/null 2>&1 || { echo "Neither NetworkManager nor iwd is available" >&2; exit 1; }
   station=$(iwctl station "$iface" show 2>/dev/null | strip_ansi)
-  ssid=$(printf '%s\n' "$station" | sed -n 's/^[[:space:]]*Connected network[[:space:]]*//p' | head -n 1)
+  ssid=$(printf '%s\n' "$station" |
+    sed -n 's/^[[:space:]]*Connected network[[:space:]]*//p' |
+    sed 's/[[:space:]]*$//' |
+    head -n 1)
   [ -n "$ssid" ] || { echo "Wi-Fi is not connected" >&2; exit 1; }
 
+  station_security=$(printf '%s\n' "$station" |
+    sed -n 's/^[[:space:]]*Security[[:space:]]*//p' |
+    sed 's/[[:space:]]*$//' |
+    head -n 1)
+  case "$station_security" in
+    ''|Open|open|None|none) security=nopass ;;
+    *) security=WPA ;;
+  esac
+
   # iwd deliberately does not expose saved secrets over D-Bus. Its profile is
-  # readable directly on setups that grant access (or passwordless sudo).
+  # normally root-only. Prefer direct/passwordless access, then ask polkit to
+  # authorize one narrowly-scoped sed read; Quickshell's polkit agent presents
+  # that authentication in the shell.
   profile=
   for suffix in psk open; do
     candidate="/var/lib/iwd/$ssid.$suffix"
     if [ -r "$candidate" ]; then profile=$candidate; break; fi
     if command -v sudo >/dev/null 2>&1 && sudo -n test -r "$candidate" 2>/dev/null; then profile=$candidate; break; fi
   done
-  case "$profile" in
-    *.open) security=nopass ;;
+  case "$security:$profile" in
+    nopass:*) ;;
     *.psk)
-      security=WPA
       if [ -r "$profile" ]; then
         password=$(sed -n 's/^Passphrase=//p' "$profile" | head -n 1)
       else
         password=$(sudo -n sed -n 's/^Passphrase=//p' "$profile" 2>/dev/null | head -n 1)
+      fi
+      ;;
+    WPA:)
+      candidate="/var/lib/iwd/$ssid.psk"
+      if command -v pkexec >/dev/null 2>&1; then
+        password=$(pkexec /usr/bin/sed -n 's/^Passphrase=//p' "$candidate" | head -n 1) || {
+          echo "Authorization to read the saved iwd password was denied" >&2
+          exit 1
+        }
+      else
+        echo "Cannot read the saved iwd profile for $ssid" >&2
+        exit 1
       fi
       ;;
     *) echo "Cannot read the saved iwd profile for $ssid" >&2; exit 1 ;;

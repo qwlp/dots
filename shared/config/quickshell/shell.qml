@@ -330,11 +330,13 @@ ShellRoot {
     var plugins = pluginRegistry.installedPlugins
     for (var id in plugins) {
       // Only compositor-neutral services are enabled in the Niri port.
-      // Notifications/polkit may already be supplied by the desktop, while
-      // idle/night-light were implemented through Hyprland helpers.
+      // This shell owns notifications and polkit; privileged panel actions
+      // need the latter because pkexec cannot fall back to a terminal agent.
+      // Idle/night-light were implemented through Hyprland helpers.
       if (id !== "tsp.battery"
           && id !== "tsp.media"
-          && id !== "tsp.notifications") continue
+          && id !== "tsp.notifications"
+          && id !== "tsp.polkit") continue
       var m = plugins[id]
       if (!m) continue
       if (!Array.isArray(m.kinds) || m.kinds.indexOf("service") === -1) continue
