@@ -11,8 +11,8 @@ import "Model.js" as Model
 // heavy scrim. Esc or the scrim dismiss it.
 //
 // Standalone panel plugin: each summon regenerates the code via
-// omarchy-network-qr, which emits the interface, security, and SSID it
-// shared ahead of the module matrix — so a bare summon self-detects the
+// the plugin-local helper, which emits the interface, security, and SSID it
+// shares ahead of the module matrix — so a bare summon self-detects the
 // connection. The payload may pin the interface and pre-title the card:
 // {"iface": "wlan0", "ssid": "MyWifi"}.
 Item {
@@ -124,9 +124,10 @@ Item {
       pwExpectedStop = true
       pwProc.running = false
     }
+    var helper = Qt.resolvedUrl("wifi-qr.sh").toString().replace("file://", "")
     qrProc.command = requestedIface
-      ? ["omarchy-network-qr", "--meta", requestedIface]
-      : ["omarchy-network-qr", "--meta"]
+      ? ["sh", helper, "--meta", requestedIface]
+      : ["sh", helper, "--meta"]
     qrProc.running = true
   }
 
@@ -150,7 +151,7 @@ Item {
     // Only a deliberate new lookup lowers the canceled-fetch guard, right as
     // it launches -- see the pwProc comment.
     pwExpectedStop = false
-    pwProc.command = ["omarchy-network-password", iface]
+    pwProc.command = ["sh", Qt.resolvedUrl("wifi-qr.sh").toString().replace("file://", ""), "--password", iface]
     pwProc.running = true
   }
 

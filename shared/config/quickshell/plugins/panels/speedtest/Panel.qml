@@ -11,7 +11,8 @@ import qs.Ui
 // stops the traffic, so the download workers never keep saturating the link
 // behind a closed overlay. The payload may carry the connection's display
 // name -- {"connection": "MyWifi"} -- and the panel looks it up itself via
-// omarchy-network-status when the caller doesn't know it.
+// the network panel's backend-neutral status probe when the caller doesn't
+// know it.
 Item {
   id: root
 
@@ -99,7 +100,7 @@ Item {
     expectedStop = false
     phase = nextPhase
     stderrText = ""
-    speedTestProc.command = ["omarchy-network-speedtest", nextPhase]
+    speedTestProc.command = ["sh", Qt.resolvedUrl("network-speedtest.sh").toString().replace("file://", ""), nextPhase]
     speedTestProc.running = true
     phaseTimer.restart()
   }
@@ -167,17 +168,21 @@ Item {
     onTriggered: root.stopPhase()
   }
 
-  // Names the connection under test when the summoner didn't. First tab
-  // field is the kind, second the SSID (wifi) or device (ethernet).
+  // Names the connection under test when the summoner didn't. The shared
+  // probe emits one key/value pair per tab-separated line.
   Process {
     id: statusProc
-    command: ["omarchy-network-status"]
+    command: ["sh", Qt.resolvedUrl("../network/network-status.sh").toString().replace("file://", "")]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        var fields = String(text || "").trim().split("\t")
-        if (fields[0] === "wifi") root.connectionName = fields[1] || "Wi-Fi"
-        else if (fields[0] === "ethernet") root.connectionName = "Ethernet"
+        var info = {}
+        String(text || "").trim().split(/\r?\n/).forEach(function(line) {
+          var fields = line.split("\t")
+          if (fields.length > 1) info[fields.shift()] = fields.join("\t")
+        })
+        if (info.type === "wifi") root.connectionName = info.ssid || "Wi-Fi"
+        else if (info.type === "ethernet") root.connectionName = "Ethernet"
       }
     }
   }
@@ -188,7 +193,7 @@ Item {
     title: root.connectionName
     leftLabel: "DOWNLOAD"
     rightLabel: "UPLOAD"
-    runAgainTooltip: "Measure again via fast.com"
+    runAgainTooltip: "Measure again"
     running: root.running
     leftValue: root.downloadValue
     rightValue: root.uploadValue
