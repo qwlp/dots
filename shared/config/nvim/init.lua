@@ -2689,6 +2689,7 @@ local function setup_lsp()
             },
         },
         tinymist = {},
+        intelephense = {},
     }
 
     mason_lspconfig.setup({
@@ -2704,6 +2705,7 @@ local function setup_lsp()
             "zls",
             "harper_ls",
             "tinymist",
+            "intelephense",
         },
         automatic_enable = false,
     })
