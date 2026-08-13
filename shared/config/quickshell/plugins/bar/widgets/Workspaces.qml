@@ -17,6 +17,13 @@ BarWidget {
   }
 
   function focusWorkspace(index) {
+    // Reflect the click immediately instead of waiting for the compositor
+    // round-trip. The event stream below will reconcile the real state.
+    root.workspaces = root.workspaces.map(function(workspace) {
+      var copy = Object.assign({}, workspace)
+      copy.is_focused = workspace.idx === index
+      return copy
+    })
     Quickshell.execDetached(["niri", "msg", "action", "focus-workspace", String(index)])
   }
 
@@ -333,8 +340,36 @@ BarWidget {
     }
   }
 
+  // Niri emits workspace/window changes as they happen. Refreshing from this
+  // stream avoids the visible delay caused by waiting for the polling timer.
+  Process {
+    id: eventStream
+    running: true
+    command: ["niri", "msg", "--json", "event-stream"]
+    stdout: SplitParser {
+      onRead: function(line) {
+        if (String(line).trim()) eventRefresh.restart()
+      }
+    }
+    onExited: eventStreamRestart.start()
+  }
+
   Timer {
-    interval: 500
+    id: eventRefresh
+    interval: 10
+    onTriggered: root.refresh()
+  }
+
+  Timer {
+    id: eventStreamRestart
+    interval: 1000
+    onTriggered: eventStream.running = true
+  }
+
+  Timer {
+    // Initial load and a low-frequency fallback if an event arrives while a
+    // short-lived query process is still running.
+    interval: 5000
     running: true
     repeat: true
     triggeredOnStart: true
