@@ -16,6 +16,52 @@ BarWidget {
     if (!windowProcess.running) windowProcess.running = true
   }
 
+  function handleEvent(line) {
+    var event
+    try { event = JSON.parse(line) } catch (error) { return }
+
+    if (event.WorkspacesChanged) {
+      root.workspaces = event.WorkspacesChanged.workspaces || []
+      return
+    }
+    if (event.WindowsChanged) {
+      root.windows = event.WindowsChanged.windows || []
+      return
+    }
+    if (event.WorkspaceActivated || event.WorkspaceActiveWindowChanged
+        || event.WorkspaceUrgencyChanged || event.WindowFocusChanged
+        || event.WindowFocusTimestampChanged || event.WindowUrgencyChanged) {
+      eventRefresh.restart()
+      return
+    }
+    if (event.WindowClosed) {
+      var closedId = event.WindowClosed.id
+      root.windows = root.windows.filter(function(window) { return window.id !== closedId })
+      return
+    }
+    if (!event.WindowOpenedOrChanged || !event.WindowOpenedOrChanged.window) return
+
+    var changed = event.WindowOpenedOrChanged.window
+    var next = root.windows.slice()
+    for (var i = 0; i < next.length; i++) {
+      var current = next[i]
+      if (current.id !== changed.id) continue
+
+      // Terminal prompts and other apps can animate their window title many
+      // times a second. Titles and layout do not affect the bar's app groups,
+      // so ignore those events unless workspace/focus-relevant state changed.
+      if (current.app_id === changed.app_id
+          && current.workspace_id === changed.workspace_id
+          && current.is_focused === changed.is_focused
+          && current.is_urgent === changed.is_urgent) return
+      next[i] = Object.assign({}, current, changed)
+      root.windows = next
+      return
+    }
+    next.push(changed)
+    root.windows = next
+  }
+
   function focusWorkspace(index) {
     // Reflect the click immediately instead of waiting for the compositor
     // round-trip. The event stream below will reconcile the real state.
@@ -345,10 +391,16 @@ BarWidget {
   Process {
     id: eventStream
     running: true
-    command: ["niri", "msg", "--json", "event-stream"]
+    command: ["bash", "-c", "exec niri msg --json event-stream"
+      + " | jq -c --unbuffered 'select(.WorkspacesChanged or .WorkspaceActivated"
+      + " or .WorkspaceActiveWindowChanged or .WorkspaceUrgencyChanged"
+      + " or .WindowsChanged or .WindowOpenedOrChanged or .WindowClosed"
+      + " or .WindowFocusChanged or .WindowFocusTimestampChanged or .WindowUrgencyChanged)"
+      + " | if .WindowOpenedOrChanged then .WindowOpenedOrChanged.window |= del(.title,.layout) else . end'"
+      + " | stdbuf -oL uniq"]
     stdout: SplitParser {
       onRead: function(line) {
-        if (String(line).trim()) eventRefresh.restart()
+        if (String(line).trim()) root.handleEvent(line)
       }
     }
     onExited: eventStreamRestart.start()
@@ -369,7 +421,7 @@ BarWidget {
   Timer {
     // Initial load and a low-frequency fallback if an event arrives while a
     // short-lived query process is still running.
-    interval: 5000
+    interval: 60000
     running: true
     repeat: true
     triggeredOnStart: true

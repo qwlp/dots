@@ -52,7 +52,19 @@ BarWidget {
       visible: !root.bar.vertical && root.title !== ""
 
       Text {
+        anchors.fill: parent
+        visible: !mediaMouse.containsMouse || !labelText.needsScroll
+        text: labelText.text
+        color: root.bar.barForeground
+        font.family: root.bar.fontFamily
+        font.pixelSize: Style.font.body
+        elide: Text.ElideRight
+        verticalAlignment: Text.AlignVCenter
+      }
+
+      Text {
         id: labelText
+        visible: mediaMouse.containsMouse && needsScroll
         text: root.title + (root.artist ? "  ·  " + root.artist : "")
         color: root.bar.barForeground
         font.family: root.bar.fontFamily
@@ -63,7 +75,8 @@ BarWidget {
 
         NumberAnimation on x {
           id: scrollAnim
-          running: labelText.needsScroll && !root.popupOpen && !root.bar.vertical
+          running: mediaMouse.containsMouse && labelText.needsScroll
+                   && !root.popupOpen && !root.bar.vertical
           loops: Animation.Infinite
           duration: Math.max(6000, labelText.implicitWidth * 25)
           from: scrollClip.width
@@ -75,6 +88,7 @@ BarWidget {
   }
 
   MouseArea {
+    id: mediaMouse
     anchors.fill: parent
     hoverEnabled: true
     cursorShape: root.activePlayer ? Qt.PointingHandCursor : Qt.ArrowCursor
