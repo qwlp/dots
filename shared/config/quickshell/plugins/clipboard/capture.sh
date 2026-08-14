@@ -49,6 +49,11 @@ emit_text() {
 case "${1:-}" in
 text) emit_text; exit 0 ;;
 image/*) emit_image "$1"; exit 0 ;;
+snapshot)
+  # In watch mode stdin contains wl-paste's inferred representation. Do not
+  # trust that inference (or capture it once as text and once as an image):
+  # inspect the offered types and fetch exactly one preferred representation.
+  ;;
 esac
 
 for mime in image/png image/jpeg image/webp image/gif image/bmp image/tiff; do

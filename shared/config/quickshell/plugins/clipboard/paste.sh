@@ -31,6 +31,8 @@ image)
 esac
 
 if [[ $copy_only == false ]]; then
-  sleep 0.15
+  # Give the layer-shell window time to release exclusive keyboard focus.
+  # 150ms was occasionally too short on Niri during an animation/frame miss.
+  sleep 0.25
   wtype -M shift -k Insert -m shift
 fi

@@ -34,6 +34,7 @@ Item {
   property string fontFamily: Style.font.menuFamily
   property int contentMargin: Style.spacing.panelPadding
   property int headerHeight: Math.max(Style.space(34), Style.font.title + Style.spacing.controlPaddingY * 2)
+  property int footerHeight: Math.max(Style.space(28), Style.font.caption + Style.spacing.controlPaddingY * 2)
   property int contentSpacing: Style.spacing.md
   property int cardWidth: Math.min(Style.space(875), panel.width - Style.gapsOut * 2)
   property int cardHeight: Math.min(Style.space(600), panel.height - Style.gapsOut * 2)
@@ -260,15 +261,15 @@ Item {
   }
 
   // Reap watchers left behind by a previous shell instance, then start our
-  // own. The pdeathsig on the watchers makes the kernel kill them whenever
-  // the shell exits, however it exits, so no further lifecycle management.
+  // own. A single untyped watcher is important: separate text and image
+  // watchers both fire for applications which offer the same selection in
+  // several formats, producing duplicate/coerced history entries.
   Process {
     id: initProc
-    command: ["pkill", "-f", "wl-paste .*--watch .*/shell/plugins/clipboard/capture\\.sh"]
+    command: ["pkill", "-f", "wl-paste .*--watch .*plugins/clipboard/capture\\.sh"]
     onExited: {
       currentProc.running = true
-      textWatchProc.running = true
-      imageWatchProc.running = true
+      watchProc.running = true
     }
   }
 
@@ -282,17 +283,8 @@ Item {
   }
 
   Process {
-    id: textWatchProc
-    command: ["setpriv", "--pdeathsig", "TERM", "wl-paste", "--type", "text", "--watch", root.captureScript, "text"]
-    onExited: watchRestartTimer.restart()
-    stdout: SplitParser {
-      onRead: function(data) { root.addClipboardJson(data) }
-    }
-  }
-
-  Process {
-    id: imageWatchProc
-    command: ["setpriv", "--pdeathsig", "TERM", "wl-paste", "--type", "image/png", "--watch", root.captureScript, "image/png"]
+    id: watchProc
+    command: ["setpriv", "--pdeathsig", "TERM", "wl-paste", "--watch", root.captureScript, "snapshot"]
     onExited: watchRestartTimer.restart()
     stdout: SplitParser {
       onRead: function(data) { root.addClipboardJson(data) }
@@ -307,8 +299,7 @@ Item {
     interval: 1000
     repeat: false
     onTriggered: {
-      if (!textWatchProc.running) textWatchProc.running = true
-      if (!imageWatchProc.running) imageWatchProc.running = true
+      if (!watchProc.running) watchProc.running = true
     }
   }
 
@@ -365,14 +356,17 @@ Item {
             root.setFilter(Util.editedFilter(event, root.filterText))
             event.accepted = true
           } else if (event.key === Qt.Key_Delete) {
-            if (event.modifiers & Qt.ShiftModifier) root.requestClearHistory()
+            if (event.modifiers & (Qt.ShiftModifier | Qt.ControlModifier)) root.requestClearHistory()
             else root.removeDisplayIndex(root.selectedIndex)
             event.accepted = true
-          } else if (event.key === Qt.Key_Up) {
+          } else if (event.key === Qt.Key_Up || ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_K || event.key === Qt.Key_P))) {
             root.select(-1)
             event.accepted = true
-          } else if (event.key === Qt.Key_Down) {
+          } else if (event.key === Qt.Key_Down || ((event.modifiers & Qt.ControlModifier) && (event.key === Qt.Key_J || event.key === Qt.Key_N))) {
             root.select(1)
+            event.accepted = true
+          } else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_L) {
+            root.setFilter("")
             event.accepted = true
           } else if (event.key === Qt.Key_PageUp) {
             root.select(-6)
@@ -447,7 +441,7 @@ Item {
 
         Item {
           width: parent.width
-          height: parent.height - root.headerHeight - root.contentSpacing
+          height: parent.height - root.headerHeight - root.footerHeight - root.contentSpacing * 2
 
           Row {
             anchors.fill: parent
@@ -602,6 +596,30 @@ Item {
               horizontalAlignment: Text.AlignHCenter
               width: parent.width
             }
+          }
+        }
+
+        Row {
+          width: parent.width
+          height: root.footerHeight
+          spacing: Style.space(16)
+
+          Text {
+            text: displayModel.count + (displayModel.count === 1 ? " item" : " items")
+            color: root.foreground
+            opacity: 0.55
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+          }
+
+          Item { width: Math.max(0, parent.width - parent.children[0].width - parent.children[2].width - parent.spacing * 2); height: 1 }
+
+          Text {
+            text: "↑↓ navigate   Enter paste   Shift+Enter copy   Delete remove   Esc close"
+            color: root.foreground
+            opacity: 0.55
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
           }
         }
       }
