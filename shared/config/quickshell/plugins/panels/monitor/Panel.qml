@@ -244,7 +244,7 @@ Panel {
     }
 
     root.brightnessSetQueued = false
-    setBrightnessProc.command = ["omarchy-brightness-display", "--no-osd", "--monitor", root.focusedMonitor, percent + "%"]
+    setBrightnessProc.command = ["brightnessctl", "--quiet", "set", percent + "%"]
     setBrightnessProc.running = true
   }
 
@@ -385,21 +385,22 @@ Panel {
 
   Process {
     id: stateProc
-    command: ["omarchy-monitor-state"]
+    // Standalone Niri installations do not ship Omarchy's monitor helpers.
+    // brightnessctl talks to the kernel backlight interface directly and its
+    // machine-readable output is stable: device,class,current,percent,max.
+    command: ["brightnessctl", "--machine-readable"]
     stdout: StdioCollector {
       waitForEnd: true
       onStreamFinished: {
-        var lines = String(text || "").split("\n")
-        var brightness = String(lines[0] || "").trim()
-        root.brightnessAvailable = brightness !== "unavailable" && brightness !== ""
-        root.brightnessPercent = root.brightnessAvailable ? Math.max(0, Math.min(100, parseInt(brightness, 10))) : 0
-        root.internalMonitor = String(lines[1] || "").trim()
-        root.externalMonitor = String(lines[2] || "").trim()
-        root.internalEnabled = String(lines[3] || "").trim() !== ""
-        root.mirrorEnabled = String(lines[4] || "").trim() === root.externalMonitor && root.externalMonitor !== ""
-        root.focusedMonitor = String(lines[5] || "").trim()
-        root.monitorScale = root.normalizeScale(String(lines[6] || "").trim())
-        root.updateDisplays(String(lines[7] || "[]").trim())
+        var line = String(text || "").trim().split("\n")[0] || ""
+        var fields = line.split(",")
+        var percent = fields.length >= 4
+          ? parseInt(String(fields[3]).replace("%", ""), 10)
+          : NaN
+        root.brightnessAvailable = !isNaN(percent)
+        root.brightnessPercent = root.brightnessAvailable
+          ? Math.max(0, Math.min(100, percent))
+          : 0
       }
     }
   }
@@ -414,13 +415,8 @@ Panel {
   Process {
     id: setBrightnessProc
     stdout: StdioCollector { waitForEnd: true }
-    // Do NOT call refresh() after a brightness set completes. The local
-    // brightnessPercent we just wrote is authoritative; re-reading via
-    // `omarchy-brightness-display` races the hardware/driver and can
-    // return an empty string, which the parser then coerces to 0 —
-    // visible as a "bounce to zero" after h/l keypresses. External
-    // brightness changes are still picked up by the 5s periodic refresh,
-    // the open-time refresh, and Component.onCompleted.
+    // The local brightnessPercent we just wrote is authoritative. External
+    // brightness changes are picked up by the periodic and open-time refreshes.
     onRunningChanged: {
       if (running) return
       if (root.brightnessSetQueued) {

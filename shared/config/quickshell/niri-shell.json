@@ -36,6 +36,9 @@
           "id": "tsp.network"
         },
         {
+          "id": "tsp.monitor"
+        },
+        {
           "id": "tsp.audio"
         },
         {

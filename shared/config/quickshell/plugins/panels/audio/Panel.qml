@@ -388,7 +388,6 @@ Panel {
     // Match the old Waybar pulseaudio glyph set. The Material Design speaker
     // icons render visually smaller in JetBrainsMono Nerd Font.
     if (!sink || !sink.audio) return ""
-    if (isHeadphones(sink)) return "󰋋"
     if (outputMuted) return ""
     var v = volume === undefined ? outputVolume : volume
     if (v >= 0.67) return ""
@@ -583,6 +582,10 @@ Panel {
     id: button
     anchors.fill: parent
     bar: root.bar
+    // Keep TextMetrics and Text on the same face. Measuring these private-use
+    // volume glyphs as SF Pro while painting through its Nerd Font fallback
+    // can shift all but a thin edge outside OpticalGlyph's canvas.
+    fontFamily: "FiraCode Nerd Font"
     text: root.outputIcon()
     onPressed: function(b) {
       if (b === Qt.RightButton) root.toggleAllMuted()

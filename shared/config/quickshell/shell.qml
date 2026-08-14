@@ -50,6 +50,7 @@ ShellRoot {
           { id: "tsp.tray" },
           { id: "tsp.bluetooth" },
           { id: "tsp.network" },
+          { id: "tsp.monitor" },
           { id: "tsp.audio" },
           { id: "tsp.power" }
         ]
