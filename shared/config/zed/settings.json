@@ -7,7 +7,24 @@
 // custom settings, run `zed: open default settings` from the
 // command palette (cmd-shift-p / ctrl-shift-p)
 {
+  "mouse_wheel_zoom": true,
+  "title_bar": {
+    "show_branch_status_icon": true,
+    "show_branch_name": true,
+    "show_project_items": false,
+    "show_onboarding_banner": false,
+    "show_sign_in": false,
+    "show_user_menu": true,
+    "show_menus": false
+  },
+  "window_decorations": "server",
+  "tabs": {
+    "file_icons": true,
+    "git_status": true
+  },
   "terminal": {
+    "font_family": "LythMono Nerd Font",
+    "scroll_multiplier": 2.0,
     "font_size": 13.5
   },
   "project_panel": {
@@ -27,7 +44,7 @@
   "git_panel": {
     "dock": "left"
   },
-  "cursor_shape": "block",
+  "cursor_shape": "bar",
   "instrumentation": {
     "performance_profiler": {
       
@@ -55,9 +72,8 @@
   "vim": {
     "toggle_relative_line_numbers": false
   },
-  "window_decorations": "client",
-  "ui_font_family": "IoskeleyMonoTerm Nerd Font",
-  "buffer_font_family": "FiraCode Nerd Font Mono",
+  "ui_font_family": "SF Pro Text",
+  "buffer_font_family": "LythMono Nerd Font",
   "helix_mode": false,
   "proxy": "",
   "disable_ai": true,
@@ -66,7 +82,7 @@
     "metrics": false,
     "anthropic_retention": false
   },
-  "ui_font_size": 13.0,
-  "buffer_font_size": 11.0,
+  "ui_font_size": 14.0,
+  "buffer_font_size": 16.0,
   "theme": "Naysayer",
 }
