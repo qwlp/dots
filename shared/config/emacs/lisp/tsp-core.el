@@ -353,6 +353,25 @@ sessions."
 (keymap-global-set "M-M" #'split-window-below)
 (keymap-global-set "M-W" #'delete-window)
 
+;; Match Sublime Text's one- and two-column layouts.  Bind both the shifted
+;; digit events and their translated punctuation forms for GUI and terminal
+;; compatibility.
+(defun tsp/window-layout-one-column ()
+  "Show only the selected window."
+  (interactive)
+  (delete-other-windows))
+
+(defun tsp/window-layout-two-columns ()
+  "Reset the frame to two side-by-side windows."
+  (interactive)
+  (delete-other-windows)
+  (split-window-right))
+
+(dolist (key '("M-S-1" "M-!"))
+  (keymap-global-set key #'tsp/window-layout-one-column))
+(dolist (key '("M-S-2" "M-@"))
+  (keymap-global-set key #'tsp/window-layout-two-columns))
+
 (use-package winum
   :ensure t
   :demand t

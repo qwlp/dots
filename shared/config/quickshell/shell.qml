@@ -45,7 +45,7 @@ ShellRoot {
       centerAnchor: "tsp.clock",
       layout: {
         left: [{ id: "tsp.workspaces" }, { id: "tsp.active-window" }],
-        center: [{ id: "tsp.clock", format: "dddd HH:mm" }],
+        center: [{ id: "tsp.clock", format: "dddd h:mm AP" }],
         right: [
           { id: "tsp.tray" },
           { id: "tsp.bluetooth" },

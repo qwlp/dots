@@ -10,13 +10,15 @@
         { "id": "tsp.active-window", "maxWidth": 360 }
       ],
       "center": [
-        { "id": "tsp.clock", "format": "dddd HH:mm", "formatAlt": "d MMMM yyyy" },
+        { "id": "tsp.clock", "format": "dddd h:mm AP", "formatAlt": "d MMMM yyyy" },
         { "id": "tsp.media" }
       ],
       "right": [
         { "id": "tsp.tray" },
+        { "id": "realgbb.downloads" },
         { "id": "tsp.bluetooth" },
         { "id": "tsp.network" },
+        { "id": "io.github.woogy7.vitals" },
         { "id": "tsp.monitor" },
         { "id": "tsp.audio" },
         { "id": "tsp.power" }

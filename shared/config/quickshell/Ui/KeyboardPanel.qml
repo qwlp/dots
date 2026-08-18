@@ -51,6 +51,10 @@ PanelWindow {
   property bool popoutSwitching: false
   property bool popoutSwitchClosing: false
   property bool focusPrimed: false
+  // Native drags must be able to reach application surfaces beneath this
+  // full-screen dismissal overlay. While true, only the visible card keeps
+  // pointer input; the transparent remainder becomes click-through.
+  property bool externalDragActive: false
 
   // Item that should take keyboard focus once the panel maps. Typically a
   // PanelKeyCatcher inside the panel content. Layer-shell grants focus to the
@@ -122,8 +126,11 @@ PanelWindow {
     return Math.max(bar.barSize, actual) + root.gap
   }
   mask: Region {
-    width: root.screenW
-    height: root.screenH
+    x: root.externalDragActive ? card.x : 0
+    y: root.externalDragActive ? card.y : 0
+    width: root.externalDragActive ? card.width : root.screenW
+    height: root.externalDragActive ? card.height : root.screenH
+    radius: root.externalDragActive ? card.radius : 0
   }
 
   // Track every layout change between the bar's contentItem and the
@@ -341,7 +348,7 @@ PanelWindow {
   // Keyboard focus is None: these must catch the pointer without taking focus
   // from the panel when the cursor merely crosses onto their output.
   Variants {
-    model: root.open ? Quickshell.screens : []
+    model: root.open && !root.externalDragActive ? Quickshell.screens : []
 
     delegate: Component {
       PanelWindow {

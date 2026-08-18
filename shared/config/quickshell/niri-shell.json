@@ -17,9 +17,9 @@
       "center": [
         {
           "id": "tsp.clock",
-          "format": "dddd HH:mm",
+          "format": "dddd h:mm AP",
           "formatAlt": "d MMMM yyyy",
-          "verticalFormat": "HH\nmm"
+          "verticalFormat": "h\nmm\nAP"
         },
         {
           "id": "tsp.media"
@@ -30,10 +30,16 @@
           "id": "tsp.tray"
         },
         {
+          "id": "realgbb.downloads"
+        },
+        {
           "id": "tsp.bluetooth"
         },
         {
           "id": "tsp.network"
+        },
+        {
+          "id": "io.github.woogy7.vitals"
         },
         {
           "id": "tsp.monitor"

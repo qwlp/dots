@@ -13,18 +13,18 @@ var WEEKDAY_NAMES = ["sunday", "monday", "tuesday", "wednesday", "thursday", "fr
 //      writes the result back to shell.json, so the label the bar shows and
 //      the format the config stores are always the same thing.
 //
-// The locale-shaped time presets are each followed by their 12-hour twin, so
-// the walk from a 24-hour label to the same label in AM/PM is a single right
-// click rather than a lap of the ring. The ISO preset is deliberately left
+// The 12-hour presets come first so a fresh clock uses AM/PM by default; each
+// is followed by its 24-hour twin so switching conventions is still a single
+// right click rather than a lap of the ring. The ISO preset is deliberately left
 // without one: ISO 8601 writes time on a 24-hour clock, so an AM/PM variant
 // would contradict the only thing that format is for.
 var CLOCK_FORMATS = [
-  "dddd HH:mm",
   "dddd h:mm AP",
-  "HH:mm",
+  "dddd HH:mm",
   "h:mm AP",
-  "ddd d MMM HH:mm",
+  "HH:mm",
   "ddd d MMM h:mm AP",
+  "ddd d MMM HH:mm",
   "d MMMM 'W'ww yyyy",
   "yyyy-MM-dd HH:mm"
 ]
@@ -33,8 +33,8 @@ var CLOCK_FORMATS = [
 // ring stays short. AM/PM costs a fourth line, which is why only the plain
 // time carries it here.
 var VERTICAL_CLOCK_FORMATS = [
-  "HH\n—\nmm",
   "h\n—\nmm\nAP",
+  "HH\n—\nmm",
   "dd\nMMM\n'W'ww\n''yy",
   "HH\nmm"
 ]
@@ -56,7 +56,7 @@ function clockFormatRing(configured, configuredAlt, presets) {
     if (format === "" || ring.indexOf(format) !== -1) continue
     ring.push(format)
   }
-  return ring.length > 0 ? ring : ["HH:mm"]
+  return ring.length > 0 ? ring : ["h:mm AP"]
 }
 
 // Next entry after `current`. An unknown current format (a hand-written one
