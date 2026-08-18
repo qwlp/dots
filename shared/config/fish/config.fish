@@ -61,6 +61,7 @@ alias tpc="typst compile"
 alias h="hx"
 alias cy="codex --yolo"
 alias pdfpc="pdfpc --windowed=both"
+alias cat="bat"
 
 alias llt="eza -la --sort=modified --icons=always"
 alias lls="eza -la --sort=size --icons=always"
