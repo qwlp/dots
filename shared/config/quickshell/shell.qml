@@ -926,6 +926,11 @@ ShellRoot {
       return hidden ? "hidden" : "shown"
     }
 
+    function toggleAyuGram(): string {
+      Quickshell.execDetached([shell.shellPath + "/scripts/toggle-ayugram"])
+      return "ok"
+    }
+
     function setPluginEnabled(id: string, enabled: string): string {
       return shell.pluginRegistry.setEnabled(id, enabled === "true") ? "ok" : "unknown"
     }
