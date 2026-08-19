@@ -86,6 +86,14 @@ PopupWindow {
     if (!visible && open) root.close()
   }
 
+  // PopupWindow emits closed when the compositor dismisses its focus grab
+  // after an outside click. Mirror that native close back to the owner's
+  // state; `visible` can remain bound to `open`, so its change alone is not a
+  // reliable dismissal signal on every Wayland compositor.
+  onClosed: {
+    if (open) root.close()
+  }
+
   // Hover-mode popups remain passive so the cursor can move freely between
   // their trigger and surface.
   anchor {

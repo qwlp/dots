@@ -94,7 +94,6 @@
 (keymap-set tsp/change-map "w" #'tsp/change-inner-word)
 (keymap-set tsp/change-map "q" #'tsp/change-inner-quotes)
 (keymap-set tsp/change-map "b" #'tsp/change-inner-brackets)
-(keymap-global-set "M-c" #'tsp/change-map)
 
 (use-package multiple-cursors
   :ensure t

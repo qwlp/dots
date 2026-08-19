@@ -87,6 +87,12 @@ Item {
   property alias popupModel: popupModel
   ListModel { id: popupModel }
 
+  // Notification-center API. Pending notifications are the live toast model;
+  // recent notifications are loaded from the archived files on demand.
+  readonly property alias pendingModel: popupModel
+  readonly property alias pastModel: notificationCenterPastModel
+  ListModel { id: notificationCenterPastModel }
+
   // How many notifications the history directory keeps, and therefore how
   // many `showHistory` can replay.
   readonly property int historyLimit: 10
@@ -408,8 +414,13 @@ Item {
     runNextPopupFileJob()
   }
 
+  function enqueueNotificationCenterRead() {
+    popupFileQueue = popupFileQueue.concat([{ centerRead: true }])
+    runNextPopupFileJob()
+  }
+
   function runNextPopupFileJob() {
-    if (readHistoryProc.running || popupFileProc.running) return
+    if (readHistoryProc.running || notificationCenterHistoryProc.running || popupFileProc.running) return
     if (popupFileQueue.length === 0) return
 
     var job = popupFileQueue[0]
@@ -417,6 +428,10 @@ Item {
 
     if (job.read) {
       startHistoryRead()
+      return
+    }
+    if (job.centerRead) {
+      startNotificationCenterRead()
       return
     }
 
@@ -499,6 +514,31 @@ Item {
       "rm -f \"$1\"/*.json", "--", historyDir])
   }
 
+  function dismissPending(index) {
+    dismissPopup(index)
+  }
+
+  function dismissPast(index) {
+    if (index < 0 || index >= notificationCenterPastModel.count) return
+    var row = notificationCenterPastModel.get(index)
+    notificationCenterPastModel.remove(index)
+    enqueuePopupFileJob(["rm", "-f", historyDir + NotificationLogic.popupFileName(row)])
+  }
+
+  function markAllSeen() {
+    clearPopups()
+    refreshNotificationCenter()
+  }
+
+  function clearPast() {
+    notificationCenterPastModel.clear()
+    clearHistory()
+  }
+
+  function refreshNotificationCenter() {
+    enqueueNotificationCenterRead()
+  }
+
   Process {
     id: readHistoryProc
     running: false
@@ -509,6 +549,27 @@ Item {
       waitForEnd: true
       onStreamFinished: service.replayHistory(text)
     }
+  }
+
+  Process {
+    id: notificationCenterHistoryProc
+    running: false
+    onExited: service.runNextPopupFileJob()
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: {
+        var rows = NotificationLogic.historyRows(
+          text, [], NotificationUrgency.Normal, service.historyLimit)
+        notificationCenterPastModel.clear()
+        for (var i = 0; i < rows.length; i++) notificationCenterPastModel.append(rows[i])
+      }
+    }
+  }
+
+  function startNotificationCenterRead() {
+    notificationCenterHistoryProc.command = ["bash", "-c",
+      "awk 1 \"$1\"/*.json 2>/dev/null || true", "--", historyDir]
+    notificationCenterHistoryProc.running = true
   }
 
   // Toasts that were on screen when the replay was asked for. The clear in

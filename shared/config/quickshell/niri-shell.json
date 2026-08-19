@@ -11,6 +11,9 @@
           "maxWidth": 360
         },
         {
+          "id": "tsp.notification-center"
+        },
+        {
           "id": "tsp.workspaces"
         }
       ],
