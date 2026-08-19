@@ -931,6 +931,11 @@ ShellRoot {
       return "ok"
     }
 
+    function togglePerplexity(): string {
+      Quickshell.execDetached([shell.shellPath + "/scripts/toggle-perplexity"])
+      return "ok"
+    }
+
     function setPluginEnabled(id: string, enabled: string): string {
       return shell.pluginRegistry.setEnabled(id, enabled === "true") ? "ok" : "unknown"
     }
