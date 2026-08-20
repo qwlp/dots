@@ -1,5 +1,8 @@
 # Desktop themes
 
+For a machine upgrading from the older fixed-theme configuration, follow the
+[desktop migration guide](MIGRATION.md) before running the picker.
+
 Each directory is a self-contained theme package. `backgrounds/` contains its
 wallpapers and provides the visual switcher preview. `colors.toml` is the
 canonical 16-color palette, `shell.toml` contains Quickshell semantic tokens,
