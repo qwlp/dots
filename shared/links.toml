@@ -69,3 +69,11 @@ profiles = [
     "desktop-arch",
     "laptop-arch",
 ]
+
+[[entries]]
+origin = "XdgConfig"
+key = "niri"
+profiles = [
+    "desktop-arch",
+    "laptop-arch",
+]

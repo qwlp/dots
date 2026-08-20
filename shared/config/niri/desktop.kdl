@@ -244,7 +244,6 @@ layout {
 // To run a shell command (with variables, pipes, etc.), use spawn-sh-at-startup:
 // spawn-sh-at-startup "qs -c ~/source/qs/MyAwesomeShell"
 
-spawn-at-startup "qs" "-d"
 spawn-at-startup "helium-browser" "--ozone-platform=wayland"
 spawn-at-startup "kitty"
 // spawn-at-startup "foot"
@@ -426,17 +425,17 @@ binds {
     Mod+B { spawn "helium-browser" "--ozone-platform=wayland"; }
     Mod+Shift+B { spawn "foot" "--app-id=waybar-popup" "--window-size-chars=80x24" "-e" "bluetui"; }
     Mod+Shift+N { spawn "foot" "--app-id=waybar-popup" "--window-size-chars=80x24" "-e" "impala"; }
-    Mod+T { spawn "qs" "ipc" "call" "shell" "toggleAyuGram"; }
+    Mod+T repeat=false { spawn "qs" "ipc" "call" "shell" "toggleAyuGram"; }
     // Mod+T { spawn-sh "vesktop"; }
     Mod+Period { spawn-sh "kitty nvim /tmp/current_task.txt";}
-    Mod+Shift+Space { spawn "sh" "-c" "$HOME/.config/quickshell/scripts/toggle-bar"; }
+    Mod+Shift+Space { spawn "/home/tsp/.config/quickshell/scripts/toggle-bar"; }
     Mod+Shift+W { spawn-sh "rofi-wallpaper-switch"; }
-    Mod+Space { spawn "sh" "-c" "$HOME/.config/quickshell/scripts/toggle-launcher"; }
+    Mod+Space repeat=false { spawn "/home/tsp/.config/quickshell/scripts/toggle-launcher"; }
     Mod+Shift+S { screenshot show-pointer=false; }
     Mod+P { spawn-sh "pd daemon"; }
     Mod+Shift+P { spawn-sh "pd daemon stop"; }
-    Mod+V { spawn "sh" "-c" "$HOME/.config/quickshell/scripts/toggle-clipboard"; }
-    Mod+M { spawn "pear-desktop"; }
+    Mod+V repeat=false { spawn "/home/tsp/.config/quickshell/scripts/toggle-clipboard"; }
+    Mod+M repeat=false hotkey-overlay-title="Choose desktop theme" { spawn "/home/tsp/.config/quickshell/scripts/theme-picker"; }
     Mod+R { spawn "hyprvoice" "toggle"; }
     Mod+E { spawn "emacsclient" "-c"; }
     // Mod+Shift+S { spawn-sh "hyprshot -m region --raw | satty --filename -"; }

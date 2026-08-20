@@ -2,7 +2,8 @@
 
 Use this on the desktop after pulling the shared laptop/desktop Niri layout.
 The shared entry point loads `common.kdl` and then the profile selected by
-`active.kdl`.
+`active.kdl`. Git ignores that machine-local symlink. `active.kdl.example`
+shows its expected target format.
 
 ## 1. Update the checkout
 
@@ -30,12 +31,17 @@ fi
 The backup is deliberately dereferenced so it remains usable if the old
 config was itself a symlink.
 
-## 3. Link the shared entry point
+## 3. Link the shared config directory
 
 ```sh
-mkdir -p ~/.config/niri
-ln -sfn ~/.dotfiles/shared/config/niri/config.kdl ~/.config/niri/config.kdl
+unlink ~/.config/niri/config.kdl
+rmdir ~/.config/niri
+ln -s ~/.dotfiles/shared/config/niri ~/.config/niri
 ```
+
+`rmdir` stops if the old directory contains anything besides `config.kdl`.
+Preserve any extra files before continuing. The `niri` entry in
+`shared/links.toml` manages this directory link on future installs.
 
 ## 4. Select and validate the desktop profile
 
@@ -51,22 +57,23 @@ Verify the selection and link targets:
 
 ```sh
 readlink ~/.dotfiles/shared/config/niri/active.kdl
-readlink -f ~/.config/niri/config.kdl
+readlink -f ~/.config/niri
 ```
 
 The first command should print `desktop.kdl`; the second should resolve to the
-shared `config.kdl` in this checkout.
+shared `niri` directory in this checkout.
 
 ## Recovery
 
 To return to the pre-migration desktop config:
 
 ```sh
-if [ -L ~/.config/niri/config.kdl ]; then
-    unlink ~/.config/niri/config.kdl
+if [ -L ~/.config/niri ]; then
+    unlink ~/.config/niri
 fi
+mkdir -p ~/.config/niri
 cp -a ~/.local/state/niri-migration/config.kdl ~/.config/niri/config.kdl
 ```
 
-This removes only the config symlink, never its shared target, before restoring
-the backup into place.
+This removes only the directory symlink, never its shared target, before
+restoring the backup into place.

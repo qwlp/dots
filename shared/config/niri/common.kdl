@@ -10,6 +10,7 @@ cursor {
 
 spawn-at-startup "hypridle"
 spawn-at-startup "awww-daemon"
+spawn-at-startup "quickshell" "--no-duplicate" "-d"
 
 hotkey-overlay {
     skip-at-startup

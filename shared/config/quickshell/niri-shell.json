@@ -2,7 +2,7 @@
   "version": 1,
   "bar": {
     "position": "right",
-    "transparent": false,
+    "transparent": true,
     "centerAnchor": "tsp.clock",
     "layout": {
       "left": [

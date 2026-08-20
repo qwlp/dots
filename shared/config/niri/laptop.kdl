@@ -276,7 +276,6 @@ layout {
 // To run a shell command (with variables, pipes, etc.), use spawn-sh-at-startup:
 // spawn-sh-at-startup "qs -c ~/source/qs/MyAwesomeShell"
 
-spawn-at-startup "quickshell" "--no-duplicate" "-d"
 spawn-at-startup "helium-browser" "--ozone-platform=wayland" "--force-dark-mode" "--load-extension=/home/tsp/.config/tsp-theme/current/helium-theme"
 spawn-at-startup "emacs" "--daemon"
 
@@ -585,7 +584,7 @@ binds {
     Mod+Shift+B { spawn-sh "foot bluetui"; }
     Mod+Shift+N { spawn-sh "foot impala"; }
     Mod+T repeat=false { spawn "qs" "ipc" "call" "shell" "toggleAyuGram"; }
-    Mod+Shift+Space { spawn-sh "toggle-warbar"; }
+    Mod+Shift+Space { spawn "/home/tsp/.config/quickshell/scripts/toggle-bar"; }
     Mod+Shift+W { spawn-sh "rofi-wallpaper-switch"; }
     Mod+R { spawn "hyprvoice" "toggle"; }
     Mod+Space repeat=false { spawn "/home/tsp/.config/quickshell/scripts/toggle-launcher"; }
