@@ -323,6 +323,15 @@ window-rule {
     }
 }
 
+// Keep AyuGram's media viewer from taking over the workspace.
+window-rule {
+    match app-id=r#"^com\.ayugram\.desktop$"# title=r#"^Media viewer$"#
+    open-fullscreen false
+    open-floating true
+    default-column-width { proportion 0.65; }
+    default-window-height { proportion 0.75; }
+}
+
 window-rule {
     match app-id=r#"^chrome-www\.perplexity\.ai__-Default$"#
     open-floating true
