@@ -1,0 +1,23 @@
+#!/bin/sh
+
+set -eu
+
+profile=${1:-}
+config_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+case "$profile" in
+    laptop|desktop)
+        ;;
+    *)
+        echo "usage: $0 laptop|desktop" >&2
+        exit 2
+        ;;
+esac
+
+ln -sfn "$profile.kdl" "$config_dir/active.kdl"
+
+if niri msg action load-config-file >/dev/null 2>&1; then
+    echo "switched niri config to $profile"
+else
+    echo "selected $profile (Niri will use it on next start)"
+fi

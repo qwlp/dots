@@ -1,0 +1,5 @@
+// Settings shared byte-for-byte by the laptop and desktop.
+include "/home/tsp/.dotfiles/shared/config/niri/common.kdl"
+
+// Machine-specific settings selected by ./use-profile laptop|desktop.
+include "/home/tsp/.dotfiles/shared/config/niri/active.kdl"
