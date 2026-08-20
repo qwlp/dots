@@ -91,7 +91,7 @@ output "DP-1" {
 // https://yalter.github.io/niri/Configuration:-Layout
 layout {
     // Set gaps around windows in logical pixels.
-    gaps 0
+    gaps 3
 
     background-color "transparent"
 
@@ -178,9 +178,9 @@ layout {
     border {
         // The settings are the same as for the focus ring.
         // If you enable the border, you probably want to disable the focus ring.
-        off
+        on
 
-        width 0.3
+        width 1
         active-color "#707070"
         inactive-color "#505050"
 
@@ -244,63 +244,9 @@ layout {
 // To run a shell command (with variables, pipes, etc.), use spawn-sh-at-startup:
 // spawn-sh-at-startup "qs -c ~/source/qs/MyAwesomeShell"
 
-spawn-at-startup "helium-browser" "--ozone-platform=wayland"
+spawn-at-startup "helium-browser" "--ozone-platform=wayland" "--force-dark-mode" "--load-extension=/home/tsp/.config/tsp-theme/current/helium-theme"
 spawn-at-startup "kitty"
 // spawn-at-startup "foot"
-
-// Uncomment this line to ask the clients to omit their client-side decorations if possible.
-// If the client will specifically ask for CSD, the request will be honored.
-// Additionally, clients will be informed that they are tiled, removing some client-side rounded corners.
-// This option will also fix border/focus ring drawing behind some semitransparent windows.
-// After enabling or disabling this, you need to restart the apps for this to take effect.
-
-// You can change the path where screenshots are saved.
-// A ~ at the front will be expanded to the home directory.
-// The path is formatted with strftime(3) to give you the screenshot date and time.
-
-// You can also set this to null to disable saving screenshots to disk.
-// screenshot-path null
-
-// Animation settings.
-// The wiki explains how to configure individual animations:
-// https://yalter.github.io/niri/Configuration:-Animations
-animations {
-    // Uncomment to turn off all animations.
-    off
-    // on
-    workspace-switch {
-        spring damping-ratio=0.7 stiffness=150 epsilon=0.0001
-    }
-
-    horizontal-view-movement {
-        spring damping-ratio=0.7 stiffness=150 epsilon=0.0001
-    }
-
-    window-open {
-        duration-ms 50
-        curve "ease-out-cubic"
-    }
-
-    window-close {
-        duration-ms 50
-        curve "ease-out-cubic"
-    }
-
-    // Slow down all animations by this factor. Values below 1 speed them up instead.
-    slowdown 0.4
-}
-
-
-// Window rules let you adjust behavior for individual windows.
-// Find more information on the wiki:
-// https://yalter.github.io/niri/Configuration:-Window-Rules
-
-// Work around WezTerm's initial configure bug
-// by setting an empty default-column-width.
-// window-rule {
-//     geometry-corner-radius 8
-//     clip-to-geometry true
-// }
 
 // Small terminal utilities launched from the Waybar status icons.
 window-rule {
@@ -422,7 +368,7 @@ binds {
     Mod+F { spawn-sh "nautilus-niri" ; }
     // Mod+F { spawn-sh "kitty yazi \"$(omarchy-cmd-terminal-cwd)\"" ; }
     Mod+Shift+O { spawn "obsidian"; }
-    Mod+B { spawn "helium-browser" "--ozone-platform=wayland"; }
+    Mod+B { spawn "helium-browser" "--ozone-platform=wayland" "--force-dark-mode" "--load-extension=/home/tsp/.config/tsp-theme/current/helium-theme"; }
     Mod+Shift+B { spawn "foot" "--app-id=waybar-popup" "--window-size-chars=80x24" "-e" "bluetui"; }
     Mod+Shift+N { spawn "foot" "--app-id=waybar-popup" "--window-size-chars=80x24" "-e" "impala"; }
     Mod+T repeat=false { spawn "qs" "ipc" "call" "shell" "toggleAyuGram"; }
