@@ -77,7 +77,16 @@
 
 (add-to-list 'custom-theme-load-path
              (expand-file-name "themes/" user-emacs-directory))
-(load-theme 'naysayer t)
+(let* ((state-file (expand-file-name "~/.local/state/tsp-theme/name"))
+       (desktop-theme (when (file-readable-p state-file)
+                        (intern (string-trim
+                                 (with-temp-buffer
+                                   (insert-file-contents state-file)
+                                   (buffer-string)))))))
+  (load-theme (if (memq desktop-theme '(naysayer aamis gruber-tsoding ginger-bill))
+                  desktop-theme
+                'naysayer)
+              t))
 
 (provide 'tsp-ui)
 ;;; tsp-ui.el ends here

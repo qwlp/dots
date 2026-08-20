@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=X-GNOME-Metatheme
+Name=Aamis-Dark
+Comment=Warm near-black GTK theme for the Aamis desktop palette
+Encoding=UTF-8
+
+[X-GNOME-Metatheme]
+GtkTheme=Aamis-Dark
+IconTheme=WhiteSur
+CursorTheme=macOS
+ButtonLayout=close,minimize,maximize:menu
+

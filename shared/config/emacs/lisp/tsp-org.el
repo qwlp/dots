@@ -6,6 +6,9 @@
 (defun tsp/org-mode-setup ()
   "Custom setup for Org mode."
   (setq fill-column 80
+        ;; A single space after sentence-ending punctuation is a valid place
+        ;; to wrap; otherwise filling moves the preceding sentence fragment.
+        sentence-end-double-space nil
         ;; Keep hard wrapping, but avoid Org's context-aware parser on every
         ;; fill-triggering space.  Plain `do-auto-fill' is enough for prose.
         normal-auto-fill-function #'do-auto-fill)

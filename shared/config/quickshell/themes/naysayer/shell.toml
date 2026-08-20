@@ -1,0 +1,27 @@
+[bar]
+background = "background"
+text = "foreground"
+active = "accent"
+
+[menu]
+background = "background"
+text = "foreground"
+border = "muted"
+selected-text = "accent"
+
+[popups]
+background = "background"
+text = "foreground"
+border = "muted"
+
+[notifications]
+background = "background"
+text = "foreground"
+border = "accent"
+countdown = "accent"
+
+[state]
+normal-color = "foreground"
+hover-cursor-color = "accent"
+selected-color = "accent"
+

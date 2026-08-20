@@ -22,7 +22,9 @@
           "id": "tsp.clock",
           "format": "dddd h:mm AP",
           "formatAlt": "d MMMM yyyy",
-          "verticalFormat": "h\nmm\nAP"
+          "verticalFormat": "h\nmm\nAP",
+          "birthYear": 2007,
+          "lifeExpectancy": 90
         },
         {
           "id": "tsp.media"

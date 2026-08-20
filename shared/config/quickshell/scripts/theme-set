@@ -1,0 +1,164 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+theme_root=$(cd -- "$script_dir/../themes" && pwd)
+theme_id=${1:-}
+theme_dir="$theme_root/$theme_id"
+state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/tsp-theme"
+config_dir="${XDG_CONFIG_HOME:-$HOME/.config}/tsp-theme"
+omarchy_state="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/current"
+
+if [[ ! "$theme_id" =~ ^[a-z0-9][a-z0-9_-]*$ || ! -f "$theme_dir/theme.conf" ]]; then
+  printf 'Unknown theme: %s\n' "$theme_id" >&2
+  exit 2
+fi
+
+# Theme packages are immutable inputs. `current` is the single shared pointer
+# consumed by applications; state/name is convenient for watchers and scripts.
+mkdir -p "$state_dir" "$config_dir" "$omarchy_state"
+ln -sfn "$theme_dir" "$config_dir/current.next"
+mv -Tf "$config_dir/current.next" "$config_dir/current"
+printf '%s\n' "$theme_id" > "$state_dir/name.tmp"
+mv -f "$state_dir/name.tmp" "$state_dir/name"
+
+# Quickshell's startup FileViews and runtime IPC consume the same package.
+ln -sfn "$theme_dir" "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/theme.next"
+mv -Tf "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/theme.next" \
+  "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/theme"
+colors_b64=$(base64 -w0 "$theme_dir/colors.toml")
+shell_b64=$(base64 -w0 "$theme_dir/shell.toml")
+background=$(find "$theme_dir/backgrounds" -maxdepth 1 -type f \
+  \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.svg' \) \
+  -print 2>/dev/null | sort | head -1)
+if [[ -n "$background" ]]; then
+  old_background=$(readlink -f "$omarchy_state/background" 2>/dev/null || true)
+  ln -sfn "$background" "$omarchy_state/background.next"
+  mv -Tf "$omarchy_state/background.next" "$omarchy_state/background"
+
+  # awww owns the compositor wallpaper. Quickshell receives the same path
+  # below so its picker/current-theme state stays synchronized.
+  if command -v awww >/dev/null; then
+    awww img "$background" --resize crop --transition-type grow \
+      --transition-pos center --transition-duration 0.7 \
+      --transition-fps 90 >/dev/null 2>&1 || true
+  fi
+
+  # The background plugin is optional (awww already owns the wallpaper), but
+  # the shell target is always present and owns the bar/popup palette. Do not
+  # use a background-IPC fallback here: `qs` reports a missing target on stdout
+  # while still exiting successfully, which used to leave the old bar colors.
+  qs ipc call shell applyTheme "$colors_b64" "$shell_b64" >/dev/null 2>&1 || true
+else
+  qs ipc call shell applyTheme "$colors_b64" "$shell_b64" >/dev/null 2>&1 || true
+fi
+
+# Reload running terminals and Neovim instances. New processes read `current`.
+pkill -USR1 -x foot 2>/dev/null || true
+if command -v kitty >/dev/null && [[ -f "$theme_dir/kitty.conf" ]]; then
+  # Kitty adds its PID to `listen_on` when several independent instances use
+  # the same address (for example /tmp/kitty-main-1234). Contact every socket,
+  # not just the unsuffixed address, which normally does not exist in that
+  # setup. Keep KITTY_LISTEN_ON for callers that use a different endpoint.
+  kitty_targets=()
+  [[ -n ${KITTY_LISTEN_ON:-} ]] && kitty_targets+=("$KITTY_LISTEN_ON")
+  for kitty_socket in /tmp/kitty-main /tmp/kitty-main-*; do
+    [[ -S "$kitty_socket" ]] && kitty_targets+=("unix:$kitty_socket")
+  done
+  for kitty_to in "${kitty_targets[@]}"; do
+    kitty @ --to "$kitty_to" set-colors --all --configured \
+      "$theme_dir/kitty.conf" >/dev/null 2>&1 || continue
+    kitty @ --to "$kitty_to" load-config \
+      "${XDG_CONFIG_HOME:-$HOME/.config}/kitty/kitty.conf" >/dev/null 2>&1 || true
+  done
+fi
+while IFS= read -r server; do
+  [[ -n "$server" ]] && nvim --server "$server" --remote-expr \
+    'execute("TspReloadTheme")' >/dev/null 2>&1 || true
+done < <(nvim --serverlist 2>/dev/null || true)
+
+# Emacs themes are real editor themes rather than a lossy palette rewrite.
+# Missing optional themes simply leave that app unchanged.
+# shellcheck disable=SC1090
+source "$theme_dir/theme.conf"
+if command -v emacsclient >/dev/null && [[ -n ${emacs_theme:-} ]]; then
+  emacsclient -e "(progn (mapc #'disable-theme custom-enabled-themes) (load-theme '${emacs_theme} t))" \
+    >/dev/null 2>&1 || true
+fi
+
+# AyuGram (like Telegram Desktop) watches the custom palette it was loaded
+# from. Keep this path stable and change its contents in place so a running
+# client reapplies the palette without losing its session or window state.
+# The first install opens the palette once; choose "Keep changes" in AyuGram
+# to make this managed file its current theme. Later switches are automatic.
+if [[ -f "$theme_dir/ayugram.tdesktop-palette" ]]; then
+  ayugram_palette="$config_dir/ayugram.tdesktop-palette"
+  cp "$theme_dir/ayugram.tdesktop-palette" "$ayugram_palette"
+fi
+
+# Themes may ship a complete named GTK theme for consumers such as Chromium,
+# which query GTK's theme provider rather than ~/.config/gtk-*/gtk.css.
+if [[ -n ${gtk_theme:-} && -d "$theme_dir/gtk-theme" ]]; then
+  user_themes="${XDG_DATA_HOME:-$HOME/.local/share}/themes"
+  mkdir -p "$user_themes"
+  ln -sfn "$theme_dir/gtk-theme" "$user_themes/$gtk_theme.next"
+  mv -Tf "$user_themes/$gtk_theme.next" "$user_themes/$gtk_theme"
+fi
+
+# Preserve existing GTK CSS and replace only our managed tail. Keeping the
+# theme block last lets it override both GTK defaults and older custom colors.
+if [[ -f "$theme_dir/gtk.css" ]]; then
+  gtk_legacy_dir="$config_dir/gtk-legacy"
+  mkdir -p "$gtk_legacy_dir"
+  for gtk_version in 3.0 4.0; do
+    gtk_dir="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-$gtk_version"
+    gtk_css="$gtk_dir/gtk.css"
+    gtk_legacy="$gtk_legacy_dir/gtk-$gtk_version.css"
+    mkdir -p "$gtk_dir"
+    touch "$gtk_css"
+
+    # Capture the pre-theme stylesheet exactly once. On this machine GTK 4's
+    # original is a complete generated Naysayer theme with thousands of
+    # literal colors, so it must only be present when Naysayer is active.
+    if [[ ! -f "$gtk_legacy" ]]; then
+      awk '/^\/\* tsp-theme:begin \*\// { managed=1; next }
+           /^\/\* tsp-theme:end \*\// { managed=0; next }
+           !managed { print }' "$gtk_css" > "$gtk_legacy"
+    fi
+
+    gtk_tmp=$(mktemp "$gtk_dir/.gtk.css.XXXXXX")
+    if [[ "$theme_id" == naysayer ]]; then
+      sed -n 'p' "$gtk_legacy" > "$gtk_tmp"
+    else
+      : > "$gtk_tmp"
+    fi
+    printf '\n/* tsp-theme:begin */\n' >> "$gtk_tmp"
+    sed -n 'p' "$theme_dir/gtk.css" >> "$gtk_tmp"
+    printf '/* tsp-theme:end */\n' >> "$gtk_tmp"
+    chmod --reference="$gtk_css" "$gtk_tmp" 2>/dev/null || true
+    mv -f "$gtk_tmp" "$gtk_css"
+  done
+fi
+
+# GTK exposes theme preference through XSettings. Toggling the base theme
+# prompts applications that support live changes to rebuild their providers.
+if command -v gsettings >/dev/null && [[ -n ${gtk_theme:-} ]]; then
+  gsettings set org.gnome.desktop.interface color-scheme prefer-dark >/dev/null 2>&1 || true
+  gsettings set org.gnome.desktop.interface gtk-theme Adwaita >/dev/null 2>&1 || true
+  gsettings set org.gnome.desktop.interface gtk-theme "$gtk_theme" >/dev/null 2>&1 || true
+fi
+if [[ -n ${gtk_theme:-} ]]; then
+  for gtk_version in 3.0 4.0; do
+    gtk_settings="${XDG_CONFIG_HOME:-$HOME/.config}/gtk-$gtk_version/settings.ini"
+    [[ -f "$gtk_settings" ]] || continue
+    if rg -q '^gtk-theme-name=' "$gtk_settings"; then
+      sed -i "s/^gtk-theme-name=.*/gtk-theme-name=$gtk_theme/" "$gtk_settings"
+    fi
+  done
+fi
+
+# Helium reads its native Chromium theme at process startup. Leave a running
+# browser untouched so theme switches cannot interrupt windows or active work;
+# it will pick up the selected package the next time the user starts it.
+
+notify-send -a theme-picker "Theme changed" "$name" 2>/dev/null || true

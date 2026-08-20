@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "TSP Gruber Darker Tsoding Desktop Theme",
+  "version": "1.0",
+  "theme": {
+    "colors": {
+      "frame": [40, 40, 40],
+      "frame_inactive": [24, 24, 24],
+      "toolbar": [24, 24, 24],
+      "tab_text": [228, 228, 239],
+      "tab_background_text": [149, 169, 159],
+      "bookmark_text": [228, 228, 239],
+      "toolbar_button_icon": [228, 228, 239],
+      "ntp_background": [24, 24, 24],
+      "ntp_text": [228, 228, 239],
+      "ntp_link": [255, 221, 51],
+      "button_background": [40, 40, 40]
+    },
+    "tints": {
+      "buttons": [0.15, 0.80, 0.90]
+    }
+  }
+}

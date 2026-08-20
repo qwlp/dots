@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+script_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+theme_root=$(cd -- "$script_dir/../themes" && pwd)
+current_file="${XDG_STATE_HOME:-$HOME/.local/state}/tsp-theme/name"
+current=$(cat "$current_file" 2>/dev/null || true)
+
+# Explicit ordering is intentional: Naysayer remains theme number one.
+theme_ids=(naysayer aamis gruber-tsoding ginger-bill)
+rows=()
+selected_preview=""
+for id in "${theme_ids[@]}"; do
+  [[ -f "$theme_root/$id/theme.conf" ]] || continue
+  preview=$(find "$theme_root/$id/backgrounds" -maxdepth 1 -type f \
+    \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.svg' \) \
+    -print 2>/dev/null | sort | head -1)
+  [[ -n "$preview" ]] || continue
+  rows+=("$preview")
+  [[ "$id" == "$current" ]] && selected_preview="$preview"
+done
+
+[[ ${#rows[@]} -gt 0 ]] || exit 0
+[[ -n "$selected_preview" ]] || selected_preview=${rows[0]}
+
+request_dir=$(mktemp -d "${XDG_RUNTIME_DIR:-/tmp}/tsp-theme-picker.XXXXXX")
+selection_file="$request_dir/selection"
+done_file="$request_dir/done"
+trap 'rm -rf -- "$request_dir"' EXIT
+rows_b64=$(printf '%s\n' "${rows[@]}" | base64 -w0)
+
+qs ipc call image-selector open "$theme_root" "$rows_b64" \
+  "$selected_preview" "$selection_file" "$done_file" true true >/dev/null
+while [[ ! -e "$done_file" ]]; do sleep 0.05; done
+[[ -s "$selection_file" ]] || exit 0
+
+selection=$(cat "$selection_file")
+theme_id=$(basename -- "$(dirname -- "$(dirname -- "$selection")")")
+exec "$script_dir/theme-set" "$theme_id"

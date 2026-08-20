@@ -1,0 +1,34 @@
+@define-color theme_bg_color #181818;
+@define-color theme_fg_color #e4e4ef;
+@define-color theme_base_color #101010;
+@define-color theme_text_color #e4e4ef;
+@define-color theme_selected_bg_color #484848;
+@define-color theme_selected_fg_color #e4e4ef;
+@define-color insensitive_bg_color #282828;
+@define-color insensitive_fg_color #565f73;
+@define-color borders #565f73;
+@define-color accent_bg_color #ffdd33;
+@define-color accent_fg_color #181818;
+@define-color accent_color #ffdd33;
+@define-color window_bg_color #181818;
+@define-color window_fg_color #e4e4ef;
+@define-color view_bg_color #101010;
+@define-color view_fg_color #e4e4ef;
+@define-color headerbar_bg_color #101010;
+@define-color headerbar_fg_color #f4f4ff;
+@define-color sidebar_bg_color #202020;
+@define-color sidebar_fg_color #e4e4ef;
+@define-color card_bg_color #282828;
+@define-color card_fg_color #e4e4ef;
+@define-color popover_bg_color #202020;
+@define-color popover_fg_color #e4e4ef;
+@define-color destructive_bg_color #c73c3f;
+@define-color success_bg_color #73c936;
+@define-color warning_bg_color #ffdd33;
+@define-color error_bg_color #f43841;
+
+selection, *:selected { background-color: #484848; color: #e4e4ef; }
+headerbar, .titlebar { background-color: #101010; color: #f4f4ff; }
+popover, popover contents { background-color: #202020; color: #e4e4ef; }
+entry, textview, treeview.view { background-color: #101010; color: #e4e4ef; }
+button.suggested-action { background-color: #ffdd33; color: #181818; }

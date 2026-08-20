@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "TSP Naysayer Desktop Theme",
+  "version": "1.0",
+  "theme": {
+    "colors": {
+      "frame": [10, 59, 64],
+      "frame_inactive": [6, 35, 41],
+      "toolbar": [6, 35, 41],
+      "tab_text": [209, 184, 151],
+      "tab_background_text": [122, 143, 143],
+      "bookmark_text": [209, 184, 151],
+      "toolbar_button_icon": [209, 184, 151],
+      "ntp_background": [6, 35, 41],
+      "ntp_text": [209, 184, 151],
+      "ntp_link": [102, 217, 239],
+      "button_background": [10, 59, 64]
+    },
+    "tints": {
+      "buttons": [0.50, 0.35, 0.82]
+    }
+  }
+}
+

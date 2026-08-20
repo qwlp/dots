@@ -64,6 +64,14 @@ QtObject {
     return color
   }
 
+  // Direct `property color` consumers need semantic roles resolved before Qt
+  // sees them. Passing the literal string "foreground" to a color property is
+  // invalid and Qt silently renders black, which is especially unreadable on
+  // dark themes.
+  function pickColor(key, fallback) {
+    return flatColor(pick(key, fallback), fallback)
+  }
+
   // Compose a color from a base-color key and its `-alpha` companion. If the
   // base token is a gradient, color-only consumers use the first stop.
   function composed(colorKey, alphaKey, colorFallback, alphaFallback) {
@@ -72,32 +80,32 @@ QtObject {
 
   readonly property QtObject bar: QtObject {
     property color background: root.composed("bar.background", "bar.background-alpha", root.background, 1.0)
-    property color text: root.pick("bar.text", root.foreground)
-    property color active: root.pick("bar.active", root.urgent)
+    property color text: root.pickColor("bar.text", root.foreground)
+    property color active: root.pickColor("bar.active", root.urgent)
   }
   readonly property QtObject popups: QtObject {
     property color background: root.composed("popups.background", "popups.background-alpha", root.background, 1.0)
-    property color text: root.pick("popups.text", root.foreground)
+    property color text: root.pickColor("popups.text", root.foreground)
     property color border: root.composed("popups.border", "popups.border-alpha", root.accent, 1.0)
   }
   readonly property QtObject tooltip: QtObject {
     property color background: root.composed("tooltip.background", "tooltip.background-alpha", root.background, 1.0)
-    property color text: root.pick("tooltip.text", root.foreground)
+    property color text: root.pickColor("tooltip.text", root.foreground)
     property color border: root.composed("tooltip.border", "tooltip.border-alpha", root.foreground, 1.0)
   }
   readonly property QtObject notifications: QtObject {
     property color background: root.composed("notifications.background", "notifications.background-alpha", root.background, 1.0)
-    property color text: root.pick("notifications.text", root.foreground)
+    property color text: root.pickColor("notifications.text", root.foreground)
     property color border: root.composed("notifications.border", "notifications.border-alpha", root.accent, 1.0)
-    property color countdown: root.pick("notifications.countdown", root.accent)
+    property color countdown: root.pickColor("notifications.countdown", root.accent)
   }
   readonly property QtObject menu: QtObject {
     property color background: root.composed("menu.background", "menu.background-alpha", root.background, 1.0)
-    property color text: root.pick("menu.text", root.foreground)
+    property color text: root.pickColor("menu.text", root.foreground)
     property color border: root.composed("menu.border", "menu.border-alpha", root.foreground, 1.0)
     property color scrim: root.composed("menu.scrim", "menu.scrim-alpha", root.background, 0.5)
     property color selectedBackground: root.composed("menu.selected-background", "menu.selected-background-alpha", root.foreground, 0.08)
-    property color selectedText: root.pick("menu.selected-text", root.accent)
+    property color selectedText: root.pickColor("menu.selected-text", root.accent)
     property color selectedBorder: root.composed("menu.selected-border", "menu.selected-border-alpha", root.foreground, 0.0)
   }
   // polkit + lock share a single border-alpha across border / border-active /
@@ -105,18 +113,18 @@ QtObject {
   // companion is enough.
   readonly property QtObject polkit: QtObject {
     property color background: root.composed("polkit.background", "polkit.background-alpha", root.background, 1.0)
-    property color text: root.pick("polkit.text", root.foreground)
-    property color textError: root.pick("polkit.text-error", root.urgent)
+    property color text: root.pickColor("polkit.text", root.foreground)
+    property color textError: root.pickColor("polkit.text-error", root.urgent)
     property color border: root.composed("polkit.border", "polkit.border-alpha", root.accent, 1.0)
     property color borderError: root.composed("polkit.border-error", "polkit.border-alpha", root.urgent, 1.0)
-    property color accent: root.pick("polkit.accent", root.accent)
+    property color accent: root.pickColor("polkit.accent", root.accent)
     property color scrim: root.composed("polkit.scrim", "polkit.scrim-alpha", root.background, 0.5)
   }
   readonly property QtObject lock: QtObject {
     property color background: root.composed("lock.background", "lock.background-alpha", root.background, 0.8)
-    property color text: root.pick("lock.text", root.foreground)
+    property color text: root.pickColor("lock.text", root.foreground)
     property color placeholder: root.shellValues["lock.placeholder"] ? root.flatColor(root.shellValues["lock.placeholder"], Util.alpha(root.foreground, 0.66)) : Util.alpha(root.foreground, 0.66)
-    property color textError: root.pick("lock.text-error", root.urgent)
+    property color textError: root.pickColor("lock.text-error", root.urgent)
     property color border: root.composed("lock.border", "lock.border-alpha", root.foreground, 1.0)
     property color borderActive: root.composed("lock.border-active", "lock.border-alpha", root.accent, 1.0)
     property color borderError: root.composed("lock.border-error", "lock.border-alpha", root.urgent, 1.0)
@@ -127,7 +135,7 @@ QtObject {
   // `background` color directly.
   readonly property QtObject imagePicker: QtObject {
     property color scrim: root.composed("image-picker.scrim", "image-picker.scrim-alpha", root.background, 0.5)
-    property color text: root.pick("image-picker.text", root.foreground)
+    property color text: root.pickColor("image-picker.text", root.foreground)
     property color selectedBorder: root.composed("image-picker.selected-border", "image-picker.selected-border-alpha", root.accent, 1.0)
     property color unselectedBorder: root.composed("image-picker.unselected-border", "image-picker.unselected-border-alpha", root.foreground, 0.28)
   }

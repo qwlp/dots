@@ -390,9 +390,13 @@ This reloads the generated init file with `load' instead of relying on
 sessions."
   (interactive)
   (let ((init-file (or user-init-file (tsp/config-file "init.el"))))
-    (tsp/tangle-config)
-    (load init-file nil nil t)
-    (force-mode-line-update t)
+    ;; Loading the UI module recalculates theme faces.  Do not display the
+    ;; short-lived default (white) face state between those calculations.
+    (let ((inhibit-redisplay t))
+      (tsp/tangle-config)
+      (load init-file nil nil t)
+      (force-mode-line-update t))
+    (redisplay t)
     (message "Reloaded Emacs config from %s" init-file)))
 
 (keymap-global-set "C-c r" #'tsp/reload-config)
@@ -582,7 +586,16 @@ sessions."
 
 (add-to-list 'custom-theme-load-path
              (expand-file-name "themes/" user-emacs-directory))
-(load-theme 'naysayer t)
+(let* ((state-file (expand-file-name "~/.local/state/tsp-theme/name"))
+       (desktop-theme (when (file-readable-p state-file)
+                        (intern (string-trim
+                                 (with-temp-buffer
+                                   (insert-file-contents state-file)
+                                   (buffer-string)))))))
+  (load-theme (if (memq desktop-theme '(naysayer aamis gruber-tsoding ginger-bill))
+                  desktop-theme
+                'naysayer)
+              t))
 
 (provide 'tsp-ui)
 ;;; tsp-ui.el ends here
@@ -1423,6 +1436,9 @@ evaluate the changed forms.
 (defun tsp/org-mode-setup ()
   "Custom setup for Org mode."
   (setq fill-column 80
+        ;; A single space after sentence-ending punctuation is a valid place
+        ;; to wrap; otherwise filling moves the preceding sentence fragment.
+        sentence-end-double-space nil
         ;; Keep hard wrapping, but avoid Org's context-aware parser on every
         ;; fill-triggering space.  Plain `do-auto-fill' is enough for prose.
         normal-auto-fill-function #'do-auto-fill)
@@ -2370,8 +2386,8 @@ break them."
    ("C->" . mc/mark-next-like-this)
    ("C-<" . mc/mark-previous-like-this)
    ("C-c C-<" . mc/mark-all-like-this)
-   ("C-'" . mc/skip-to-next-like-this)
-   ("C-;" . mc/skip-to-previous-like-this)))
+   ("C-;" . mc/skip-to-next-like-this)
+   ("C-:" . mc/skip-to-previous-like-this)))
 
 (use-package symbol-overlay
   :ensure t

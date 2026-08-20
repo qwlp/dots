@@ -306,9 +306,13 @@ This reloads the generated init file with `load' instead of relying on
 sessions."
   (interactive)
   (let ((init-file (or user-init-file (tsp/config-file "init.el"))))
-    (tsp/tangle-config)
-    (load init-file nil nil t)
-    (force-mode-line-update t)
+    ;; Loading the UI module recalculates theme faces.  Do not display the
+    ;; short-lived default (white) face state between those calculations.
+    (let ((inhibit-redisplay t))
+      (tsp/tangle-config)
+      (load init-file nil nil t)
+      (force-mode-line-update t))
+    (redisplay t)
     (message "Reloaded Emacs config from %s" init-file)))
 
 (keymap-global-set "C-c r" #'tsp/reload-config)

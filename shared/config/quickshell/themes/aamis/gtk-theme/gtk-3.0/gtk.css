@@ -1,0 +1,27 @@
+@import url("resource:///org/gtk/libgtk/theme/Adwaita/gtk-contained-dark.css");
+
+@define-color theme_bg_color #0f0f0f;
+@define-color theme_fg_color #eadccc;
+@define-color theme_base_color #0a0a0a;
+@define-color theme_text_color #eadccc;
+@define-color theme_selected_bg_color #e2be8a;
+@define-color theme_selected_fg_color #0f0f0f;
+@define-color insensitive_bg_color #25221f;
+@define-color insensitive_fg_color #706a6a;
+@define-color borders #706a6a;
+@define-color warning_color #f4bb54;
+@define-color error_color #e25d6c;
+@define-color success_color #cea37f;
+
+window, dialog { background-color: #0f0f0f; color: #eadccc; }
+headerbar, .titlebar { background-color: #0a0a0a; color: #ede4c8; }
+headerbar button, .titlebar button { color: #eadccc; }
+entry, textview, treeview.view { background-color: #0a0a0a; color: #eadccc; }
+popover, popover.background { background-color: #151412; color: #eadccc; }
+menu, menuitem { background-color: #151412; color: #eadccc; }
+button { background-image: none; background-color: #1b1917; color: #eadccc; border-color: #706a6a; }
+button:hover { background-color: #25221f; border-color: #e2be8a; }
+button:checked, button.suggested-action { background-color: #e2be8a; color: #0f0f0f; }
+selection, *:selected { background-color: #e2be8a; color: #0f0f0f; }
+scrollbar slider { background-color: #706a6a; }
+

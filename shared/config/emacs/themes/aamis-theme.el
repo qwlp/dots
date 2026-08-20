@@ -1,0 +1,30 @@
+;;; aamis-theme.el --- Aamis desktop theme -*- lexical-binding: t; -*-
+(deftheme aamis "Warm near-black Aamis theme.")
+(let ((bg "#0f0f0f") (fg "#eadccc") (muted "#706a6a")
+      (red "#e25d6c") (green "#cea37f") (yellow "#f4bb54")
+      (accent "#e2be8a") (purple "#ede4c8") (cyan "#e8ab3b"))
+  (custom-theme-set-faces
+   'aamis
+   `(default ((t (:background ,bg :foreground ,fg))))
+   `(cursor ((t (:background ,fg))))
+   `(fringe ((t (:background ,bg :foreground ,muted))))
+   `(region ((t (:background ,accent :foreground ,bg))))
+   `(highlight ((t (:background ,muted :foreground ,fg))))
+   `(font-lock-builtin-face ((t (:foreground ,cyan))))
+   `(font-lock-comment-face ((t (:foreground ,muted :slant italic))))
+   `(font-lock-constant-face ((t (:foreground ,cyan))))
+   `(font-lock-function-name-face ((t (:foreground ,accent))))
+   `(font-lock-keyword-face ((t (:foreground ,purple :weight bold))))
+   `(font-lock-string-face ((t (:foreground ,green))))
+   `(font-lock-type-face ((t (:foreground ,yellow))))
+   `(font-lock-variable-name-face ((t (:foreground ,fg))))
+   `(error ((t (:foreground ,red :weight bold))))
+   `(warning ((t (:foreground ,yellow :weight bold))))
+   `(success ((t (:foreground ,green))))
+   `(mode-line ((t (:background ,accent :foreground ,bg :box nil))))
+   `(mode-line-inactive ((t (:background ,bg :foreground ,muted :box nil))))
+   `(minibuffer-prompt ((t (:foreground ,accent :weight bold))))
+   `(link ((t (:foreground ,cyan :underline t))))))
+(provide-theme 'aamis)
+;;; aamis-theme.el ends here
+

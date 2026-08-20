@@ -1,0 +1,24 @@
+{
+  "manifest_version": 3,
+  "name": "TSP Aamis Desktop Theme",
+  "version": "1.0",
+  "theme": {
+    "colors": {
+      "frame": [27, 25, 23],
+      "frame_inactive": [21, 20, 18],
+      "toolbar": [15, 15, 15],
+      "tab_text": [234, 220, 204],
+      "tab_background_text": [112, 106, 106],
+      "bookmark_text": [234, 220, 204],
+      "toolbar_button_icon": [234, 220, 204],
+      "ntp_background": [15, 15, 15],
+      "ntp_text": [234, 220, 204],
+      "ntp_link": [226, 190, 138],
+      "button_background": [27, 25, 23]
+    },
+    "tints": {
+      "buttons": [0.10, 0.25, 0.86]
+    }
+  }
+}
+

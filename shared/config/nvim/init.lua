@@ -1424,6 +1424,11 @@ local kitty_config = {
     fallback_theme = "solarized_dark",
 }
 
+local desktop_theme = {
+    name_path = vim.fn.expand("~/.local/state/tsp-theme/name"),
+    colors_path = vim.fn.expand("~/.config/tsp-theme/current/colors.toml"),
+}
+
 local read_kitty_config
 
 local function apply_theme_overrides(config)
@@ -1446,6 +1451,86 @@ end
 local function load_naysayer_theme()
     package.loaded["colors.naysayer"] = nil
     require("colors.naysayer")
+end
+
+local function load_desktop_palette()
+    local values = {}
+    local ok, lines = pcall(vim.fn.readfile, desktop_theme.colors_path)
+    if not ok then return false end
+    for _, line in ipairs(lines) do
+        local key, value = line:match('^%s*([%w_]+)%s*=%s*"(#[%x]+)"')
+        if key then values[key] = value end
+    end
+    if not values.background or not values.foreground then return false end
+
+    vim.cmd.highlight("clear")
+    vim.g.colors_name = "tsp-desktop"
+    local set = vim.api.nvim_set_hl
+    set(0, "Normal", { fg = values.foreground, bg = values.background })
+    set(0, "NormalNC", { fg = values.foreground, bg = values.background })
+    set(0, "NormalFloat", { fg = values.foreground, bg = values.background })
+    set(0, "FloatBorder", { fg = values.muted or values.color8, bg = values.background })
+    set(0, "FloatTitle", { fg = values.accent, bg = values.background, bold = true })
+    set(0, "WinSeparator", { fg = values.muted or values.color8, bg = values.background })
+    set(0, "Title", { fg = values.accent, bg = values.background, bold = true })
+    set(0, "Comment", { fg = values.muted or values.color8, italic = true })
+    set(0, "String", { fg = values.color2 })
+    set(0, "Function", { fg = values.color4 })
+    set(0, "Identifier", { fg = values.color6 })
+    set(0, "Statement", { fg = values.color5, bold = true })
+    set(0, "Type", { fg = values.color3 })
+    set(0, "Constant", { fg = values.color6 })
+    set(0, "Special", { fg = values.accent })
+    set(0, "Error", { fg = values.color1, bold = true })
+    set(0, "Visual", { fg = values.selection_foreground, bg = values.selection_background })
+    set(0, "CursorLine", { bg = values.color0 })
+    set(0, "LineNr", { fg = values.muted or values.color8 })
+    set(0, "CursorLineNr", { fg = values.accent, bold = true })
+    set(0, "Pmenu", { fg = values.foreground, bg = values.color0 })
+    set(0, "PmenuSel", { fg = values.selection_foreground, bg = values.selection_background })
+    set(0, "StatusLine", { fg = values.background, bg = values.accent, bold = true })
+    set(0, "StatusLineNC", { fg = values.muted or values.color8, bg = values.background })
+    set(0, "DiagnosticError", { fg = values.color1 })
+    set(0, "DiagnosticWarn", { fg = values.color3 })
+    set(0, "DiagnosticInfo", { fg = values.color4 })
+    set(0, "DiagnosticHint", { fg = values.color6 })
+
+    -- Picker UIs otherwise inherit Neovim's cleared defaults. In particular,
+    -- their title groups fall back to `reverse`, producing wide gray bars,
+    -- while border groups become much brighter than the rest of the palette.
+    local picker_border = { fg = values.muted or values.color8, bg = values.background }
+    local picker_title = { fg = values.accent, bg = values.background, bold = true }
+    for _, group in ipairs({
+        "TelescopeBorder", "TelescopePromptBorder", "TelescopeResultsBorder",
+        "TelescopePreviewBorder", "FzfLuaBorder", "FzfLuaPreviewBorder",
+    }) do
+        set(0, group, picker_border)
+    end
+    for _, group in ipairs({
+        "TelescopeTitle", "TelescopePromptTitle", "TelescopeResultsTitle",
+        "TelescopePreviewTitle", "FzfLuaTitle", "FzfLuaPreviewTitle",
+    }) do
+        set(0, group, picker_title)
+    end
+
+    -- Let lualine and other UI plugins rebuild highlights just as they do for
+    -- a normal :colorscheme change. The event is not emitted when colors_name
+    -- is assigned directly above.
+    vim.api.nvim_exec_autocmds("ColorScheme", { pattern = vim.g.colors_name })
+
+    -- mini.files uses NormalFloat for the whole explorer surface. Keep that
+    -- surface on the editor background and reserve color0 for the cursor row;
+    -- otherwise palettes with a bright ANSI black turn the entire explorer
+    -- and the inactive status line into solid gray blocks.
+    set(0, "MiniFilesNormal", { fg = values.foreground, bg = values.background })
+    set(0, "MiniFilesCursorLine", { bg = values.color0 })
+    set(0, "MiniFilesBorder", picker_border)
+    set(0, "MiniFilesBorderModified", { fg = values.color3, bg = values.background })
+    set(0, "MiniFilesDirectory", { fg = values.color4 })
+    set(0, "MiniFilesFile", { fg = values.foreground })
+    set(0, "MiniFilesTitle", { fg = values.muted or values.color8, bg = values.background })
+    set(0, "MiniFilesTitleFocused", picker_title)
+    return true
 end
 
 read_kitty_config = function()
@@ -1480,6 +1565,14 @@ read_kitty_config = function()
 end
 
 local function load_preferred_theme()
+    local ok, theme_lines = pcall(vim.fn.readfile, desktop_theme.name_path)
+    local desktop_name = ok and vim.trim(theme_lines[1] or "") or ""
+    if desktop_name == "naysayer" then
+        load_naysayer_theme()
+        return
+    elseif desktop_name ~= "" and load_desktop_palette() then
+        return
+    end
     local config = read_kitty_config()
 
     if config.theme == "solarized_dark" then
@@ -1509,6 +1602,19 @@ do
             vim.schedule(load_preferred_theme)
         end)
         _G.TspThemeWatcher = theme_watcher
+    end
+end
+
+
+do
+    local desktop_theme_watcher = vim.uv.new_fs_event()
+    if desktop_theme_watcher then
+        desktop_theme_watcher:start(vim.fs.dirname(desktop_theme.name_path), {}, function(_, filename)
+            if filename == vim.fs.basename(desktop_theme.name_path) then
+                vim.schedule(load_preferred_theme)
+            end
+        end)
+        _G.TspDesktopThemeWatcher = desktop_theme_watcher
     end
 end
 

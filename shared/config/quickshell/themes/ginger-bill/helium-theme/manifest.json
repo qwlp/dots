@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "TSP Ginger Bill Desktop Theme",
+  "version": "1.0",
+  "theme": {
+    "colors": {
+      "frame": [21, 21, 21],
+      "frame_inactive": [0, 0, 0],
+      "toolbar": [0, 0, 0],
+      "tab_text": [248, 248, 242],
+      "tab_background_text": [115, 123, 132],
+      "bookmark_text": [248, 248, 242],
+      "toolbar_button_icon": [248, 248, 242],
+      "ntp_background": [0, 0, 0],
+      "ntp_text": [248, 248, 242],
+      "ntp_link": [174, 226, 57],
+      "button_background": [21, 21, 21]
+    },
+    "tints": {
+      "buttons": [0.15, 0.80, 0.90]
+    }
+  }
+}
