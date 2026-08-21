@@ -29,6 +29,21 @@ with AyuGram's hidden `loadcolors` command and choose **Keep changes**; its
 native file watcher then applies all later theme switches live. Chat wallpaper
 is separate AyuGram state and is not controlled by palette files.
 
+Brave Origin follows each theme's canonical `background` color live through
+Chromium's `BrowserThemeColor` policy.  Enable the adapter once (replace the
+owner if this configuration is installed for another user):
+
+```sh
+sudo install -d -m 0755 /etc/brave/policies/managed
+sudo install -o "$USER" -g "$(id -gn)" -m 0644 /dev/null \
+  /etc/brave/policies/managed/tsp-theme-color.json
+~/.config/quickshell/scripts/theme-set "$(cat ~/.local/state/tsp-theme/name)"
+```
+
+The last command initializes the policy and asks a running `brave-origin-beta`
+instance to reload it; subsequent picker changes need no restart or privilege
+prompt.  `brave://policy` shows the active values for troubleshooting.
+
 The first GTK switch saves pre-existing styles under
 `~/.config/tsp-theme/gtk-legacy/`. This machine's legacy GTK 4 stylesheet is a
 full Naysayer theme, so it is layered only for Naysayer; other themes start

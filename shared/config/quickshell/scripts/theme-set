@@ -77,6 +77,24 @@ while IFS= read -r server; do
     'execute("TspReloadTheme")' >/dev/null 2>&1 || true
 done < <(nvim --serverlist 2>/dev/null || true)
 
+# Brave Origin consumes the active desktop background through Chromium's
+# managed BrowserThemeColor policy.  The policy file needs a one-time setup in
+# /etc (see themes/README.md); after that, every switch is applied to a running
+# browser without closing its windows.
+brave_policy=/etc/brave/policies/managed/tsp-theme-color.json
+if [[ -w "$brave_policy" ]]; then
+  brave_color=$(sed -nE 's/^background[[:space:]]*=[[:space:]]*"(#[0-9A-Fa-f]{6})".*/\1/p' \
+    "$theme_dir/colors.toml" | head -1)
+  if [[ -n "$brave_color" ]]; then
+    printf '{"BrowserThemeColor":"%s"}\n' \
+      "$brave_color" > "$brave_policy"
+    if command -v brave-origin-beta >/dev/null && pgrep -x brave >/dev/null; then
+      brave-origin-beta --refresh-platform-policy --no-startup-window \
+        >/dev/null 2>&1 || true
+    fi
+  fi
+fi
+
 # Emacs themes are real editor themes rather than a lossy palette rewrite.
 # Missing optional themes simply leave that app unchanged.
 # shellcheck disable=SC1090
