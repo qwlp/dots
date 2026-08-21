@@ -244,7 +244,7 @@ layout {
 // To run a shell command (with variables, pipes, etc.), use spawn-sh-at-startup:
 // spawn-sh-at-startup "qs -c ~/source/qs/MyAwesomeShell"
 
-spawn-at-startup "helium-browser" "--ozone-platform=wayland" "--force-dark-mode" "--load-extension=/home/tsp/.config/tsp-theme/current/helium-theme"
+spawn-at-startup "/home/tsp/.config/quickshell/scripts/brave-origin-themed"
 spawn-at-startup "kitty"
 // spawn-at-startup "foot"
 
@@ -377,7 +377,7 @@ binds {
     Mod+F { spawn-sh "nautilus-niri" ; }
     // Mod+F { spawn-sh "kitty yazi \"$(omarchy-cmd-terminal-cwd)\"" ; }
     Mod+Shift+O { spawn "obsidian"; }
-    Mod+B { spawn "helium-browser" "--ozone-platform=wayland" "--force-dark-mode" "--load-extension=/home/tsp/.config/tsp-theme/current/helium-theme"; }
+    Mod+B { spawn "/home/tsp/.config/quickshell/scripts/brave-origin-themed"; }
     Mod+Shift+B { spawn "foot" "--app-id=waybar-popup" "--window-size-chars=80x24" "-e" "bluetui"; }
     Mod+Shift+N { spawn "foot" "--app-id=waybar-popup" "--window-size-chars=80x24" "-e" "impala"; }
     Mod+T repeat=false { spawn "qs" "ipc" "call" "shell" "toggleAyuGram"; }

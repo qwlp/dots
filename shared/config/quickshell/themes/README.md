@@ -19,30 +19,29 @@ reload. The selected background is applied by `awww` and mirrored to
 consume one of these stable interfaces instead of
 reading another application's config.
 
-`helium-theme/manifest.json` is a native Chromium theme: `toolbar` matches the
-Quickshell bar while `frame` and the two tab-text roles distinguish active and
-inactive tabs. Helium loads it from the stable current-theme pointer at startup;
-theme changes deliberately leave a running browser untouched.
+`helium-theme/manifest.json` is a full Chromium theme used by Brave Origin Beta.
+`theme-set` copies it to the stable `~/.config/tsp-theme/brave-theme` directory
+for the browser's next launch. This applies exact toolbar, omnibox, tab, and
+sidebar colors without interrupting a running browser.
 
 `ayugram.tdesktop-palette` is copied to a stable managed path. Load it once
 with AyuGram's hidden `loadcolors` command and choose **Keep changes**; its
 native file watcher then applies all later theme switches live. Chat wallpaper
 is separate AyuGram state and is not controlled by palette files.
 
-Brave Origin follows each theme's canonical `background` color live through
-Chromium's `BrowserThemeColor` policy.  Enable the adapter once (replace the
-owner if this configuration is installed for another user):
+Older revisions used Chromium's generated-color policy. Keep its file writable
+so `theme-set` can clear it before loading the exact extension theme:
 
 ```sh
 sudo install -d -m 0755 /etc/brave/policies/managed
 sudo install -o "$USER" -g "$(id -gn)" -m 0644 /dev/null \
   /etc/brave/policies/managed/tsp-theme-color.json
-~/.config/quickshell/scripts/theme-set "$(cat ~/.local/state/tsp-theme/name)"
+~/.config/quickshell/scripts/theme-set "$(command cat ~/.local/state/tsp-theme/name)"
 ```
 
-The last command initializes the policy and asks a running `brave-origin-beta`
-instance to reload it; subsequent picker changes need no restart or privilege
-prompt.  `brave://policy` shows the active values for troubleshooting.
+The last command clears that policy and copies the active full theme. Restart
+Brave manually when convenient to apply it. `brave://policy` should show no
+`BrowserThemeColor` value.
 
 The first GTK switch saves pre-existing styles under
 `~/.config/tsp-theme/gtk-legacy/`. This machine's legacy GTK 4 stylesheet is a

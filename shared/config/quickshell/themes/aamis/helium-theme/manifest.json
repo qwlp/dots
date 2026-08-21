@@ -7,6 +7,9 @@
       "frame": [27, 25, 23],
       "frame_inactive": [21, 20, 18],
       "toolbar": [15, 15, 15],
+      "toolbar_text": [234, 220, 204],
+      "omnibox_background": [15, 15, 15],
+      "omnibox_text": [234, 220, 204],
       "tab_text": [234, 220, 204],
       "tab_background_text": [112, 106, 106],
       "bookmark_text": [234, 220, 204],
@@ -21,4 +24,3 @@
     }
   }
 }
-

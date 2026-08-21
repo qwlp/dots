@@ -1,6 +1,6 @@
 #!/bin/sh
 
-app_id="chrome-www.perplexity.ai__-Default"
+app_id="brave-www.perplexity.ai__-Default"
 
 find_window() {
   niri msg --json windows 2>/dev/null | jq -r --arg app_id "$app_id" '
@@ -22,8 +22,7 @@ if [ -n "$window_id" ]; then
   exec niri msg action focus-window --id "$window_id"
 fi
 
-helium-browser --ozone-platform=wayland --force-dark-mode \
-  --load-extension="$HOME/.config/tsp-theme/current/helium-theme" \
+"$HOME/.config/quickshell/scripts/brave-origin-themed" \
   --app=https://www.perplexity.ai/ >/dev/null 2>&1
 
 attempt=0

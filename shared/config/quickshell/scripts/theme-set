@@ -17,6 +17,12 @@ fi
 # Theme packages are immutable inputs. `current` is the single shared pointer
 # consumed by applications; state/name is convenient for watchers and scripts.
 mkdir -p "$state_dir" "$config_dir" "$omarchy_state"
+if [[ -f "$theme_dir/helium-theme/manifest.json" ]]; then
+  brave_theme_dir="$config_dir/brave-theme"
+  mkdir -p "$brave_theme_dir"
+  cp "$theme_dir/helium-theme/manifest.json" "$brave_theme_dir/manifest.json.tmp"
+  mv -f "$brave_theme_dir/manifest.json.tmp" "$brave_theme_dir/manifest.json"
+fi
 ln -sfn "$theme_dir" "$config_dir/current.next"
 mv -Tf "$config_dir/current.next" "$config_dir/current"
 printf '%s\n' "$theme_id" > "$state_dir/name.tmp"
@@ -77,22 +83,12 @@ while IFS= read -r server; do
     'execute("TspReloadTheme")' >/dev/null 2>&1 || true
 done < <(nvim --serverlist 2>/dev/null || true)
 
-# Brave Origin consumes the active desktop background through Chromium's
-# managed BrowserThemeColor policy.  The policy file needs a one-time setup in
-# /etc (see themes/README.md); after that, every switch is applied to a running
-# browser without closing its windows.
+# A full Chromium theme controls the toolbar, omnibox, tabs, and sidebar with
+# exact package colors. Clear the old generated-color policy so it cannot
+# override the extension theme. Brave reads the new theme on its next launch.
 brave_policy=/etc/brave/policies/managed/tsp-theme-color.json
 if [[ -w "$brave_policy" ]]; then
-  brave_color=$(sed -nE 's/^background[[:space:]]*=[[:space:]]*"(#[0-9A-Fa-f]{6})".*/\1/p' \
-    "$theme_dir/colors.toml" | head -1)
-  if [[ -n "$brave_color" ]]; then
-    printf '{"BrowserThemeColor":"%s"}\n' \
-      "$brave_color" > "$brave_policy"
-    if command -v brave-origin-beta >/dev/null && pgrep -x brave >/dev/null; then
-      brave-origin-beta --refresh-platform-policy --no-startup-window \
-        >/dev/null 2>&1 || true
-    fi
-  fi
+  printf '{}\n' > "$brave_policy"
 fi
 
 # Emacs themes are real editor themes rather than a lossy palette rewrite.
@@ -174,9 +170,5 @@ if [[ -n ${gtk_theme:-} ]]; then
     fi
   done
 fi
-
-# Helium reads its native Chromium theme at process startup. Leave a running
-# browser untouched so theme switches cannot interrupt windows or active work;
-# it will pick up the selected package the next time the user starts it.
 
 notify-send -a theme-picker "Theme changed" "$name" 2>/dev/null || true

@@ -101,8 +101,9 @@ Available ids are `naysayer`, `aamis`, `gruber-tsoding`, and `ginger-bill`.
   `~/.config/tsp-theme/ayugram.tdesktop-palette` once with the hidden
   `loadcolors` command and choose **Keep changes**. Its file watcher handles
   later switches.
-- **Helium:** restart it after a switch. Its Chromium theme is loaded only at
-  startup.
+- **Brave Origin Beta:** create the writable managed-policy file using the
+  commands in `themes/README.md`. The setter clears the old generated color,
+  then prepares the exact extension theme for your next manual browser restart.
 - **JetBrains IDEs:** choose the LAF named by the selected package's
   `theme.conf`. JetBrains has no live adapter here.
 - **Existing GTK apps:** apps that ignore the settings notification may need a

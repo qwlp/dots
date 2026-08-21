@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+theme_dir="${XDG_CONFIG_HOME:-$HOME/.config}/tsp-theme/brave-theme"
+
+exec /usr/bin/brave-origin-beta \
+  --ozone-platform=wayland \
+  --force-dark-mode \
+  --load-extension="$theme_dir" \
+  "$@"
