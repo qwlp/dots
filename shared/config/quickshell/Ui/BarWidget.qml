@@ -17,6 +17,12 @@ Item {
   property string moduleName: ""
   property var settings: ({})
 
+  // `bar` is the shared controller, not the per-output PanelWindow. Resolve
+  // the window through the attached property so every widget can tell which
+  // monitor its own instance belongs to.
+  readonly property var barWindow: root.QsWindow.window
+  readonly property var screen: barWindow ? barWindow.screen : null
+
   // Bar geometry, lifted off the host. Widgets read these constantly to pick
   // between horizontal/vertical layouts; defining them on the base keeps the
   // `bar ? bar.x : fallback` ternary out of every widget body.
@@ -25,7 +31,7 @@ Item {
   // IpcHandler targets are process-global, while the bar is instantiated once
   // per screen. Keep legacy per-widget IPC on one stable instance.
   readonly property bool ownsIpc: bar !== null
-    && (!bar.screen || bar.screen === Quickshell.screens[0])
+    && (!screen || screen === Quickshell.screens[0])
 
   // Run `method` on every live instance of this widget. An IPC target only
   // ever routes to one handler, but a bar surface exists per monitor, so the

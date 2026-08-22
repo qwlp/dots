@@ -45,7 +45,14 @@ if [[ -n "$background" ]]; then
   # awww owns the compositor wallpaper. Quickshell receives the same path
   # below so its picker/current-theme state stays synchronized.
   if command -v awww >/dev/null; then
-    awww img "$background" --resize crop --transition-type grow \
+    mapfile -t wallpaper_outputs < <(awww query 2>/dev/null \
+      | sed -n 's/^: \([^:][^:]*\):.*/\1/p')
+    output_args=()
+    if (( ${#wallpaper_outputs[@]} > 0 )); then
+      wallpaper_output_list=$(IFS=,; printf '%s' "${wallpaper_outputs[*]}")
+      output_args=(--outputs "$wallpaper_output_list")
+    fi
+    awww img "$background" "${output_args[@]}" --resize crop --transition-type grow \
       --transition-pos center --transition-duration 0.7 \
       --transition-fps 90 >/dev/null 2>&1 || true
   fi
@@ -108,6 +115,80 @@ fi
 if [[ -f "$theme_dir/ayugram.tdesktop-palette" ]]; then
   ayugram_palette="$config_dir/ayugram.tdesktop-palette"
   cp "$theme_dir/ayugram.tdesktop-palette" "$ayugram_palette"
+fi
+
+# Vencord watches QuickCSS and reapplies it in a running Vesktop window. Keep
+# one stable file and replace it atomically with variables from the selected
+# palette. The installed System24 theme supplies layout rules; these variables
+# override its old Naysayer colors for every desktop theme.
+vesktop_settings="${XDG_CONFIG_HOME:-$HOME/.config}/vesktop/settings"
+if [[ -d "$vesktop_settings" ]]; then
+  palette_value() {
+    sed -n "s/^$1[[:space:]]*=[[:space:]]*\"\(#[0-9A-Fa-f]\{6\}\)\"[[:space:]]*$/\1/p" \
+      "$theme_dir/colors.toml" | head -1
+  }
+
+  background_color=$(palette_value background)
+  foreground_color=$(palette_value foreground)
+  muted_color=$(palette_value muted)
+  accent_color=$(palette_value accent)
+  color0=$(palette_value color0)
+  color1=$(palette_value color1)
+  color2=$(palette_value color2)
+  color3=$(palette_value color3)
+  color4=$(palette_value color4)
+  color5=$(palette_value color5)
+  color6=$(palette_value color6)
+  color7=$(palette_value color7)
+
+  if [[ -n "$background_color" && -n "$foreground_color" \
+      && -n "$muted_color" && -n "$accent_color" ]]; then
+    vesktop_css="$vesktop_settings/quickCss.css"
+    vesktop_tmp=$(mktemp "$vesktop_settings/.quickCss.css.XXXXXX")
+    cat > "$vesktop_tmp" <<EOF
+/* tsp-theme: $theme_id */
+:root:root {
+  --colors: on;
+  --text-0: $background_color;
+  --text-1: $foreground_color;
+  --text-2: $color7;
+  --text-3: $foreground_color;
+  --text-4: $muted_color;
+  --text-5: $muted_color;
+  --bg-1: $color0;
+  --bg-2: $background_color;
+  --bg-3: $background_color;
+  --bg-4: $background_color;
+  --hover: ${accent_color}24;
+  --active: ${accent_color}40;
+  --active-2: ${accent_color}66;
+  --message-hover: ${foreground_color}0f;
+  --accent-1: $color6;
+  --accent-2: $accent_color;
+  --accent-3: $accent_color;
+  --accent-4: $color4;
+  --accent-5: $color4;
+  --border-hover: $accent_color;
+  --red-1: $color1;
+  --red-2: $color1;
+  --red-3: $color1;
+  --green-1: $color2;
+  --green-2: $color2;
+  --green-3: $color2;
+  --yellow-1: $color3;
+  --yellow-2: $color3;
+  --yellow-3: $color3;
+  --blue-1: $color4;
+  --blue-2: $color4;
+  --blue-3: $color4;
+  --purple-1: $color5;
+  --purple-2: $color5;
+  --purple-3: $color5;
+}
+EOF
+    chmod --reference="$vesktop_css" "$vesktop_tmp" 2>/dev/null || true
+    mv -f "$vesktop_tmp" "$vesktop_css"
+  fi
 fi
 
 # Themes may ship a complete named GTK theme for consumers such as Chromium,

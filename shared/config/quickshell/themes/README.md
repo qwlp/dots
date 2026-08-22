@@ -29,6 +29,12 @@ with AyuGram's hidden `loadcolors` command and choose **Keep changes**; its
 native file watcher then applies all later theme switches live. Chat wallpaper
 is separate AyuGram state and is not controlled by palette files.
 
+Vesktop reads the selected palette through Vencord QuickCSS. `theme-set`
+atomically replaces `~/.config/vesktop/settings/quickCss.css`; Vencord watches
+that file and updates a running window. Enable QuickCSS once in Vencord. The
+managed variables override the installed System24 theme's palette while
+leaving its layout rules intact.
+
 Older revisions used Chromium's generated-color policy. Keep its file writable
 so `theme-set` can clear it before loading the exact extension theme:
 

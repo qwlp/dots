@@ -62,15 +62,27 @@ BarWidget {
     root.windows = next
   }
 
-  function focusWorkspace(index) {
+  function focusWorkspace(workspace) {
+    if (!workspace) return
+    var output = String(workspace.output || root.screenName)
+    var index = workspace.idx
+
     // Reflect the click immediately instead of waiting for the compositor
     // round-trip. The event stream below will reconcile the real state.
     root.workspaces = root.workspaces.map(function(workspace) {
       var copy = Object.assign({}, workspace)
-      copy.is_focused = workspace.idx === index
+      copy.is_focused = workspace.output === output && workspace.idx === index
       return copy
     })
-    Quickshell.execDetached(["niri", "msg", "action", "focus-workspace", String(index)])
+
+    // Workspace indices are local to an output in Niri. Select this widget's
+    // output first, otherwise clicking workspace 1 can switch workspace 1 on
+    // whichever monitor currently has keyboard focus.
+    Quickshell.execDetached([
+      "bash", "-c",
+      "niri msg action focus-monitor \"$1\" && exec niri msg action focus-workspace \"$2\"",
+      "workspace-focus", output, String(index)
+    ])
   }
 
   function focusWindow(windowId) {
@@ -124,9 +136,10 @@ BarWidget {
     return icon.charAt(0) === "/" ? "file://" + icon : Quickshell.iconPath(icon)
   }
 
+  readonly property string screenName: root.screen ? String(root.screen.name) : ""
   readonly property var outputWorkspaces: workspaces.filter(function(workspace) {
-    if (!root.bar || !root.bar.screen) return true
-    return workspace.output === root.bar.screen.name
+    if (!root.screenName) return false
+    return workspace.output === root.screenName
   }).sort(function(left, right) { return left.idx - right.idx })
 
   implicitWidth: grid.implicitWidth
@@ -155,7 +168,7 @@ BarWidget {
         verticalPadding: 6
         fixedWidth: root.vertical ? root.barSize : workspaceContent.implicitWidth + Style.space(12)
         fixedHeight: root.vertical ? workspaceContent.implicitHeight + Style.space(12) : root.barSize
-        onPressed: root.focusWorkspace(modelData.idx)
+        onPressed: root.focusWorkspace(modelData)
 
         Grid {
           id: workspaceContent

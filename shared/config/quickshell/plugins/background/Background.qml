@@ -203,6 +203,16 @@ Item {
 
       property bool maskReady: false
 
+      function applyCurrentBackground() {
+        if (!root.currentBackground || outputBackgroundProc.running) return
+        outputBackgroundProc.command = [
+          "awww", "img", root.currentBackground,
+          "--outputs", String(modelData.name),
+          "--resize", "crop", "--transition-type", "none"
+        ]
+        outputBackgroundProc.running = true
+      }
+
       function maybeStartReveal() {
         if (!root.incomingBackground || root.revealProgress !== 0 || maskReady) return
         if (incomingFrame.status !== Image.Ready) return
@@ -217,6 +227,18 @@ Item {
       WlrLayershell.layer: WlrLayer.Background
       WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
       exclusionMode: ExclusionMode.Ignore
+
+      // awww does not know about outputs connected after the last theme
+      // switch. A background window is created for every new output, so use
+      // that event to bring the compositor wallpaper up to date as well.
+      Process { id: outputBackgroundProc }
+      Component.onCompleted: applyCurrentBackground()
+      onModelDataChanged: applyCurrentBackground()
+
+      Connections {
+        target: root
+        function onCurrentBackgroundChanged() { panel.applyCurrentBackground() }
+      }
 
       Image {
         id: base
