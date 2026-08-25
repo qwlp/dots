@@ -90,16 +90,14 @@ function tmux_sessionizer_widget
 end
 
 function fish_user_key_bindings
-    fish_vi_key_bindings
+    fish_default_key_bindings
 
-    bind --mode insert \ca beginning-of-line
-    bind --mode insert \ce end-of-line
-    bind --mode insert \ch backward-kill-word
-    bind --mode insert \cy accept-autosuggestion
-    bind --mode insert \cj my_zi_widget
-    bind --mode default \cj my_zi_widget
-    bind --mode insert \cf tmux_sessionizer_widget
-    bind --mode default \cf tmux_sessionizer_widget
+    bind \ca beginning-of-line
+    bind \ce end-of-line
+    bind \ch backward-kill-word
+    bind \cy accept-autosuggestion
+    bind \cj my_zi_widget
+    bind \cf tmux_sessionizer_widget
 end
 
 # --- 4. Interactive Init ---

@@ -34,6 +34,84 @@ mv -Tf "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/theme.next" \
   "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/theme"
 colors_b64=$(base64 -w0 "$theme_dir/colors.toml")
 shell_b64=$(base64 -w0 "$theme_dir/shell.toml")
+
+# 4coder has no theme IPC endpoint, so publish a stable generated theme file.
+# The custom layer watches this path and applies changes without restarting.
+palette_value() {
+  sed -n "s/^$1[[:space:]]*=[[:space:]]*\"\(#[0-9A-Fa-f]\{6\}\)\"[[:space:]]*$/\1/p" \
+    "$theme_dir/colors.toml" | head -1
+}
+palette_hex() {
+  local value
+  value=$(palette_value "$1")
+  printf '%s' "${value#\#}"
+}
+
+foreground=$(palette_hex foreground)
+background_color=$(palette_hex background)
+accent=$(palette_hex accent)
+cursor=$(palette_hex cursor)
+selection_foreground=$(palette_hex selection_foreground)
+selection_background=$(palette_hex selection_background)
+muted=$(palette_hex muted)
+red=$(palette_hex color1)
+green=$(palette_hex color2)
+yellow=$(palette_hex color3)
+blue=$(palette_hex color4)
+magenta=$(palette_hex color5)
+cyan=$(palette_hex color6)
+color0=$(palette_hex color0)
+color8=$(palette_hex color8)
+
+fourcoder_theme="$config_dir/theme-4coder.4coder"
+fourcoder_theme_tmp="$fourcoder_theme.tmp"
+printf '%s\n' \
+  "defcolor_back = 0xFF${background_color};" \
+  "defcolor_margin = 0xFF${color0};" \
+  "defcolor_margin_hover = 0xFF${color8};" \
+  "defcolor_margin_active = 0xFF${muted};" \
+  "defcolor_list_item = {defcolor_margin, defcolor_back};" \
+  "defcolor_list_item_hover = {defcolor_margin_hover, defcolor_margin};" \
+  "defcolor_list_item_active = {defcolor_margin_active, defcolor_margin_active};" \
+  "defcolor_cursor = {0xFF${cursor}, 0xFF${accent}};" \
+  "defcolor_at_cursor = defcolor_back;" \
+  "defcolor_highlight_cursor_line = 0xFF${color0};" \
+  "defcolor_highlight = 0xFF${selection_background};" \
+  "defcolor_mark = 0xFF${muted};" \
+  "defcolor_text_default = 0xFF${foreground};" \
+  "defcolor_at_highlight = 0xFF${selection_foreground};" \
+  "defcolor_comment = 0xFF${muted};" \
+  "defcolor_comment_pop = {0xFF${cyan}, 0xFF${red}};" \
+  "defcolor_keyword = 0xFF${yellow};" \
+  "defcolor_str_constant = 0xFF${green};" \
+  "defcolor_char_constant = defcolor_str_constant;" \
+  "defcolor_int_constant = defcolor_str_constant;" \
+  "defcolor_float_constant = defcolor_str_constant;" \
+  "defcolor_bool_constant = defcolor_str_constant;" \
+  "defcolor_include = 0xFF${cyan};" \
+  "defcolor_preproc = 0xFF${magenta};" \
+  "defcolor_special_character = 0xFF${red};" \
+  "defcolor_ghost_character = 0xFF${color8};" \
+  "defcolor_paste = 0xFF${yellow};" \
+  "defcolor_undo = 0xFF${cyan};" \
+  "defcolor_highlight_junk = 0x40${red};" \
+  "defcolor_highlight_white = 0x40${cyan};" \
+  "defcolor_bar = 0xFF${color0};" \
+  "defcolor_bar_active = 0xFF${muted};" \
+  "defcolor_base = 0xFF${foreground};" \
+  "defcolor_pop1 = 0xFF${blue};" \
+  "defcolor_pop2 = 0xFF${red};" \
+  "defcolor_back_cycle = {0x20${red}, 0x20${green}, 0x20${blue}, 0x20${yellow}};" \
+  "defcolor_text_cycle = {0xFF${red}, 0xFF${green}, 0xFF${blue}, 0xFF${yellow}};" \
+  "defcolor_line_numbers_back = 0xFF${background_color};" \
+  "defcolor_line_numbers_text = 0xFF${muted};" \
+  "defcolor_vim_filebar_pop = 0xFF${accent};" \
+  "defcolor_vim_chord_text = 0xFF${foreground};" \
+  "defcolor_vim_chord_unresolved = 0xFF${muted};" \
+  "defcolor_vim_chord_error = 0xFF${red};" \
+  > "$fourcoder_theme_tmp"
+mv -f "$fourcoder_theme_tmp" "$fourcoder_theme"
+
 background=$(find "$theme_dir/backgrounds" -maxdepth 1 -type f \
   \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' -o -iname '*.svg' \) \
   -print 2>/dev/null | sort | head -1)
@@ -123,10 +201,6 @@ fi
 # override its old Naysayer colors for every desktop theme.
 vesktop_settings="${XDG_CONFIG_HOME:-$HOME/.config}/vesktop/settings"
 if [[ -d "$vesktop_settings" ]]; then
-  palette_value() {
-    sed -n "s/^$1[[:space:]]*=[[:space:]]*\"\(#[0-9A-Fa-f]\{6\}\)\"[[:space:]]*$/\1/p" \
-      "$theme_dir/colors.toml" | head -1
-  }
 
   background_color=$(palette_value background)
   foreground_color=$(palette_value foreground)
