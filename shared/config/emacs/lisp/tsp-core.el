@@ -290,7 +290,7 @@ region keep their positions within the moved text."
   "Tangle the literate Emacs configuration."
   (interactive)
   (let ((config (tsp/config-file "config.org")))
-    (when-let ((buffer (find-buffer-visiting config)))
+    (when-let* ((buffer (find-buffer-visiting config)))
       (with-current-buffer buffer
         (when (buffer-modified-p)
           (save-buffer))))

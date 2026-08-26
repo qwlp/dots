@@ -57,7 +57,7 @@
 (defun tsp/change-inner-word ()
   "Kill the symbol or word at point, like Vim's `ciw'."
   (interactive)
-  (if-let ((bounds (or (bounds-of-thing-at-point 'symbol)
+  (if-let* ((bounds (or (bounds-of-thing-at-point 'symbol)
                        (bounds-of-thing-at-point 'word))))
       (kill-region (car bounds) (cdr bounds))
     (user-error "Point is not on a word")))
@@ -101,7 +101,7 @@
 (defun tsp/change-inner-quotes ()
   "Kill text inside the nearest enclosing quote pair."
   (interactive)
-  (if-let ((bounds (tsp/inner-quote-bounds)))
+  (if-let* ((bounds (tsp/inner-quote-bounds)))
       (kill-region (car bounds) (cdr bounds))
     (user-error "Point is not inside quotes")))
 

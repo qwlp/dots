@@ -58,6 +58,21 @@
 (setq package-user-dir (expand-file-name "elpa/" tsp/emacs-state-directory))
 
 (require 'package)
+(require 'treesit)
+
+(defconst tsp/treesit-grammar-directory
+  (expand-file-name
+   "tree-sitter/"
+   (if (boundp 'tsp/emacs-cache-directory)
+       tsp/emacs-cache-directory
+     (expand-file-name "emacs/" (or (getenv "XDG_CACHE_HOME")
+                                     (expand-file-name "~/.cache/")))))
+  "Directory for compiled Tree-sitter grammars.")
+(add-to-list 'treesit-extra-load-path tsp/treesit-grammar-directory)
+
+;; Optional integrations in third-party packages are guarded with `fboundp',
+;; but the native compiler cannot prove that they will exist at run time.
+(setq byte-compile-warnings '(not unresolved))
 
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
 (package-initialize)
@@ -377,7 +392,7 @@ region keep their positions within the moved text."
   "Tangle the literate Emacs configuration."
   (interactive)
   (let ((config (tsp/config-file "config.org")))
-    (when-let ((buffer (find-buffer-visiting config)))
+    (when-let* ((buffer (find-buffer-visiting config)))
       (with-current-buffer buffer
         (when (buffer-modified-p)
           (save-buffer))))
@@ -889,7 +904,7 @@ versions reject.  Keep the corrected theme here so tangling reproduces it.
   "Return the existing immediate subdirectories of project search roots."
   (let (projects)
     (dolist (root tsp/project-search-roots)
-      (when-let ((directory (and (file-directory-p root)
+      (when-let* ((directory (and (file-directory-p root)
                                  (file-name-as-directory
                                   (expand-file-name root)))))
         (dolist (entry (directory-files directory t directory-files-no-dot-files-regexp))
@@ -913,7 +928,7 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
                           projects))
          (selection (completing-read "Project: " choices nil t))
          (directory (cdr (assoc selection choices))))
-    (when-let ((project (project-current nil directory)))
+    (when-let* ((project (project-current nil directory)))
       (project-remember-project project))
     ;; Reuse the current tab as tab 1 so the project tabs always have stable
     ;; M-1/M-2 positions, regardless of the tabs that existed beforehand.
@@ -926,7 +941,7 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
       (tab-bar-rename-tab "terminal")
       ;; A universal prefix asks Ghostel for a fresh buffer instead of reusing
       ;; a terminal belonging to another project directory.
-      (ghostel '(4)))
+      (call-interactively #'ghostel))
     (tab-bar-select-tab 1)))
 
 (keymap-global-set "C-c p" #'tsp/find-project)
@@ -992,6 +1007,8 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
 (use-package better-jumper
   :ensure t
   :demand t
+  :preface
+  (require 'ring)
   :custom
   (better-jumper-context 'window)
   (better-jumper-add-jump-behavior 'replace)
@@ -1082,7 +1099,7 @@ With prefix argument EMPTY, start with an empty query."
       (if (eq mode 'fuzzy)
           (let ((position 0))
             (dolist (character (string-to-list query))
-              (when-let ((match (string-match
+              (when-let* ((match (string-match
                                  (regexp-quote (char-to-string character))
                                  result position)))
                 (add-face-text-property match (1+ match)
@@ -1109,15 +1126,15 @@ With prefix argument EMPTY, start with an empty query."
           (funcall open))
         (let ((buffer (and candidate
                            (eq action 'preview)
-                           (when-let ((path (plist-get candidate :path)))
+                           (when-let* ((path (plist-get candidate :path)))
                              (funcall open path)))))
           (funcall preview action buffer)
-          (when-let ((window (and buffer (get-buffer-window buffer))))
+          (when-let* ((window (and buffer (get-buffer-window buffer))))
             (with-selected-window window
               (widen)
               ;; File results have no line information.  In that case, leave
               ;; point alone so revisiting an existing buffer keeps its place.
-              (when-let ((line (plist-get candidate :line)))
+              (when-let* ((line (plist-get candidate :line)))
                 (goto-char (point-min))
                 (forward-line (max 0 (1- line)))
                 (move-to-column (max 0 (or (plist-get candidate :col) 0))))
@@ -1145,7 +1162,7 @@ With prefix argument EMPTY, start with an empty query."
   ;; candidate generation, but add file/line preview to both picker variants.
   (defun tsp/fff-pick-file-with-preview ()
     (let ((lookup (make-hash-table :test 'equal)))
-      (when-let ((choice
+      (when-let* ((choice
                   (consult--read
                    (consult--async-dynamic
                     (lambda (input)
@@ -1164,7 +1181,7 @@ With prefix argument EMPTY, start with an empty query."
   (defun tsp/fff-pick-grep-with-preview (mode &optional initial)
     (let ((consult-async-split-style 'none)
           (lookup (make-hash-table :test 'equal)))
-      (when-let ((choice
+      (when-let* ((choice
                   (consult--read
                    (consult--async-dynamic
                     (lambda (input)
@@ -2094,19 +2111,22 @@ break them."
 
 ;; This file is tangled from ../config.org. Edit that file instead.
 
+(dolist (binding '(("C-c a" . org-agenda)
+                   ("C-c A" . tsp/org-open-dashboard)
+                   ("C-c d" . tsp/org-open-dashboard)
+                   ("C-c c" . org-capture)
+                   ("C-c l" . org-store-link)
+                   ("C-c o i" . org-clock-in)
+                   ("C-c o o" . org-clock-out)
+                   ("C-c o g" . org-clock-goto)
+                   ("C-c o p" . tsp/org-open-project-directory)))
+  (keymap-global-set (car binding) (cdr binding)))
+
 (use-package org
   :ensure nil
+  :demand t
   :bind
-  (("C-c a" . org-agenda)
-   ("C-c A" . tsp/org-open-dashboard)
-   ("C-c d" . tsp/org-open-dashboard)
-   ("C-c c" . org-capture)
-   ("C-c l" . org-store-link)
-   ("C-c o i" . org-clock-in)
-   ("C-c o o" . org-clock-out)
-   ("C-c o g" . org-clock-goto)
-   ("C-c o p" . tsp/org-open-project-directory)
-   :map org-mode-map
+  (:map org-mode-map
    ("TAB" . tsp/org-tab-dwim)
    ("<tab>" . tsp/org-tab-dwim)
    ("RET" . tsp/org-return-dwim)
@@ -2191,7 +2211,7 @@ break them."
         org-src-fontify-natively t
         ;; Let language modes own source indentation instead of adding Org's
         ;; own offset on top of their configured indentation.
-        org-edit-src-content-indentation 0
+        org-src-content-indentation 0
         org-fold-catch-invisible-edits 'smart
         org-insert-heading-respect-content t
         org-M-RET-may-split-line '((default . nil))
@@ -2466,7 +2486,7 @@ break them."
 (defun tsp/change-inner-word ()
   "Kill the symbol or word at point, like Vim's `ciw'."
   (interactive)
-  (if-let ((bounds (or (bounds-of-thing-at-point 'symbol)
+  (if-let* ((bounds (or (bounds-of-thing-at-point 'symbol)
                        (bounds-of-thing-at-point 'word))))
       (kill-region (car bounds) (cdr bounds))
     (user-error "Point is not on a word")))
@@ -2510,7 +2530,7 @@ break them."
 (defun tsp/change-inner-quotes ()
   "Kill text inside the nearest enclosing quote pair."
   (interactive)
-  (if-let ((bounds (tsp/inner-quote-bounds)))
+  (if-let* ((bounds (tsp/inner-quote-bounds)))
       (kill-region (car bounds) (cdr bounds))
     (user-error "Point is not inside quotes")))
 
@@ -2773,11 +2793,8 @@ playlist buffers removed."
 
 ;; This file is tangled from ../config.org. Edit that file instead.
 
-(require 'treesit nil t)
+(require 'treesit)
 (require 'ansi-color)
-
-(defvar treesit-language-source-alist nil)
-(defvar treesit-extra-load-path nil)
 
 ;; Save modified buffers automatically before compiling instead of prompting.
 (setq compilation-ask-about-save nil)
@@ -2812,28 +2829,10 @@ playlist buffers removed."
 (dolist (source tsp/treesit-language-sources)
   (add-to-list 'treesit-language-source-alist source))
 
-(defconst tsp/treesit-grammar-directory
-  (tsp/emacs-cache-file "tree-sitter/")
-  "Directory for compiled Tree-sitter grammars.")
-
-(add-to-list 'treesit-extra-load-path tsp/treesit-grammar-directory)
-
-(defun tsp/treesit-install-missing-grammars ()
-  "Install configured Tree-sitter grammars that are not yet available."
-  (interactive)
-  (when (and (fboundp 'treesit-available-p)
-             (treesit-available-p))
-    (dolist (source tsp/treesit-language-sources)
-      (let ((language (car source)))
-        (unless (treesit-language-available-p language)
-          (condition-case error-data
-              (progn
-                (message "Installing Tree-sitter grammar for %s..." language)
-                (treesit-install-language-grammar
-                 language tsp/treesit-grammar-directory))
-            (error
-             (message "Could not install Tree-sitter grammar for %s: %s"
-                      language (error-message-string error-data)))))))))
+(setq treesit-auto-install-grammar 'always)
+(customize-set-variable
+ 'treesit-enabled-modes
+ '(c-ts-mode c++-ts-mode go-ts-mode go-mod-ts-mode java-ts-mode))
 
 (defun tsp/treesit-grand-parent-bol (_node parent &rest _)
   "Return the first non-whitespace position on PARENT's parent line."
@@ -2848,14 +2847,11 @@ playlist buffers removed."
               tab-width 4
               go-ts-mode-indent-offset 4
               tab-always-indent t)
-  ;; Emacs 30's Go rules omit nodes directly inside a statement_list, so a
-  ;; statement starting in column zero cannot be indented with Tab.
-  (setq-local treesit-simple-indent-rules
-              (copy-tree treesit-simple-indent-rules))
-  (push '((parent-is "statement_list")
+  (setq-local
+   treesit-simple-indent-override-rules
+   '((go ((parent-is "statement_list")
           tsp/treesit-grand-parent-bol
-          go-ts-mode-indent-offset)
-        (alist-get 'go treesit-simple-indent-rules))
+          go-ts-mode-indent-offset))))
   ;; Bind both terminal and graphical Tab events buffer-locally.  This also
   ;; keeps completion keymaps from turning Tab into a completion-only command.
   (local-set-key (kbd "TAB") #'indent-for-tab-command)
@@ -2871,7 +2867,8 @@ playlist buffers removed."
                        (point-min) (point-max) "gofmt" nil
                        (list formatted errors) nil)))
           (if (zerop status)
-              (replace-buffer-contents formatted)
+              (replace-region-contents (point-min) (point-max)
+                                       (lambda () formatted))
             (user-error "gofmt failed: %s"
                         (with-temp-buffer
                           (insert-file-contents errors)
@@ -2914,15 +2911,7 @@ playlist buffers removed."
               #'tsp/org-html-fontify-code-without-indent-bars))
 
 (use-package c-ts-mode
-  :ensure nil
-  :mode ("\\.c\\'" . c-ts-mode))
-
-(add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
-
-(use-package java-ts-mode
-  :ensure nil
-  :mode ("\\.java\\'" . java-ts-mode)
-  :hook (java-ts-mode . tsp/java-setup-buffer))
+  :ensure nil)
 
 (defun tsp/java-ts-incomplete-loop-block-p (_node parent _bol)
   "Return non-nil when PARENT is the block after an incomplete loop header.
@@ -2941,26 +2930,19 @@ continues to behave like a loop body."
 
 (defun tsp/java-setup-buffer ()
   "Keep Java indentation stable while incomplete loop headers are edited."
-  (setq-local treesit-simple-indent-rules
-              (copy-tree treesit-simple-indent-rules))
-  (let ((rules (alist-get 'java treesit-simple-indent-rules)))
-    ;; Add the body rule first so the more specific closing-brace rule ends up
-    ;; ahead of it after both are pushed.
-    (push '(tsp/java-ts-incomplete-loop-block-p
-            parent-bol java-ts-mode-indent-offset)
-          rules)
-    (push '((and (node-is "}") tsp/java-ts-incomplete-loop-block-p)
+  (setq-local
+   treesit-simple-indent-override-rules
+   '((java ((and (node-is "}") tsp/java-ts-incomplete-loop-block-p)
             parent-bol 0)
-          rules)
-    (setf (alist-get 'java treesit-simple-indent-rules) rules)))
+           (tsp/java-ts-incomplete-loop-block-p
+            parent-bol java-ts-mode-indent-offset)))))
 
-(add-to-list 'major-mode-remap-alist '(java-mode . java-ts-mode))
+(use-package java-ts-mode
+  :ensure nil
+  :hook (java-ts-mode . tsp/java-setup-buffer))
 
 (use-package go-ts-mode
   :ensure nil
-  :mode
-  (("\\.go\\'" . go-ts-mode)
-   ("/go\\.mod\\'" . go-mod-ts-mode))
   :hook
   (go-ts-mode . tsp/go-setup-buffer))
 

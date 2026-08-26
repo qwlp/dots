@@ -35,7 +35,7 @@
   "Return the existing immediate subdirectories of project search roots."
   (let (projects)
     (dolist (root tsp/project-search-roots)
-      (when-let ((directory (and (file-directory-p root)
+      (when-let* ((directory (and (file-directory-p root)
                                  (file-name-as-directory
                                   (expand-file-name root)))))
         (dolist (entry (directory-files directory t directory-files-no-dot-files-regexp))
@@ -59,7 +59,7 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
                           projects))
          (selection (completing-read "Project: " choices nil t))
          (directory (cdr (assoc selection choices))))
-    (when-let ((project (project-current nil directory)))
+    (when-let* ((project (project-current nil directory)))
       (project-remember-project project))
     ;; Reuse the current tab as tab 1 so the project tabs always have stable
     ;; M-1/M-2 positions, regardless of the tabs that existed beforehand.
@@ -72,7 +72,7 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
       (tab-bar-rename-tab "terminal")
       ;; A universal prefix asks Ghostel for a fresh buffer instead of reusing
       ;; a terminal belonging to another project directory.
-      (ghostel '(4)))
+      (call-interactively #'ghostel))
     (tab-bar-select-tab 1)))
 
 (keymap-global-set "C-c p" #'tsp/find-project)
@@ -138,6 +138,8 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
 (use-package better-jumper
   :ensure t
   :demand t
+  :preface
+  (require 'ring)
   :custom
   (better-jumper-context 'window)
   (better-jumper-add-jump-behavior 'replace)
@@ -228,7 +230,7 @@ With prefix argument EMPTY, start with an empty query."
       (if (eq mode 'fuzzy)
           (let ((position 0))
             (dolist (character (string-to-list query))
-              (when-let ((match (string-match
+              (when-let* ((match (string-match
                                  (regexp-quote (char-to-string character))
                                  result position)))
                 (add-face-text-property match (1+ match)
@@ -255,15 +257,15 @@ With prefix argument EMPTY, start with an empty query."
           (funcall open))
         (let ((buffer (and candidate
                            (eq action 'preview)
-                           (when-let ((path (plist-get candidate :path)))
+                           (when-let* ((path (plist-get candidate :path)))
                              (funcall open path)))))
           (funcall preview action buffer)
-          (when-let ((window (and buffer (get-buffer-window buffer))))
+          (when-let* ((window (and buffer (get-buffer-window buffer))))
             (with-selected-window window
               (widen)
               ;; File results have no line information.  In that case, leave
               ;; point alone so revisiting an existing buffer keeps its place.
-              (when-let ((line (plist-get candidate :line)))
+              (when-let* ((line (plist-get candidate :line)))
                 (goto-char (point-min))
                 (forward-line (max 0 (1- line)))
                 (move-to-column (max 0 (or (plist-get candidate :col) 0))))
@@ -291,7 +293,7 @@ With prefix argument EMPTY, start with an empty query."
   ;; candidate generation, but add file/line preview to both picker variants.
   (defun tsp/fff-pick-file-with-preview ()
     (let ((lookup (make-hash-table :test 'equal)))
-      (when-let ((choice
+      (when-let* ((choice
                   (consult--read
                    (consult--async-dynamic
                     (lambda (input)
@@ -310,7 +312,7 @@ With prefix argument EMPTY, start with an empty query."
   (defun tsp/fff-pick-grep-with-preview (mode &optional initial)
     (let ((consult-async-split-style 'none)
           (lookup (make-hash-table :test 'equal)))
-      (when-let ((choice
+      (when-let* ((choice
                   (consult--read
                    (consult--async-dynamic
                     (lambda (input)

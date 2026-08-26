@@ -20,7 +20,7 @@ prefer-no-csd
 
 animations {
     // off
-   on
+   off
     workspace-switch {
         spring damping-ratio=0.80 stiffness=523 epsilon=0.0001
     }
@@ -165,7 +165,7 @@ animations {
         spring damping-ratio=0.85 stiffness=800 epsilon=0.0001
     }
 
-    slowdown 0.4
+    slowdown 0.2
 }
 
 screenshot-path "~/Pictures/Screenshots/Screenshot from %Y-%m-%d %H-%M-%S.png"

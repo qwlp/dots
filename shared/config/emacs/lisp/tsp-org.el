@@ -3,19 +3,22 @@
 
 ;; This file is tangled from ../config.org. Edit that file instead.
 
+(dolist (binding '(("C-c a" . org-agenda)
+                   ("C-c A" . tsp/org-open-dashboard)
+                   ("C-c d" . tsp/org-open-dashboard)
+                   ("C-c c" . org-capture)
+                   ("C-c l" . org-store-link)
+                   ("C-c o i" . org-clock-in)
+                   ("C-c o o" . org-clock-out)
+                   ("C-c o g" . org-clock-goto)
+                   ("C-c o p" . tsp/org-open-project-directory)))
+  (keymap-global-set (car binding) (cdr binding)))
+
 (use-package org
   :ensure nil
+  :demand t
   :bind
-  (("C-c a" . org-agenda)
-   ("C-c A" . tsp/org-open-dashboard)
-   ("C-c d" . tsp/org-open-dashboard)
-   ("C-c c" . org-capture)
-   ("C-c l" . org-store-link)
-   ("C-c o i" . org-clock-in)
-   ("C-c o o" . org-clock-out)
-   ("C-c o g" . org-clock-goto)
-   ("C-c o p" . tsp/org-open-project-directory)
-   :map org-mode-map
+  (:map org-mode-map
    ("TAB" . tsp/org-tab-dwim)
    ("<tab>" . tsp/org-tab-dwim)
    ("RET" . tsp/org-return-dwim)
@@ -100,7 +103,7 @@
         org-src-fontify-natively t
         ;; Let language modes own source indentation instead of adding Org's
         ;; own offset on top of their configured indentation.
-        org-edit-src-content-indentation 0
+        org-src-content-indentation 0
         org-fold-catch-invisible-edits 'smart
         org-insert-heading-respect-content t
         org-M-RET-may-split-line '((default . nil))

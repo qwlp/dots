@@ -3,11 +3,8 @@
 
 ;; This file is tangled from ../config.org. Edit that file instead.
 
-(require 'treesit nil t)
+(require 'treesit)
 (require 'ansi-color)
-
-(defvar treesit-language-source-alist nil)
-(defvar treesit-extra-load-path nil)
 
 ;; Save modified buffers automatically before compiling instead of prompting.
 (setq compilation-ask-about-save nil)
@@ -42,28 +39,10 @@
 (dolist (source tsp/treesit-language-sources)
   (add-to-list 'treesit-language-source-alist source))
 
-(defconst tsp/treesit-grammar-directory
-  (tsp/emacs-cache-file "tree-sitter/")
-  "Directory for compiled Tree-sitter grammars.")
-
-(add-to-list 'treesit-extra-load-path tsp/treesit-grammar-directory)
-
-(defun tsp/treesit-install-missing-grammars ()
-  "Install configured Tree-sitter grammars that are not yet available."
-  (interactive)
-  (when (and (fboundp 'treesit-available-p)
-             (treesit-available-p))
-    (dolist (source tsp/treesit-language-sources)
-      (let ((language (car source)))
-        (unless (treesit-language-available-p language)
-          (condition-case error-data
-              (progn
-                (message "Installing Tree-sitter grammar for %s..." language)
-                (treesit-install-language-grammar
-                 language tsp/treesit-grammar-directory))
-            (error
-             (message "Could not install Tree-sitter grammar for %s: %s"
-                      language (error-message-string error-data)))))))))
+(setq treesit-auto-install-grammar 'always)
+(customize-set-variable
+ 'treesit-enabled-modes
+ '(c-ts-mode c++-ts-mode go-ts-mode go-mod-ts-mode java-ts-mode))
 
 (defun tsp/treesit-grand-parent-bol (_node parent &rest _)
   "Return the first non-whitespace position on PARENT's parent line."
@@ -78,14 +57,11 @@
               tab-width 4
               go-ts-mode-indent-offset 4
               tab-always-indent t)
-  ;; Emacs 30's Go rules omit nodes directly inside a statement_list, so a
-  ;; statement starting in column zero cannot be indented with Tab.
-  (setq-local treesit-simple-indent-rules
-              (copy-tree treesit-simple-indent-rules))
-  (push '((parent-is "statement_list")
+  (setq-local
+   treesit-simple-indent-override-rules
+   '((go ((parent-is "statement_list")
           tsp/treesit-grand-parent-bol
-          go-ts-mode-indent-offset)
-        (alist-get 'go treesit-simple-indent-rules))
+          go-ts-mode-indent-offset))))
   ;; Bind both terminal and graphical Tab events buffer-locally.  This also
   ;; keeps completion keymaps from turning Tab into a completion-only command.
   (local-set-key (kbd "TAB") #'indent-for-tab-command)
@@ -101,7 +77,8 @@
                        (point-min) (point-max) "gofmt" nil
                        (list formatted errors) nil)))
           (if (zerop status)
-              (replace-buffer-contents formatted)
+              (replace-region-contents (point-min) (point-max)
+                                       (lambda () formatted))
             (user-error "gofmt failed: %s"
                         (with-temp-buffer
                           (insert-file-contents errors)
@@ -144,15 +121,7 @@
               #'tsp/org-html-fontify-code-without-indent-bars))
 
 (use-package c-ts-mode
-  :ensure nil
-  :mode ("\\.c\\'" . c-ts-mode))
-
-(add-to-list 'major-mode-remap-alist '(c-mode . c-ts-mode))
-
-(use-package java-ts-mode
-  :ensure nil
-  :mode ("\\.java\\'" . java-ts-mode)
-  :hook (java-ts-mode . tsp/java-setup-buffer))
+  :ensure nil)
 
 (defun tsp/java-ts-incomplete-loop-block-p (_node parent _bol)
   "Return non-nil when PARENT is the block after an incomplete loop header.
@@ -171,26 +140,19 @@ continues to behave like a loop body."
 
 (defun tsp/java-setup-buffer ()
   "Keep Java indentation stable while incomplete loop headers are edited."
-  (setq-local treesit-simple-indent-rules
-              (copy-tree treesit-simple-indent-rules))
-  (let ((rules (alist-get 'java treesit-simple-indent-rules)))
-    ;; Add the body rule first so the more specific closing-brace rule ends up
-    ;; ahead of it after both are pushed.
-    (push '(tsp/java-ts-incomplete-loop-block-p
-            parent-bol java-ts-mode-indent-offset)
-          rules)
-    (push '((and (node-is "}") tsp/java-ts-incomplete-loop-block-p)
+  (setq-local
+   treesit-simple-indent-override-rules
+   '((java ((and (node-is "}") tsp/java-ts-incomplete-loop-block-p)
             parent-bol 0)
-          rules)
-    (setf (alist-get 'java treesit-simple-indent-rules) rules)))
+           (tsp/java-ts-incomplete-loop-block-p
+            parent-bol java-ts-mode-indent-offset)))))
 
-(add-to-list 'major-mode-remap-alist '(java-mode . java-ts-mode))
+(use-package java-ts-mode
+  :ensure nil
+  :hook (java-ts-mode . tsp/java-setup-buffer))
 
 (use-package go-ts-mode
   :ensure nil
-  :mode
-  (("\\.go\\'" . go-ts-mode)
-   ("/go\\.mod\\'" . go-mod-ts-mode))
   :hook
   (go-ts-mode . tsp/go-setup-buffer))
 
