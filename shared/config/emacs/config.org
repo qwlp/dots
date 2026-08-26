@@ -73,7 +73,10 @@
 (load "tsp-core")
 (load "tsp-ui")
 (load "tsp-completion")
+(load "tsp-org-core")
+(load "tsp-org-export")
 (load "tsp-org")
+(load "tsp-org-roam")
 (load "tsp-apps")
 (load "tsp-prog")
 
@@ -151,7 +154,7 @@
 (setq-default bidi-display-reordering t
               bidi-paragraph-direction nil
               cursor-in-non-selected-windows nil
-              cursor-type 'bar
+              cursor-type 'box
               indent-tabs-mode nil
               tab-width 4)
 
@@ -327,8 +330,8 @@ region keep their positions within the moved text."
 (when (eq (keymap-global-lookup "s-p") #'tsp/move-lines-up)
   (keymap-global-unset "s-p"))
 
-;; Hold Alt+Shift and tap n/p repeatedly.  Lowercase Meta-n/p remain available
-;; to symbol-overlay and Control-n/p keep normal line navigation.
+;; Hold Alt+Shift and tap n/p repeatedly.  Control-n/p retain normal line
+;; navigation.
 (keymap-global-set "M-N" #'tsp/move-lines-down)
 (keymap-global-set "M-P" #'tsp/move-lines-up)
 
@@ -349,10 +352,9 @@ region keep their positions within the moved text."
                      (emacs-init-time)
                      gcs-done)))
 
-(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
-
-(when (file-exists-p custom-file)
-  (load custom-file))
+;; Keep Customize's generated output out of the source-controlled config.
+;; Intentional settings belong in this literate configuration instead.
+(setq custom-file (tsp/emacs-state-file "custom.el"))
 
 (setq backup-directory-alist `(("." . ,(tsp/emacs-cache-file "backups/")))
       auto-save-file-name-transforms
@@ -382,22 +384,45 @@ region keep their positions within the moved text."
     (require 'org)
     (org-babel-tangle-file config)))
 
-(defun tsp/reload-config ()
-  "Tangle and reload the Emacs config.
+(defvar tsp/reloading-config-p nil
+  "Non-nil while the literate configuration is being reloaded.")
 
-This reloads the generated init file with `load' instead of relying on
-`require', so already-loaded local modules are evaluated again in daemon
-sessions."
+(defun tsp/reload-config ()
+  "Tangle and reload the config in the current Emacs process.
+
+In a daemon session this updates the server and redraws every attached client
+frame.  Early-init settings are intentionally not reevaluated because they are
+only meaningful while the Emacs process is starting."
   (interactive)
-  (let ((init-file (or user-init-file (tsp/config-file "init.el"))))
-    ;; Loading the UI module recalculates theme faces.  Do not display the
-    ;; short-lived default (white) face state between those calculations.
-    (let ((inhibit-redisplay t))
-      (tsp/tangle-config)
-      (load init-file nil nil t)
-      (force-mode-line-update t))
-    (redisplay t)
-    (message "Reloaded Emacs config from %s" init-file)))
+  (when tsp/reloading-config-p
+    (user-error "The Emacs configuration is already being reloaded"))
+  (let ((init-file (or user-init-file (tsp/config-file "init.el")))
+        (started-at (current-time))
+        (tsp/reloading-config-p t))
+    (condition-case error-data
+        (progn
+          ;; Loading the UI module recalculates theme faces.  Do not show the
+          ;; short-lived default face state between those calculations.
+          (let ((inhibit-redisplay t))
+            (tsp/tangle-config)
+            (load init-file nil nil t)
+            (dolist (frame (frame-list))
+              (when (frame-live-p frame)
+                (with-selected-frame frame
+                  (when (fboundp 'tsp/configure-script-fonts)
+                    (tsp/configure-script-fonts frame))
+                  (force-mode-line-update t)))))
+          ;; Force pending updates without clearing every frame first.  A full
+          ;; `redraw-display' briefly exposes the frame's white backing surface
+          ;; on some compositors.
+          (redisplay t)
+          (message "Reloaded Emacs config in %.2fs%s"
+                   (float-time (time-subtract (current-time) started-at))
+                   (if (daemonp) " for all daemon frames" "")))
+      (error
+       (redisplay t)
+       (message "Config reload failed: %s" (error-message-string error-data))
+       (signal (car error-data) (cdr error-data))))))
 
 (keymap-global-set "C-c r" #'tsp/reload-config)
 
@@ -407,34 +432,44 @@ sessions."
 (keymap-global-set "C-c i E" #'emoji-list)
 (keymap-global-set "C-c i r" #'emoji-recent)
 
-;; Window selection, layout history, numbering, and temporary popups.
-(use-package ace-window
-  :ensure t
-  :bind
-  (("C-x o" . ace-window)
-   ("C-x O" . tsp/ace-window-dispatch))
-  :custom
-  (aw-scope 'frame)
-  (aw-background t)
-  (aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l))
-  ;; Keep the action keys distinct from the home-row selection labels.
-  (aw-dispatch-alist
-   '((?x aw-delete-window "Delete window")
-     (?m aw-swap-window "Swap windows")
-     (?v aw-split-window-vert "Split window right")
-     (?b aw-split-window-horz "Split window below")
-     (?o delete-other-windows "Maximize window")
-     (?? aw-show-dispatch-help)))
-  :config
-  (defun tsp/ace-window-dispatch ()
-    "Select an Ace Window action, even when only one or two windows exist."
-    (interactive)
-    (let ((aw-dispatch-always t))
-      (ace-window))))
-
+;; Window layout history, project tabs, and temporary popups.
 (winner-mode 1)
-(tab-bar-history-mode -1)
-(tab-bar-mode -1)
+(setq tab-bar-show nil)
+(tab-bar-mode 1)
+(tab-bar-history-mode 1)
+
+;; Keep tmux-style navigation ahead of major and minor mode bindings.  Binding
+;; `tab-bar-select-tab' directly lets it infer the tab number from the digit.
+(defvar tsp/navigation-keys-mode t)
+(defvar tsp/navigation-keys-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (digit '(1 2 3 4 5 6 7 8 9))
+      (define-key map (kbd (format "M-%d" digit)) #'tab-bar-select-tab))
+    (define-key map (kbd "M-h") #'windmove-left)
+    (define-key map (kbd "M-l") #'windmove-right)
+    map))
+(define-key tsp/navigation-keys-mode-map (kbd "C-S-t") #'tab-bar-new-tab)
+(define-key tsp/navigation-keys-mode-map (kbd "M-S-q") #'tab-bar-close-tab)
+(define-key tsp/navigation-keys-mode-map (kbd "M-Q") #'tab-bar-close-tab)
+
+(defvar tsp/navigation-keys-emulation-alist
+  `((tsp/navigation-keys-mode . ,tsp/navigation-keys-mode-map)))
+
+(defun tsp/prioritize-navigation-keys ()
+  "Keep tab and window navigation ahead of terminal emulation maps."
+  ;; Delete the older literal entry too, so reloading upgrades this setting
+  ;; without requiring an Emacs restart.
+  (setq emulation-mode-map-alists
+        (delete tsp/navigation-keys-emulation-alist
+                emulation-mode-map-alists))
+  (setq emulation-mode-map-alists
+        (cons 'tsp/navigation-keys-emulation-alist
+              (delete 'tsp/navigation-keys-emulation-alist
+                      emulation-mode-map-alists))))
+
+(tsp/prioritize-navigation-keys)
+(with-eval-after-load 'ghostel
+  (tsp/prioritize-navigation-keys))
 
 ;; Match Kitty's pane-management keys.
 (keymap-global-set "M-V" #'split-window-right)
@@ -459,25 +494,6 @@ sessions."
   (keymap-global-set key #'tsp/window-layout-one-column))
 (dolist (key '("M-S-2" "M-@"))
   (keymap-global-set key #'tsp/window-layout-two-columns))
-
-(use-package winum
-  :ensure t
-  :demand t
-  :custom
-  (winum-auto-setup-mode-line t)
-  :bind
-  (("M-0" . winum-select-window-0-or-10)
-   ("M-1" . winum-select-window-1)
-   ("M-2" . winum-select-window-2)
-   ("M-3" . winum-select-window-3)
-   ("M-4" . winum-select-window-4)
-   ("M-5" . winum-select-window-5)
-   ("M-6" . winum-select-window-6)
-   ("M-7" . winum-select-window-7)
-   ("M-8" . winum-select-window-8)
-   ("M-9" . winum-select-window-9))
-  :config
-  (winum-mode 1))
 
 (use-package popper
   :ensure t
@@ -519,28 +535,56 @@ sessions."
 
 (setq inhibit-startup-screen t)
 (setq-default truncate-lines t)
+(set-face-attribute 'default nil :font "LythMono Nerd Font 13")
 
-(setq display-time-format "%H:%M"
-      display-time-default-load-average nil
-      display-time-interval 60)
-(display-time-mode 1)
+(display-time-mode -1)
+(display-battery-mode -1)
+(when (fboundp 'winum-mode)
+  (winum-mode -1))
 
-(require 'battery)
+(defun tsp/mode-line-tabs ()
+  "Return numbered Emacs tabs for display in the mode line."
+  (let ((tabs (funcall tab-bar-tabs-function))
+        (number 0))
+    (when (> (length tabs) 1)
+      (concat
+       " tabs: "
+       (mapconcat
+        (lambda (tab)
+          (setq number (1+ number))
+          (if (eq (car tab) 'current-tab)
+              (propertize (format "[%d]" number) 'face 'mode-line-emphasis)
+            (format "%d" number)))
+        tabs
+        " ")
+       "  "))))
 
-(defun tsp/battery-available-p ()
-  "Return non-nil when Emacs can read a real battery percentage."
-  (and battery-status-function
-       (let* ((data (ignore-errors (funcall battery-status-function)))
-              (percentage (cdr (assq ?p data))))
-         (and (stringp percentage)
-              (string-match-p "\\`[0-9]+\\(?:\\.[0-9]+\\)?\\'"
-                              percentage)))))
+(defun tsp/mode-line-format-with-tabs (format)
+  "Return a copy of mode-line FORMAT with numbered tabs at the left."
+  (let* ((tabs-item '(:eval (tsp/mode-line-tabs)))
+         (result (delete tabs-item (copy-tree format)))
+         (left-edge (memq 'mode-line-front-space result)))
+    (if left-edge
+        (setcdr left-edge (cons tabs-item (cdr left-edge)))
+      (push tabs-item result))
+    result))
 
-(setq battery-mode-line-format " %b%p%%"
-      battery-update-interval 60)
+(defun tsp/install-mode-line-tabs ()
+  "Install the numbered tab segment in the current buffer's mode line."
+  (when (listp mode-line-format)
+    (setq mode-line-format (tsp/mode-line-format-with-tabs mode-line-format))))
 
-(when (tsp/battery-available-p)
-  (display-battery-mode 1))
+;; Remove the former right-side placement when reloading, update both future
+;; and already-existing buffers, and preserve the segment across mode changes.
+(setq global-mode-string
+      (delete '(:eval (tsp/mode-line-tabs)) global-mode-string))
+(setq-default mode-line-format
+              (tsp/mode-line-format-with-tabs
+               (default-value 'mode-line-format)))
+(add-hook 'after-change-major-mode-hook #'tsp/install-mode-line-tabs)
+(dolist (buffer (buffer-list))
+  (with-current-buffer buffer
+    (tsp/install-mode-line-tabs)))
 
 (use-package pulsar
   :custom
@@ -834,6 +878,59 @@ versions reject.  Keep the corrected theme here so tangling reproduces it.
   :config
   (marginalia-mode))
 
+(defcustom tsp/project-search-roots
+  '("~/codecrafter" "~/bootdev" "~/DMUC" "~/" "~/projects"
+    "~/projects/t3project" "~/frontendmasters")
+  "Directories whose immediate children are offered by `tsp/find-project'."
+  :type '(repeat directory)
+  :group 'convenience)
+
+(defun tsp/project-candidates ()
+  "Return the existing immediate subdirectories of project search roots."
+  (let (projects)
+    (dolist (root tsp/project-search-roots)
+      (when-let ((directory (and (file-directory-p root)
+                                 (file-name-as-directory
+                                  (expand-file-name root)))))
+        (dolist (entry (directory-files directory t directory-files-no-dot-files-regexp))
+          (when (file-directory-p entry)
+            (push (file-name-as-directory entry) projects)))))
+    (sort (delete-dups projects) #'string-lessp)))
+
+(defun tsp/find-project ()
+  "Fuzzily select a directory and create Dired and Ghostel project tabs.
+
+The search locations mirror `~/.local/bin/tmux-sessionizer'.  Git and other
+recognized projects are remembered by project.el.  The first tab opens the
+directory in Dired and the second starts a fresh Ghostel terminal there."
+  (interactive)
+  (let* ((projects (tsp/project-candidates))
+         (_ (unless projects (user-error "No project directories found")))
+         (choices (mapcar (lambda (directory)
+                            (cons (abbreviate-file-name
+                                   (directory-file-name directory))
+                                  directory))
+                          projects))
+         (selection (completing-read "Project: " choices nil t))
+         (directory (cdr (assoc selection choices))))
+    (when-let ((project (project-current nil directory)))
+      (project-remember-project project))
+    ;; Reuse the current tab as tab 1 so the project tabs always have stable
+    ;; M-1/M-2 positions, regardless of the tabs that existed beforehand.
+    (tab-bar-close-other-tabs)
+    (let ((default-directory directory))
+      (delete-other-windows)
+      (dired directory)
+      (tab-bar-rename-tab "files")
+      (tab-bar-new-tab)
+      (tab-bar-rename-tab "terminal")
+      ;; A universal prefix asks Ghostel for a fresh buffer instead of reusing
+      ;; a terminal belonging to another project directory.
+      (ghostel '(4)))
+    (tab-bar-select-tab 1)))
+
+(keymap-global-set "C-c p" #'tsp/find-project)
+
 (defun tsp/yank-from-kill-ring ()
   "Yank from the Emacs kill ring, ignoring the system clipboard."
   (interactive)
@@ -888,7 +985,7 @@ versions reject.  Keep the corrected theme here so tangling reproduces it.
   (avy-style 'at-full)
   (avy-keys '(?a ?s ?d ?f ?j ?k ?l ?\; ?g ?h))
   :bind
-  (("M-s" . avy-goto-char-timer)))
+  (("M-s" . avy-goto-word-0)))
 
 (declare-function tsp/better-jumper-set-jump "tsp-completion")
 
@@ -911,7 +1008,7 @@ versions reject.  Keep the corrected theme here so tangling reproduces it.
 
   ;; better-jumper deliberately leaves the definition of a jump to the user.
   ;; Record the origin of the navigation commands used in this config.
-  (dolist (command '(avy-goto-char-timer
+  (dolist (command '(avy-goto-word-0
                      consult-line
                      consult-goto-line
                      consult-imenu
@@ -1240,7 +1337,7 @@ drawer.
 For example, an idea capture initially looks like this:
 
 #+begin_example
-*  :idea:
+,*  :idea:
 :PROPERTIES:
 :CREATED: [2026-07-11 Sat 22:11]
 :END:
@@ -1249,7 +1346,7 @@ For example, an idea capture initially looks like this:
 Fill it in like this:
 
 #+begin_example
-* Add lag simulation to the multiplayer test harness :idea:
+,* Add lag simulation to the multiplayer test harness :idea:
 :PROPERTIES:
 :CREATED: [2026-07-11 Sat 22:11]
 :END:
@@ -1427,8 +1524,8 @@ This file is the source of truth.  After changing the Lisp block below, use
 =M-x org-babel-tangle= to regenerate =lisp/tsp-org.el=, then restart Emacs or
 evaluate the changed forms.
 
-#+begin_src emacs-lisp :tangle lisp/tsp-org.el
-;;; tsp-org.el --- Org configuration -*- lexical-binding: t; -*-
+#+begin_src emacs-lisp :tangle lisp/tsp-org-core.el
+;;; tsp-org-core.el --- Org foundations and workflow helpers -*- lexical-binding: t; -*-
 ;;; Code:
 
 ;; This file is tangled from ../config.org. Edit that file instead.
@@ -1745,6 +1842,13 @@ For safety, only image files inside `tsp/org-assets-directory' are removed."
   (interactive)
   (org-agenda nil "d"))
 
+(defun tsp/org-open-dashboard-on-startup ()
+  "Open the Org agenda dashboard after interactive startup."
+  (when (and (not noninteractive) (not (daemonp)))
+    (tsp/org-open-dashboard)))
+
+(add-hook 'emacs-startup-hook #'tsp/org-open-dashboard-on-startup 99)
+
 (defun tsp/org-clock-out-if-done ()
   "Clock out when the current clocked task enters a done state."
   (when (and (member org-state org-done-keywords)
@@ -1783,6 +1887,21 @@ For safety, only image files inside `tsp/org-assets-directory' are removed."
                           (list target tsp/org-projects-file nil
                                 target-position)))))))))
 
+(provide 'tsp-org-core)
+;;; tsp-org-core.el ends here
+#+end_src
+
+*** HTML generation
+
+Keep the HTML styling and export-file handling separate from the interactive
+Org workflow.
+
+#+begin_src emacs-lisp :tangle lisp/tsp-org-export.el
+;;; tsp-org-export.el --- Org HTML export -*- lexical-binding: t; -*-
+;;; Code:
+
+;; This file is tangled from ../config.org. Edit that file instead.
+
 (use-package htmlize
   :defer t)
 
@@ -1800,7 +1919,7 @@ For safety, only image files inside `tsp/org-assets-directory' are removed."
   --code: #101827;
   --code-text: #e8edf6;
 }
-* { box-sizing: border-box; }
+,* { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
   margin: 0;
@@ -1963,11 +2082,24 @@ break them."
 (advice-add 'org-export-output-file-name :around
             #'tsp/org-export-output-file-in-export-directory)
 
+(provide 'tsp-org-export)
+;;; tsp-org-export.el ends here
+#+end_src
+
+*** Org package and task workflow
+
+#+begin_src emacs-lisp :tangle lisp/tsp-org.el
+;;; tsp-org.el --- Org package and task workflow -*- lexical-binding: t; -*-
+;;; Code:
+
+;; This file is tangled from ../config.org. Edit that file instead.
+
 (use-package org
   :ensure nil
   :bind
   (("C-c a" . org-agenda)
    ("C-c A" . tsp/org-open-dashboard)
+   ("C-c d" . tsp/org-open-dashboard)
    ("C-c c" . org-capture)
    ("C-c l" . org-store-link)
    ("C-c o i" . org-clock-in)
@@ -2108,6 +2240,18 @@ break them."
   (add-hook 'org-tab-first-hook #'tsp/org-expand-source-block)
   (when (boundp 'org-file-apps-gnu)
     (setcdr (assq t org-file-apps-gnu) 'browse-url-xdg-open)))
+
+(provide 'tsp-org)
+;;; tsp-org.el ends here
+#+end_src
+
+*** Org-roam and related applications
+
+#+begin_src emacs-lisp :tangle lisp/tsp-org-roam.el
+;;; tsp-org-roam.el --- Org-roam and Org applications -*- lexical-binding: t; -*-
+;;; Code:
+
+;; This file is tangled from ../config.org. Edit that file instead.
 
 (global-set-key (kbd "C-c o d") #'org-roam-dailies-goto-today)
 (global-set-key (kbd "C-c o D") #'org-roam-dailies-capture-today)
@@ -2257,8 +2401,8 @@ break them."
   :config
   (define-key org-mode-map (kbd "C-c C-r") verb-command-map))
 
-(provide 'tsp-org)
-;;; tsp-org.el ends here
+(provide 'tsp-org-roam)
+;;; tsp-org-roam.el ends here
 #+end_src
 
 * Apps
@@ -2274,24 +2418,50 @@ break them."
   :init
   (setq ghostel-module-auto-install 'download)
   (setq-default ghostel-glyph-scale-floor 1.0)
-  :custom-face
-  (ghostel-default ((t (:foreground "#d1b897" :background "#062329"))))
-  (ghostel-color-black ((t (:foreground "#062329"))))
-  (ghostel-color-red ((t (:foreground "#f92672"))))
-  (ghostel-color-green ((t (:foreground "#44b340"))))
-  (ghostel-color-yellow ((t (:foreground "#fd971f"))))
-  (ghostel-color-blue ((t (:foreground "#66d9ef"))))
-  (ghostel-color-magenta ((t (:foreground "#ae81ff"))))
-  (ghostel-color-cyan ((t (:foreground "#2ec09c"))))
-  (ghostel-color-white ((t (:foreground "#d1b897"))))
-  (ghostel-color-bright-black ((t (:foreground "#126367"))))
-  (ghostel-color-bright-red ((t (:foreground "#ff0000"))))
-  (ghostel-color-bright-green ((t (:foreground "#a6e22e"))))
-  (ghostel-color-bright-yellow ((t (:foreground "#e6db74"))))
-  (ghostel-color-bright-blue ((t (:foreground "#c1d1e3"))))
-  (ghostel-color-bright-magenta ((t (:foreground "#fd5ff0"))))
-  (ghostel-color-bright-cyan ((t (:foreground "#a1efe4"))))
-  (ghostel-color-bright-white ((t (:foreground "#ffffff")))))
+  :config
+  (defun tsp/desktop-theme-palette ()
+    "Read the canonical palette published by the Quickshell theme switcher."
+    (let ((file (expand-file-name "~/.config/tsp-theme/current/colors.toml"))
+          palette)
+      (when (file-readable-p file)
+        (with-temp-buffer
+          (insert-file-contents file)
+          (goto-char (point-min))
+          (while (re-search-forward
+                  "^\\([a-z0-9_]+\\)[[:space:]]*=[[:space:]]*\"\\(#[0-9A-Fa-f]\\{6\\}\\)\""
+                  nil t)
+            (push (cons (intern (match-string 1)) (match-string 2)) palette))))
+      palette))
+
+  (defun tsp/ghostel-apply-desktop-theme (&rest _)
+    "Apply Quickshell's active 16-color palette to every Ghostel terminal."
+    (let* ((palette (tsp/desktop-theme-palette))
+           (foreground (alist-get 'foreground palette))
+           (background (alist-get 'background palette))
+           (faces [ghostel-color-black ghostel-color-red
+                   ghostel-color-green ghostel-color-yellow
+                   ghostel-color-blue ghostel-color-magenta
+                   ghostel-color-cyan ghostel-color-white
+                   ghostel-color-bright-black ghostel-color-bright-red
+                   ghostel-color-bright-green ghostel-color-bright-yellow
+                   ghostel-color-bright-blue ghostel-color-bright-magenta
+                   ghostel-color-bright-cyan ghostel-color-bright-white])
+           (colors (mapcar (lambda (number)
+                             (alist-get (intern (format "color%d" number))
+                                        palette))
+                           (number-sequence 0 15))))
+      (when (and foreground background (not (memq nil colors)))
+        (set-face-attribute 'ghostel-default nil
+                            :foreground foreground :background background)
+        (cl-mapc (lambda (face color)
+                   (set-face-attribute face nil :foreground color))
+                 (append faces nil) colors)
+        (ghostel-sync-theme))))
+
+  ;; This hook is added after Ghostel's own hook, so its default prepend
+  ;; behavior makes the palette update happen before Ghostel redraws buffers.
+  (add-hook 'enable-theme-functions #'tsp/ghostel-apply-desktop-theme)
+  (tsp/ghostel-apply-desktop-theme))
 
 (defun tsp/change-inner-word ()
   "Kill the symbol or word at point, like Vim's `ciw'."
@@ -2389,22 +2559,6 @@ break them."
    ("C-;" . mc/skip-to-next-like-this)
    ("C-:" . mc/skip-to-previous-like-this)))
 
-(use-package symbol-overlay
-  :ensure t
-  :bind
-  (("M-I" . symbol-overlay-put)
-   ("M-n" . symbol-overlay-switch-forward)
-   ("M-p" . symbol-overlay-switch-backward)
-   ("<f7>" . symbol-overlay-mode)
-   ("<f8>" . symbol-overlay-remove-all)))
-
-(use-package symbol-overlay-mc
-  :ensure t
-  :after symbol-overlay
-  :bind
-  (("M-a" . symbol-overlay-mc-mark-all)
-   ("C-c n" . symbol-overlay-mc-mark-all)))
-
 (defun tsp/dired-find-file-vertical-split ()
   "Open the file at point in a new split to the right."
   (interactive)
@@ -2428,90 +2582,6 @@ break them."
    ("C-x M-g" . magit-dispatch))
   :config
   (setq magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
-
-(defun tsp/dashboard-insert-agenda (list-size)
-  "Insert Org agenda items, limited to LIST-SIZE."
-  (require 'org-agenda)
-  (let ((items (dashboard-agenda--sorted-agenda)))
-    (dashboard-insert-section
-     "Agenda for the coming week:"
-     items list-size 'agenda (dashboard-get-shortcut 'agenda)
-     `(lambda (&rest _)
-        (let ((file (get-text-property 0 'dashboard-agenda-file ,el))
-              (point (get-text-property 0 'dashboard-agenda-loc ,el)))
-          (find-file file)
-          (goto-char point)))
-     (format "%s" el))))
-
-(defun tsp/dashboard-org-projects ()
-  "Return unfinished Org projects from `org-agenda-files'."
-  (require 'org)
-  (let (projects)
-    (org-map-entries
-     (lambda ()
-       (when (tsp/org-project-p)
-         (push (propertize (org-get-heading t t t t)
-                           'tsp/org-project-marker (copy-marker (point)))
-               projects)))
-     "+project/-DONE-CANCELLED-SOMEDAY" 'agenda)
-    (nreverse projects)))
-
-(defun tsp/dashboard-insert-org-projects (list-size)
-  "Insert up to LIST-SIZE unfinished projects from the Org agenda."
-  (dashboard-insert-section
-   "Projects:"
-   (tsp/dashboard-org-projects)
-   list-size 'projects (dashboard-get-shortcut 'projects)
-   `(lambda (&rest _)
-      (let ((marker (get-text-property 0 'tsp/org-project-marker ,el)))
-        (when (marker-buffer marker)
-          (pop-to-buffer-same-window (marker-buffer marker))
-          (goto-char marker)
-          (org-show-context))))
-   (format "%s" el)))
-
-(use-package dashboard
-  :ensure t
-  :demand t
-  :bind (("C-c d" . tsp/dashboard-open))
-  :init
-  (setq dashboard-startup-banner 'logo
-        dashboard-image-banner-max-height 96
-        dashboard-banner-logo-title "Welcome back"
-        dashboard-center-content t
-        dashboard-vertically-center-content nil
-        dashboard-set-heading-icons nil
-        dashboard-set-file-icons nil
-        dashboard-show-shortcuts t
-        dashboard-agenda-time-string-format "%Y-%m-%d %H:%M"
-        dashboard-items '((agenda . 7)
-                          (recents . 5)
-                          (projects . 5)))
-  :config
-  (setf (alist-get 'agenda dashboard-item-generators)
-        #'tsp/dashboard-insert-agenda)
-  (setf (alist-get 'projects dashboard-item-generators)
-        #'tsp/dashboard-insert-org-projects)
-  (dashboard-setup-startup-hook))
-
-(defun tsp/dashboard-open ()
-  "Open a freshly rendered dashboard, including after its buffer was killed."
-  (interactive)
-  (when-let ((buffer (get-buffer "*dashboard*")))
-    ;; Do not use `with-current-buffer' here: when this command is invoked
-    ;; from the dashboard, killing BUFFER would leave the unwind code trying
-    ;; to restore a current buffer that no longer exists.
-    (when (provided-mode-derived-p (buffer-local-value 'major-mode buffer)
-                                   'dashboard-mode)
-      (kill-buffer buffer)))
-  (dashboard-open))
-
-(defun tsp/dashboard-open-on-startup ()
-  "Open the dashboard after other startup buffer changes have finished."
-  (when (and (not noninteractive) (not (daemonp)))
-    (tsp/dashboard-open)))
-
-(add-hook 'emacs-startup-hook #'tsp/dashboard-open-on-startup 99)
 
 (use-package exec-path-from-shell
   :ensure t
@@ -2851,7 +2921,38 @@ playlist buffers removed."
 
 (use-package java-ts-mode
   :ensure nil
-  :mode ("\\.java\\'" . java-ts-mode))
+  :mode ("\\.java\\'" . java-ts-mode)
+  :hook (java-ts-mode . tsp/java-setup-buffer))
+
+(defun tsp/java-ts-incomplete-loop-block-p (_node parent _bol)
+  "Return non-nil when PARENT is the block after an incomplete loop header.
+
+Tree-sitter parses `for() {' as an error followed by a generic block while
+the header is being typed.  Recognize that temporary tree so indentation
+continues to behave like a loop body."
+  (and parent
+       (string= (treesit-node-type parent) "block")
+       (save-excursion
+         (goto-char (treesit-node-start parent))
+         (beginning-of-line)
+         (re-search-forward
+          "\\_<\\(?:for\\|while\\)\\_>\\s-*()\\s-*{"
+          (line-end-position) t))))
+
+(defun tsp/java-setup-buffer ()
+  "Keep Java indentation stable while incomplete loop headers are edited."
+  (setq-local treesit-simple-indent-rules
+              (copy-tree treesit-simple-indent-rules))
+  (let ((rules (alist-get 'java treesit-simple-indent-rules)))
+    ;; Add the body rule first so the more specific closing-brace rule ends up
+    ;; ahead of it after both are pushed.
+    (push '(tsp/java-ts-incomplete-loop-block-p
+            parent-bol java-ts-mode-indent-offset)
+          rules)
+    (push '((and (node-is "}") tsp/java-ts-incomplete-loop-block-p)
+            parent-bol 0)
+          rules)
+    (setf (alist-get 'java treesit-simple-indent-rules) rules)))
 
 (add-to-list 'major-mode-remap-alist '(java-mode . java-ts-mode))
 

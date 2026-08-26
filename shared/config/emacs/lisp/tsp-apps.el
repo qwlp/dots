@@ -9,24 +9,50 @@
   :init
   (setq ghostel-module-auto-install 'download)
   (setq-default ghostel-glyph-scale-floor 1.0)
-  :custom-face
-  (ghostel-default ((t (:foreground "#d1b897" :background "#062329"))))
-  (ghostel-color-black ((t (:foreground "#062329"))))
-  (ghostel-color-red ((t (:foreground "#f92672"))))
-  (ghostel-color-green ((t (:foreground "#44b340"))))
-  (ghostel-color-yellow ((t (:foreground "#fd971f"))))
-  (ghostel-color-blue ((t (:foreground "#66d9ef"))))
-  (ghostel-color-magenta ((t (:foreground "#ae81ff"))))
-  (ghostel-color-cyan ((t (:foreground "#2ec09c"))))
-  (ghostel-color-white ((t (:foreground "#d1b897"))))
-  (ghostel-color-bright-black ((t (:foreground "#126367"))))
-  (ghostel-color-bright-red ((t (:foreground "#ff0000"))))
-  (ghostel-color-bright-green ((t (:foreground "#a6e22e"))))
-  (ghostel-color-bright-yellow ((t (:foreground "#e6db74"))))
-  (ghostel-color-bright-blue ((t (:foreground "#c1d1e3"))))
-  (ghostel-color-bright-magenta ((t (:foreground "#fd5ff0"))))
-  (ghostel-color-bright-cyan ((t (:foreground "#a1efe4"))))
-  (ghostel-color-bright-white ((t (:foreground "#ffffff")))))
+  :config
+  (defun tsp/desktop-theme-palette ()
+    "Read the canonical palette published by the Quickshell theme switcher."
+    (let ((file (expand-file-name "~/.config/tsp-theme/current/colors.toml"))
+          palette)
+      (when (file-readable-p file)
+        (with-temp-buffer
+          (insert-file-contents file)
+          (goto-char (point-min))
+          (while (re-search-forward
+                  "^\\([a-z0-9_]+\\)[[:space:]]*=[[:space:]]*\"\\(#[0-9A-Fa-f]\\{6\\}\\)\""
+                  nil t)
+            (push (cons (intern (match-string 1)) (match-string 2)) palette))))
+      palette))
+
+  (defun tsp/ghostel-apply-desktop-theme (&rest _)
+    "Apply Quickshell's active 16-color palette to every Ghostel terminal."
+    (let* ((palette (tsp/desktop-theme-palette))
+           (foreground (alist-get 'foreground palette))
+           (background (alist-get 'background palette))
+           (faces [ghostel-color-black ghostel-color-red
+                   ghostel-color-green ghostel-color-yellow
+                   ghostel-color-blue ghostel-color-magenta
+                   ghostel-color-cyan ghostel-color-white
+                   ghostel-color-bright-black ghostel-color-bright-red
+                   ghostel-color-bright-green ghostel-color-bright-yellow
+                   ghostel-color-bright-blue ghostel-color-bright-magenta
+                   ghostel-color-bright-cyan ghostel-color-bright-white])
+           (colors (mapcar (lambda (number)
+                             (alist-get (intern (format "color%d" number))
+                                        palette))
+                           (number-sequence 0 15))))
+      (when (and foreground background (not (memq nil colors)))
+        (set-face-attribute 'ghostel-default nil
+                            :foreground foreground :background background)
+        (cl-mapc (lambda (face color)
+                   (set-face-attribute face nil :foreground color))
+                 (append faces nil) colors)
+        (ghostel-sync-theme))))
+
+  ;; This hook is added after Ghostel's own hook, so its default prepend
+  ;; behavior makes the palette update happen before Ghostel redraws buffers.
+  (add-hook 'enable-theme-functions #'tsp/ghostel-apply-desktop-theme)
+  (tsp/ghostel-apply-desktop-theme))
 
 (defun tsp/change-inner-word ()
   "Kill the symbol or word at point, like Vim's `ciw'."
@@ -124,22 +150,6 @@
    ("C-;" . mc/skip-to-next-like-this)
    ("C-:" . mc/skip-to-previous-like-this)))
 
-(use-package symbol-overlay
-  :ensure t
-  :bind
-  (("M-I" . symbol-overlay-put)
-   ("M-n" . symbol-overlay-switch-forward)
-   ("M-p" . symbol-overlay-switch-backward)
-   ("<f7>" . symbol-overlay-mode)
-   ("<f8>" . symbol-overlay-remove-all)))
-
-(use-package symbol-overlay-mc
-  :ensure t
-  :after symbol-overlay
-  :bind
-  (("M-a" . symbol-overlay-mc-mark-all)
-   ("C-c n" . symbol-overlay-mc-mark-all)))
-
 (defun tsp/dired-find-file-vertical-split ()
   "Open the file at point in a new split to the right."
   (interactive)
@@ -163,90 +173,6 @@
    ("C-x M-g" . magit-dispatch))
   :config
   (setq magit-display-buffer-function #'magit-display-buffer-same-window-except-diff-v1))
-
-(defun tsp/dashboard-insert-agenda (list-size)
-  "Insert Org agenda items, limited to LIST-SIZE."
-  (require 'org-agenda)
-  (let ((items (dashboard-agenda--sorted-agenda)))
-    (dashboard-insert-section
-     "Agenda for the coming week:"
-     items list-size 'agenda (dashboard-get-shortcut 'agenda)
-     `(lambda (&rest _)
-        (let ((file (get-text-property 0 'dashboard-agenda-file ,el))
-              (point (get-text-property 0 'dashboard-agenda-loc ,el)))
-          (find-file file)
-          (goto-char point)))
-     (format "%s" el))))
-
-(defun tsp/dashboard-org-projects ()
-  "Return unfinished Org projects from `org-agenda-files'."
-  (require 'org)
-  (let (projects)
-    (org-map-entries
-     (lambda ()
-       (when (tsp/org-project-p)
-         (push (propertize (org-get-heading t t t t)
-                           'tsp/org-project-marker (copy-marker (point)))
-               projects)))
-     "+project/-DONE-CANCELLED-SOMEDAY" 'agenda)
-    (nreverse projects)))
-
-(defun tsp/dashboard-insert-org-projects (list-size)
-  "Insert up to LIST-SIZE unfinished projects from the Org agenda."
-  (dashboard-insert-section
-   "Projects:"
-   (tsp/dashboard-org-projects)
-   list-size 'projects (dashboard-get-shortcut 'projects)
-   `(lambda (&rest _)
-      (let ((marker (get-text-property 0 'tsp/org-project-marker ,el)))
-        (when (marker-buffer marker)
-          (pop-to-buffer-same-window (marker-buffer marker))
-          (goto-char marker)
-          (org-show-context))))
-   (format "%s" el)))
-
-(use-package dashboard
-  :ensure t
-  :demand t
-  :bind (("C-c d" . tsp/dashboard-open))
-  :init
-  (setq dashboard-startup-banner 'logo
-        dashboard-image-banner-max-height 96
-        dashboard-banner-logo-title "Welcome back"
-        dashboard-center-content t
-        dashboard-vertically-center-content nil
-        dashboard-set-heading-icons nil
-        dashboard-set-file-icons nil
-        dashboard-show-shortcuts t
-        dashboard-agenda-time-string-format "%Y-%m-%d %H:%M"
-        dashboard-items '((agenda . 7)
-                          (recents . 5)
-                          (projects . 5)))
-  :config
-  (setf (alist-get 'agenda dashboard-item-generators)
-        #'tsp/dashboard-insert-agenda)
-  (setf (alist-get 'projects dashboard-item-generators)
-        #'tsp/dashboard-insert-org-projects)
-  (dashboard-setup-startup-hook))
-
-(defun tsp/dashboard-open ()
-  "Open a freshly rendered dashboard, including after its buffer was killed."
-  (interactive)
-  (when-let ((buffer (get-buffer "*dashboard*")))
-    ;; Do not use `with-current-buffer' here: when this command is invoked
-    ;; from the dashboard, killing BUFFER would leave the unwind code trying
-    ;; to restore a current buffer that no longer exists.
-    (when (provided-mode-derived-p (buffer-local-value 'major-mode buffer)
-                                   'dashboard-mode)
-      (kill-buffer buffer)))
-  (dashboard-open))
-
-(defun tsp/dashboard-open-on-startup ()
-  "Open the dashboard after other startup buffer changes have finished."
-  (when (and (not noninteractive) (not (daemonp)))
-    (tsp/dashboard-open)))
-
-(add-hook 'emacs-startup-hook #'tsp/dashboard-open-on-startup 99)
 
 (use-package exec-path-from-shell
   :ensure t

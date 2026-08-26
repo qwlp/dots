@@ -379,11 +379,11 @@ binds {
     Mod+Shift+Slash { show-hotkey-overlay; }
 
     // Suggested binds for running programs: terminal, app launcher, screen locker.
-    // Mod+Return { spawn-sh "ghostty --working-directory='$(omarchy-cmd-terminal-cwd)'"; }
-    Mod+Return { spawn-sh "kitty --directory \"$(omarchy-cmd-terminal-cwd)\""; }
-    // Mod+Return { spawn-sh "foot -D \"$(omarchy-cmd-terminal-cwd)\""; }
+    // Mod+Return { spawn-sh "ghostty --working-directory=\"$(tsp-terminal-cwd)\""; }
+    Mod+Return { spawn-sh "kitty --directory \"$(tsp-terminal-cwd)\""; }
+    // Mod+Return { spawn-sh "foot -D \"$(tsp-terminal-cwd)\""; }
     Mod+F { spawn-sh "nautilus-niri" ; }
-    // Mod+F { spawn-sh "kitty yazi \"$(omarchy-cmd-terminal-cwd)\"" ; }
+    // Mod+F { spawn-sh "kitty yazi \"$(tsp-terminal-cwd)\"" ; }
     Mod+Shift+O { spawn "obsidian"; }
     Mod+B { spawn "/home/tsp/.config/quickshell/scripts/brave-origin-themed"; }
     Mod+Shift+B { spawn "foot" "--app-id=waybar-popup" "--window-size-chars=80x24" "-e" "bluetui"; }

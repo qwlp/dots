@@ -151,7 +151,38 @@
 
 (use-package java-ts-mode
   :ensure nil
-  :mode ("\\.java\\'" . java-ts-mode))
+  :mode ("\\.java\\'" . java-ts-mode)
+  :hook (java-ts-mode . tsp/java-setup-buffer))
+
+(defun tsp/java-ts-incomplete-loop-block-p (_node parent _bol)
+  "Return non-nil when PARENT is the block after an incomplete loop header.
+
+Tree-sitter parses `for() {' as an error followed by a generic block while
+the header is being typed.  Recognize that temporary tree so indentation
+continues to behave like a loop body."
+  (and parent
+       (string= (treesit-node-type parent) "block")
+       (save-excursion
+         (goto-char (treesit-node-start parent))
+         (beginning-of-line)
+         (re-search-forward
+          "\\_<\\(?:for\\|while\\)\\_>\\s-*()\\s-*{"
+          (line-end-position) t))))
+
+(defun tsp/java-setup-buffer ()
+  "Keep Java indentation stable while incomplete loop headers are edited."
+  (setq-local treesit-simple-indent-rules
+              (copy-tree treesit-simple-indent-rules))
+  (let ((rules (alist-get 'java treesit-simple-indent-rules)))
+    ;; Add the body rule first so the more specific closing-brace rule ends up
+    ;; ahead of it after both are pushed.
+    (push '(tsp/java-ts-incomplete-loop-block-p
+            parent-bol java-ts-mode-indent-offset)
+          rules)
+    (push '((and (node-is "}") tsp/java-ts-incomplete-loop-block-p)
+            parent-bol 0)
+          rules)
+    (setf (alist-get 'java treesit-simple-indent-rules) rules)))
 
 (add-to-list 'major-mode-remap-alist '(java-mode . java-ts-mode))
 

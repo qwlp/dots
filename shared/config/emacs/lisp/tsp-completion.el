@@ -24,6 +24,59 @@
   :config
   (marginalia-mode))
 
+(defcustom tsp/project-search-roots
+  '("~/codecrafter" "~/bootdev" "~/DMUC" "~/" "~/projects"
+    "~/projects/t3project" "~/frontendmasters")
+  "Directories whose immediate children are offered by `tsp/find-project'."
+  :type '(repeat directory)
+  :group 'convenience)
+
+(defun tsp/project-candidates ()
+  "Return the existing immediate subdirectories of project search roots."
+  (let (projects)
+    (dolist (root tsp/project-search-roots)
+      (when-let ((directory (and (file-directory-p root)
+                                 (file-name-as-directory
+                                  (expand-file-name root)))))
+        (dolist (entry (directory-files directory t directory-files-no-dot-files-regexp))
+          (when (file-directory-p entry)
+            (push (file-name-as-directory entry) projects)))))
+    (sort (delete-dups projects) #'string-lessp)))
+
+(defun tsp/find-project ()
+  "Fuzzily select a directory and create Dired and Ghostel project tabs.
+
+The search locations mirror `~/.local/bin/tmux-sessionizer'.  Git and other
+recognized projects are remembered by project.el.  The first tab opens the
+directory in Dired and the second starts a fresh Ghostel terminal there."
+  (interactive)
+  (let* ((projects (tsp/project-candidates))
+         (_ (unless projects (user-error "No project directories found")))
+         (choices (mapcar (lambda (directory)
+                            (cons (abbreviate-file-name
+                                   (directory-file-name directory))
+                                  directory))
+                          projects))
+         (selection (completing-read "Project: " choices nil t))
+         (directory (cdr (assoc selection choices))))
+    (when-let ((project (project-current nil directory)))
+      (project-remember-project project))
+    ;; Reuse the current tab as tab 1 so the project tabs always have stable
+    ;; M-1/M-2 positions, regardless of the tabs that existed beforehand.
+    (tab-bar-close-other-tabs)
+    (let ((default-directory directory))
+      (delete-other-windows)
+      (dired directory)
+      (tab-bar-rename-tab "files")
+      (tab-bar-new-tab)
+      (tab-bar-rename-tab "terminal")
+      ;; A universal prefix asks Ghostel for a fresh buffer instead of reusing
+      ;; a terminal belonging to another project directory.
+      (ghostel '(4)))
+    (tab-bar-select-tab 1)))
+
+(keymap-global-set "C-c p" #'tsp/find-project)
+
 (defun tsp/yank-from-kill-ring ()
   "Yank from the Emacs kill ring, ignoring the system clipboard."
   (interactive)
@@ -78,7 +131,7 @@
   (avy-style 'at-full)
   (avy-keys '(?a ?s ?d ?f ?j ?k ?l ?\; ?g ?h))
   :bind
-  (("M-s" . avy-goto-char-timer)))
+  (("M-s" . avy-goto-word-0)))
 
 (declare-function tsp/better-jumper-set-jump "tsp-completion")
 
@@ -101,7 +154,7 @@
 
   ;; better-jumper deliberately leaves the definition of a jump to the user.
   ;; Record the origin of the navigation commands used in this config.
-  (dolist (command '(avy-goto-char-timer
+  (dolist (command '(avy-goto-word-0
                      consult-line
                      consult-goto-line
                      consult-imenu

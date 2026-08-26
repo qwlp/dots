@@ -10,28 +10,56 @@
 
 (setq inhibit-startup-screen t)
 (setq-default truncate-lines t)
+(set-face-attribute 'default nil :font "LythMono Nerd Font 13")
 
-(setq display-time-format "%H:%M"
-      display-time-default-load-average nil
-      display-time-interval 60)
-(display-time-mode 1)
+(display-time-mode -1)
+(display-battery-mode -1)
+(when (fboundp 'winum-mode)
+  (winum-mode -1))
 
-(require 'battery)
+(defun tsp/mode-line-tabs ()
+  "Return numbered Emacs tabs for display in the mode line."
+  (let ((tabs (funcall tab-bar-tabs-function))
+        (number 0))
+    (when (> (length tabs) 1)
+      (concat
+       " tabs: "
+       (mapconcat
+        (lambda (tab)
+          (setq number (1+ number))
+          (if (eq (car tab) 'current-tab)
+              (propertize (format "[%d]" number) 'face 'mode-line-emphasis)
+            (format "%d" number)))
+        tabs
+        " ")
+       "  "))))
 
-(defun tsp/battery-available-p ()
-  "Return non-nil when Emacs can read a real battery percentage."
-  (and battery-status-function
-       (let* ((data (ignore-errors (funcall battery-status-function)))
-              (percentage (cdr (assq ?p data))))
-         (and (stringp percentage)
-              (string-match-p "\\`[0-9]+\\(?:\\.[0-9]+\\)?\\'"
-                              percentage)))))
+(defun tsp/mode-line-format-with-tabs (format)
+  "Return a copy of mode-line FORMAT with numbered tabs at the left."
+  (let* ((tabs-item '(:eval (tsp/mode-line-tabs)))
+         (result (delete tabs-item (copy-tree format)))
+         (left-edge (memq 'mode-line-front-space result)))
+    (if left-edge
+        (setcdr left-edge (cons tabs-item (cdr left-edge)))
+      (push tabs-item result))
+    result))
 
-(setq battery-mode-line-format " %b%p%%"
-      battery-update-interval 60)
+(defun tsp/install-mode-line-tabs ()
+  "Install the numbered tab segment in the current buffer's mode line."
+  (when (listp mode-line-format)
+    (setq mode-line-format (tsp/mode-line-format-with-tabs mode-line-format))))
 
-(when (tsp/battery-available-p)
-  (display-battery-mode 1))
+;; Remove the former right-side placement when reloading, update both future
+;; and already-existing buffers, and preserve the segment across mode changes.
+(setq global-mode-string
+      (delete '(:eval (tsp/mode-line-tabs)) global-mode-string))
+(setq-default mode-line-format
+              (tsp/mode-line-format-with-tabs
+               (default-value 'mode-line-format)))
+(add-hook 'after-change-major-mode-hook #'tsp/install-mode-line-tabs)
+(dolist (buffer (buffer-list))
+  (with-current-buffer buffer
+    (tsp/install-mode-line-tabs)))
 
 (use-package pulsar
   :custom

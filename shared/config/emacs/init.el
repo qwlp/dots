@@ -28,7 +28,10 @@
 (load "tsp-core")
 (load "tsp-ui")
 (load "tsp-completion")
+(load "tsp-org-core")
+(load "tsp-org-export")
 (load "tsp-org")
+(load "tsp-org-roam")
 (load "tsp-apps")
 (load "tsp-prog")
 

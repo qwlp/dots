@@ -67,7 +67,7 @@
 (setq-default bidi-display-reordering t
               bidi-paragraph-direction nil
               cursor-in-non-selected-windows nil
-              cursor-type 'bar
+              cursor-type 'box
               indent-tabs-mode nil
               tab-width 4)
 
@@ -243,8 +243,8 @@ region keep their positions within the moved text."
 (when (eq (keymap-global-lookup "s-p") #'tsp/move-lines-up)
   (keymap-global-unset "s-p"))
 
-;; Hold Alt+Shift and tap n/p repeatedly.  Lowercase Meta-n/p remain available
-;; to symbol-overlay and Control-n/p keep normal line navigation.
+;; Hold Alt+Shift and tap n/p repeatedly.  Control-n/p retain normal line
+;; navigation.
 (keymap-global-set "M-N" #'tsp/move-lines-down)
 (keymap-global-set "M-P" #'tsp/move-lines-up)
 
@@ -265,10 +265,9 @@ region keep their positions within the moved text."
                      (emacs-init-time)
                      gcs-done)))
 
-(setq custom-file (expand-file-name "custom.el" user-emacs-directory))
-
-(when (file-exists-p custom-file)
-  (load custom-file))
+;; Keep Customize's generated output out of the source-controlled config.
+;; Intentional settings belong in this literate configuration instead.
+(setq custom-file (tsp/emacs-state-file "custom.el"))
 
 (setq backup-directory-alist `(("." . ,(tsp/emacs-cache-file "backups/")))
       auto-save-file-name-transforms
@@ -298,22 +297,45 @@ region keep their positions within the moved text."
     (require 'org)
     (org-babel-tangle-file config)))
 
-(defun tsp/reload-config ()
-  "Tangle and reload the Emacs config.
+(defvar tsp/reloading-config-p nil
+  "Non-nil while the literate configuration is being reloaded.")
 
-This reloads the generated init file with `load' instead of relying on
-`require', so already-loaded local modules are evaluated again in daemon
-sessions."
+(defun tsp/reload-config ()
+  "Tangle and reload the config in the current Emacs process.
+
+In a daemon session this updates the server and redraws every attached client
+frame.  Early-init settings are intentionally not reevaluated because they are
+only meaningful while the Emacs process is starting."
   (interactive)
-  (let ((init-file (or user-init-file (tsp/config-file "init.el"))))
-    ;; Loading the UI module recalculates theme faces.  Do not display the
-    ;; short-lived default (white) face state between those calculations.
-    (let ((inhibit-redisplay t))
-      (tsp/tangle-config)
-      (load init-file nil nil t)
-      (force-mode-line-update t))
-    (redisplay t)
-    (message "Reloaded Emacs config from %s" init-file)))
+  (when tsp/reloading-config-p
+    (user-error "The Emacs configuration is already being reloaded"))
+  (let ((init-file (or user-init-file (tsp/config-file "init.el")))
+        (started-at (current-time))
+        (tsp/reloading-config-p t))
+    (condition-case error-data
+        (progn
+          ;; Loading the UI module recalculates theme faces.  Do not show the
+          ;; short-lived default face state between those calculations.
+          (let ((inhibit-redisplay t))
+            (tsp/tangle-config)
+            (load init-file nil nil t)
+            (dolist (frame (frame-list))
+              (when (frame-live-p frame)
+                (with-selected-frame frame
+                  (when (fboundp 'tsp/configure-script-fonts)
+                    (tsp/configure-script-fonts frame))
+                  (force-mode-line-update t)))))
+          ;; Force pending updates without clearing every frame first.  A full
+          ;; `redraw-display' briefly exposes the frame's white backing surface
+          ;; on some compositors.
+          (redisplay t)
+          (message "Reloaded Emacs config in %.2fs%s"
+                   (float-time (time-subtract (current-time) started-at))
+                   (if (daemonp) " for all daemon frames" "")))
+      (error
+       (redisplay t)
+       (message "Config reload failed: %s" (error-message-string error-data))
+       (signal (car error-data) (cdr error-data))))))
 
 (keymap-global-set "C-c r" #'tsp/reload-config)
 
@@ -323,34 +345,44 @@ sessions."
 (keymap-global-set "C-c i E" #'emoji-list)
 (keymap-global-set "C-c i r" #'emoji-recent)
 
-;; Window selection, layout history, numbering, and temporary popups.
-(use-package ace-window
-  :ensure t
-  :bind
-  (("C-x o" . ace-window)
-   ("C-x O" . tsp/ace-window-dispatch))
-  :custom
-  (aw-scope 'frame)
-  (aw-background t)
-  (aw-keys '(?a ?s ?d ?f ?g ?h ?j ?k ?l))
-  ;; Keep the action keys distinct from the home-row selection labels.
-  (aw-dispatch-alist
-   '((?x aw-delete-window "Delete window")
-     (?m aw-swap-window "Swap windows")
-     (?v aw-split-window-vert "Split window right")
-     (?b aw-split-window-horz "Split window below")
-     (?o delete-other-windows "Maximize window")
-     (?? aw-show-dispatch-help)))
-  :config
-  (defun tsp/ace-window-dispatch ()
-    "Select an Ace Window action, even when only one or two windows exist."
-    (interactive)
-    (let ((aw-dispatch-always t))
-      (ace-window))))
-
+;; Window layout history, project tabs, and temporary popups.
 (winner-mode 1)
-(tab-bar-history-mode -1)
-(tab-bar-mode -1)
+(setq tab-bar-show nil)
+(tab-bar-mode 1)
+(tab-bar-history-mode 1)
+
+;; Keep tmux-style navigation ahead of major and minor mode bindings.  Binding
+;; `tab-bar-select-tab' directly lets it infer the tab number from the digit.
+(defvar tsp/navigation-keys-mode t)
+(defvar tsp/navigation-keys-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (digit '(1 2 3 4 5 6 7 8 9))
+      (define-key map (kbd (format "M-%d" digit)) #'tab-bar-select-tab))
+    (define-key map (kbd "M-h") #'windmove-left)
+    (define-key map (kbd "M-l") #'windmove-right)
+    map))
+(define-key tsp/navigation-keys-mode-map (kbd "C-S-t") #'tab-bar-new-tab)
+(define-key tsp/navigation-keys-mode-map (kbd "M-S-q") #'tab-bar-close-tab)
+(define-key tsp/navigation-keys-mode-map (kbd "M-Q") #'tab-bar-close-tab)
+
+(defvar tsp/navigation-keys-emulation-alist
+  `((tsp/navigation-keys-mode . ,tsp/navigation-keys-mode-map)))
+
+(defun tsp/prioritize-navigation-keys ()
+  "Keep tab and window navigation ahead of terminal emulation maps."
+  ;; Delete the older literal entry too, so reloading upgrades this setting
+  ;; without requiring an Emacs restart.
+  (setq emulation-mode-map-alists
+        (delete tsp/navigation-keys-emulation-alist
+                emulation-mode-map-alists))
+  (setq emulation-mode-map-alists
+        (cons 'tsp/navigation-keys-emulation-alist
+              (delete 'tsp/navigation-keys-emulation-alist
+                      emulation-mode-map-alists))))
+
+(tsp/prioritize-navigation-keys)
+(with-eval-after-load 'ghostel
+  (tsp/prioritize-navigation-keys))
 
 ;; Match Kitty's pane-management keys.
 (keymap-global-set "M-V" #'split-window-right)
@@ -375,25 +407,6 @@ sessions."
   (keymap-global-set key #'tsp/window-layout-one-column))
 (dolist (key '("M-S-2" "M-@"))
   (keymap-global-set key #'tsp/window-layout-two-columns))
-
-(use-package winum
-  :ensure t
-  :demand t
-  :custom
-  (winum-auto-setup-mode-line t)
-  :bind
-  (("M-0" . winum-select-window-0-or-10)
-   ("M-1" . winum-select-window-1)
-   ("M-2" . winum-select-window-2)
-   ("M-3" . winum-select-window-3)
-   ("M-4" . winum-select-window-4)
-   ("M-5" . winum-select-window-5)
-   ("M-6" . winum-select-window-6)
-   ("M-7" . winum-select-window-7)
-   ("M-8" . winum-select-window-8)
-   ("M-9" . winum-select-window-9))
-  :config
-  (winum-mode 1))
 
 (use-package popper
   :ensure t
