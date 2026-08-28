@@ -27,6 +27,9 @@
           "lifeExpectancy": 90
         },
         {
+          "id": "tsp.screen-time"
+        },
+        {
           "id": "tsp.media"
         }
       ],

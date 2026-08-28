@@ -550,7 +550,7 @@ only meaningful while the Emacs process is starting."
 
 (setq inhibit-startup-screen t)
 (setq-default truncate-lines t)
-(set-face-attribute 'default nil :font "LythMono Nerd Font 13")
+(set-face-attribute 'default nil :font "IosevkaTerm Nerd Font 13")
 
 (display-time-mode -1)
 (display-battery-mode -1)
@@ -2246,6 +2246,17 @@ break them."
   :config
   (require 'org-habit)
   (require 'org-clock)
+  (dolist (face-height '((org-level-1 . 1.40)
+                         (org-level-2 . 1.30)
+                         (org-level-3 . 1.20)
+                         (org-level-4 . 1.15)
+                         (org-level-5 . 1.10)
+                         (org-level-6 . 1.05)
+                         (org-level-7 . 1.00)
+                         (org-level-8 . 1.00)))
+    (set-face-attribute (car face-height) nil
+                        :height (cdr face-height)
+                        :weight 'bold))
   (add-to-list 'org-src-lang-modes '("go" . go-ts))
   (add-to-list 'org-src-lang-modes '("java" . java-ts))
   (org-babel-do-load-languages
@@ -2823,6 +2834,10 @@ playlist buffers removed."
     (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
     (jai "https://github.com/constantitus/tree-sitter-jai")
     (java "https://github.com/tree-sitter/tree-sitter-java")
+    (markdown "https://github.com/tree-sitter-grammars/tree-sitter-markdown"
+              :source-dir "tree-sitter-markdown/src")
+    (markdown-inline "https://github.com/tree-sitter-grammars/tree-sitter-markdown"
+                     :source-dir "tree-sitter-markdown-inline/src")
     (typst "https://github.com/uben0/tree-sitter-typst"))
   "Tree-sitter grammars managed by this config.")
 
@@ -2832,7 +2847,126 @@ playlist buffers removed."
 (setq treesit-auto-install-grammar 'always)
 (customize-set-variable
  'treesit-enabled-modes
- '(c-ts-mode c++-ts-mode go-ts-mode go-mod-ts-mode java-ts-mode))
+ '(c-ts-mode c++-ts-mode go-ts-mode go-mod-ts-mode java-ts-mode
+   markdown-ts-mode))
+
+(defun tsp/markdown-in-unfillable-block-p ()
+  "Return non-nil when point is in Markdown code or a pipe table."
+  (let ((node (treesit-node-at (max (point-min) (1- (point))) 'markdown))
+        found)
+    (while (and node (not found))
+      (when (member (treesit-node-type node)
+                    '("fenced_code_block" "indented_code_block" "pipe_table"))
+        (setq found t))
+      (setq node (treesit-node-parent node)))
+    found))
+
+(defun tsp/markdown-auto-fill ()
+  "Auto-fill Markdown prose, but never code blocks or pipe tables."
+  (unless (tsp/markdown-in-unfillable-block-p)
+    ;; Auto Fill does not need Markdown's structural paragraph motion.  Using
+    ;; the generic motion also handles a brand-new file with no final newline.
+    (let ((fill-forward-paragraph-function #'forward-paragraph))
+      (do-auto-fill))))
+
+(defun tsp/markdown-expand-source-block ()
+  "Expand an indented `,LANGUAGE' at point into a fenced code block."
+  (when (and (not (tsp/markdown-in-unfillable-block-p))
+             (looking-back
+              "^\\([[:blank:]]*\\),\\([[:alnum:]_+.-]+\\)"
+              (line-beginning-position)))
+    (let* ((indent (match-string-no-properties 1))
+           (short-name (match-string-no-properties 2))
+           (language (or (cdr (assoc-string
+                               short-name
+                               tsp/org-source-language-aliases
+                               t))
+                         short-name)))
+      (delete-region (line-beginning-position) (point))
+      (insert indent "```" language "\n"
+              indent "\n"
+              indent "```")
+      (forward-line -1)
+      (end-of-line)
+      t)))
+
+(defun tsp/markdown-auto-expand-source-block ()
+  "Expand configured `,LANGUAGE' shortcuts without requiring Tab."
+  (when (and (characterp last-command-event)
+             (memq (char-syntax last-command-event) '(?w ?_))
+             (looking-back
+              (concat "^\\([[:blank:]]*\\),\\("
+                      (regexp-opt tsp/org-auto-source-languages)
+                      "\\)")
+              (line-beginning-position)))
+    (tsp/markdown-expand-source-block)))
+
+(defun tsp/markdown-setup-buffer ()
+  "Hard-wrap Markdown prose at 80 columns, leaving code blocks alone."
+  (setq-local fill-column 80
+              sentence-end-double-space nil
+              normal-auto-fill-function #'tsp/markdown-auto-fill)
+  (auto-fill-mode 1)
+  (display-fill-column-indicator-mode 1)
+  (add-hook 'post-self-insert-hook
+            #'tsp/markdown-auto-expand-source-block nil t))
+
+(defun tsp/markdown--next-image-file (assets-directory stem extension)
+  "Return the next numbered image path for STEM in ASSETS-DIRECTORY."
+  (let ((regexp (format "\\`%s\\([0-9]+\\)\\.[^.]+\\'"
+                        (regexp-quote stem)))
+        (next-number 0))
+    (when (file-directory-p assets-directory)
+      (dolist (name (directory-files assets-directory nil nil t))
+        (when (string-match regexp name)
+          (setq next-number
+                (max next-number (1+ (string-to-number (match-string 1 name))))))))
+    (expand-file-name (format "%s%d.%s" stem next-number extension)
+                      assets-directory)))
+
+(defun tsp/markdown-paste-clipboard-image ()
+  "Save the clipboard image beside this Markdown file and insert its link."
+  (interactive)
+  (unless (and (derived-mode-p 'markdown-ts-mode) buffer-file-name)
+    (user-error "Save this Markdown buffer before pasting an image"))
+  (let* ((spec (tsp/org--clipboard-image-spec))
+         (extension (car spec))
+         (program (cadr spec))
+         (arguments (cddr spec))
+         (base-directory (file-name-directory buffer-file-name))
+         (assets-directory (expand-file-name "assets/" base-directory))
+         (stem (file-name-base buffer-file-name))
+         (file (tsp/markdown--next-image-file
+                assets-directory stem extension)))
+    (make-directory assets-directory t)
+    (if (string= program "pngpaste")
+        (unless (zerop (call-process program nil nil nil file))
+          (user-error "Could not read a PNG image from the clipboard"))
+      (let ((coding-system-for-write 'binary))
+        (with-temp-buffer
+          (set-buffer-multibyte nil)
+          (unless (zerop (apply #'call-process program nil t nil arguments))
+            (user-error "Could not read an image from the clipboard"))
+          (write-region (point-min) (point-max) file nil 'silent))))
+    (insert (format "![](./assets/%s)" (file-name-nondirectory file)))
+    (message "Saved clipboard image to %s" file)))
+
+(use-package markdown-ts-mode
+  :ensure nil
+  :mode ("\\.md\\'" "\\.markdown\\'")
+  :bind (:map markdown-ts-mode-map
+              ("C-c C-v" . tsp/markdown-paste-clipboard-image))
+  :hook (markdown-ts-mode . tsp/markdown-setup-buffer)
+  :config
+  (dolist (face-height '((markdown-ts-heading-1 . 1.40)
+                         (markdown-ts-heading-2 . 1.30)
+                         (markdown-ts-heading-3 . 1.20)
+                         (markdown-ts-heading-4 . 1.15)
+                         (markdown-ts-heading-5 . 1.10)
+                         (markdown-ts-heading-6 . 1.05)))
+    (set-face-attribute (car face-height) nil
+                        :height (cdr face-height)
+                        :weight 'bold)))
 
 (defun tsp/treesit-grand-parent-bol (_node parent &rest _)
   "Return the first non-whitespace position on PARENT's parent line."

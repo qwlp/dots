@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "tsp.screen-time",
+  "name": "Screen Time",
+  "version": "1.0.0",
+  "author": "TSP",
+  "description": "Focused application time and daily history",
+  "kinds": ["bar-widget"],
+  "entryPoints": { "barWidget": "BarWidget.qml" },
+  "barWidget": {
+    "displayName": "Screen Time",
+    "description": "Focused application time and daily history",
+    "category": "Time",
+    "allowMultiple": false
+  }
+}

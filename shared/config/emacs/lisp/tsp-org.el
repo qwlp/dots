@@ -138,6 +138,17 @@
   :config
   (require 'org-habit)
   (require 'org-clock)
+  (dolist (face-height '((org-level-1 . 1.40)
+                         (org-level-2 . 1.30)
+                         (org-level-3 . 1.20)
+                         (org-level-4 . 1.15)
+                         (org-level-5 . 1.10)
+                         (org-level-6 . 1.05)
+                         (org-level-7 . 1.00)
+                         (org-level-8 . 1.00)))
+    (set-face-attribute (car face-height) nil
+                        :height (cdr face-height)
+                        :weight 'bold))
   (add-to-list 'org-src-lang-modes '("go" . go-ts))
   (add-to-list 'org-src-lang-modes '("java" . java-ts))
   (org-babel-do-load-languages

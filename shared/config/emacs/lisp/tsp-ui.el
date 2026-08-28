@@ -10,7 +10,7 @@
 
 (setq inhibit-startup-screen t)
 (setq-default truncate-lines t)
-(set-face-attribute 'default nil :font "LythMono Nerd Font 13")
+(set-face-attribute 'default nil :font "IosevkaTerm Nerd Font 13")
 
 (display-time-mode -1)
 (display-battery-mode -1)
