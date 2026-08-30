@@ -308,32 +308,6 @@ spawn-at-startup "emacs" "--daemon"
 //     clip-to-geometry true
 // }
 
-
-// Top-centered AyuGram dropdown toggled with Mod+T.
-window-rule {
-    match app-id=r#"^com\.ayugram\.desktop$"#
-    open-floating true
-    open-focused true
-    default-floating-position x=0 y=10 relative-to="top"
-    default-column-width { proportion 0.8; }
-    default-window-height { proportion 0.75; }
-    border {
-        on
-        width 2
-        active-color "#ffffff"
-        inactive-color "#ffffff"
-    }
-}
-
-// Keep AyuGram's media viewer from taking over the workspace.
-window-rule {
-    match app-id=r#"^com\.ayugram\.desktop$"# title=r#"^Media viewer$"#
-    open-fullscreen false
-    open-floating true
-    default-column-width { proportion 0.65; }
-    default-window-height { proportion 0.75; }
-}
-
 // Perplexity installed as a lightweight Helium web app, summoned with Mod+I.
 window-rule {
     match app-id="^chrome-www.perplexity.ai__-Default$"
