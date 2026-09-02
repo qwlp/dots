@@ -345,6 +345,28 @@ only meaningful while the Emacs process is starting."
 (keymap-global-set "C-c i E" #'emoji-list)
 (keymap-global-set "C-c i r" #'emoji-recent)
 
+(defvar tsp/mark-next-word-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "w" #'tsp/mark-next-word)
+    map)
+  "Transient map used to repeat `tsp/mark-next-word' with `w'.")
+
+(defun tsp/mark-next-word ()
+  "Select one more word ahead without moving point.
+After invoking this command with `C-c w', further `w' keys extend the
+selection while point stays where it was."
+  (interactive)
+  (let ((end (if (use-region-p) (mark) (point))))
+    (set-mark
+     (save-excursion
+       (goto-char end)
+       (forward-word 1)
+       (point)))
+    (activate-mark)
+    (set-transient-map tsp/mark-next-word-map t)))
+
+(keymap-global-set "C-c w" #'tsp/mark-next-word)
+
 ;; Window layout history, project tabs, and temporary popups.
 (winner-mode 1)
 (setq tab-bar-show nil)

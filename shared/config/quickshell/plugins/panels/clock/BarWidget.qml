@@ -165,16 +165,19 @@ BarWidget {
       Repeater {
         model: root.verticalLines
 
-        OpticalGlyph {
+        Text {
           required property string modelData
           width: button.width
           height: root.verticalLineHeight
           text: modelData
-          fontFamily: button.fontFamily
-          fontSize: modelData.length > 3
+          font.family: button.fontFamily
+          font.pixelSize: modelData.length > 3
             ? button.fontSize * 0.9
             : button.fontSize
           color: button.foreground
+          horizontalAlignment: Text.AlignHCenter
+          verticalAlignment: Text.AlignVCenter
+          renderType: Text.NativeRendering
         }
       }
     }

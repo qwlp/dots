@@ -78,11 +78,15 @@ between summons within a single shell session.
 
 ## Lock screen
 
-Session-lock surface using Quickshell's native `WlSessionLock` and two
-separate PAM services: `omarchy-lock-password` for password auth and,
-only when fingerprints are enrolled, `omarchy-lock-fingerprint` for
-fingerprint auth. It mirrors the previous lock screen field dimensions,
-colors, blurred wallpaper, placeholder, and Hyprland-driven corners.
+Minimal session-lock surface using Quickshell's native `WlSessionLock` and
+the system `login` PAM service for password authentication. It uses a
+solid black background and centered password field without adding fingerprint,
+idle, or power-management behavior.
+
+The separate idle service locks the session after 500 seconds and powers off
+the monitors after 550 seconds. Activity powers the monitors back on and
+restores brightness. It replaces Hypridle while continuing to respect idle
+inhibitors and the bar's stay-awake toggle.
 
 ## Polkit agent
 

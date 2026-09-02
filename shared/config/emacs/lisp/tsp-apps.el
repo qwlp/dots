@@ -5,10 +5,33 @@
 
 (use-package ghostel
   :ensure t
-  :commands ghostel
+  :commands (ghostel ghostel-create)
   :init
   (setq ghostel-module-auto-install 'download)
   (setq-default ghostel-glyph-scale-floor 1.0)
+
+  (defun ghostel-new ()
+    "Open a fresh Ghostel terminal in the current window."
+    (interactive)
+    (switch-to-buffer (ghostel-create)))
+
+  (defun ghostel-new-right ()
+    "Open a fresh Ghostel terminal in a new window on the right."
+    (interactive)
+    (select-window (split-window-right))
+    (ghostel-new))
+
+  (defun ghostel-new-below ()
+    "Open a fresh Ghostel terminal in a new window below."
+    (interactive)
+    (select-window (split-window-below))
+    (ghostel-new))
+
+  (defun ghostel-new-tab ()
+    "Open a fresh Ghostel terminal in a new tab."
+    (interactive)
+    (tab-bar-new-tab)
+    (ghostel-new))
   :config
   (defun tsp/desktop-theme-palette ()
     "Read the canonical palette published by the Quickshell theme switcher."

@@ -4,7 +4,7 @@
   "name": "Idle",
   "version": "1.0.0",
   "author": "TSP",
-  "description": "Quickshell-based idle detection for screensaver, lock, and display wake.",
+  "description": "Minimal Quickshell idle locking and monitor power management.",
   "kinds": [
     "service"
   ],

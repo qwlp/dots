@@ -35,10 +35,6 @@ ShellRoot {
   // closely enough to render a usable bar; not authoritative.
   readonly property var builtinShellConfig: ({
     version: 1,
-    idle: {
-      screensaver: 150,
-      lock: 300
-    },
     bar: {
       position: "top",
       transparent: false,
@@ -335,9 +331,11 @@ ShellRoot {
       // need the latter because pkexec cannot fall back to a terminal agent.
       // Idle/night-light were implemented through Hyprland helpers.
       if (id !== "tsp.battery"
+          && id !== "tsp.idle"
           && id !== "tsp.media"
           && id !== "tsp.notifications"
-          && id !== "tsp.polkit") continue
+          && id !== "tsp.polkit"
+          && id !== "tsp.lock") continue
       var m = plugins[id]
       if (!m) continue
       if (!Array.isArray(m.kinds) || m.kinds.indexOf("service") === -1) continue
