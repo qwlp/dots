@@ -147,7 +147,21 @@
 (use-package multiple-cursors
   :ensure t
   :init
-  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el"))
+  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el")
+        ;; Run newly encountered commands at every cursor without asking for
+        ;; y/n confirmation.  Commands explicitly listed to run once still do.
+        mc/always-run-for-all t)
+  ;; Older versions generated this state file without the cookie now required
+  ;; by Emacs 31.  Upgrade it before `mc/load-lists' reads it.
+  (when (file-readable-p mc/list-file)
+    (with-temp-buffer
+      (insert-file-contents mc/list-file)
+      (unless (save-excursion
+                (goto-char (point-min))
+                (search-forward "lexical-binding:" (line-end-position 2) t))
+        (goto-char (point-min))
+        (insert ";;; -*- lexical-binding: t; -*-\n")
+        (write-region (point-min) (point-max) mc/list-file nil 'silent))))
   (with-eval-after-load 'org
     ;; Org's local map shadows the global multiple-cursors bindings.
     ;; Keep the displaced Org commands available on nearby keys.

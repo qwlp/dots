@@ -131,7 +131,7 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
   (avy-style 'at-full)
   (avy-keys '(?a ?s ?d ?f ?j ?k ?l ?\; ?g ?h))
   :bind
-  (("M-s" . avy-goto-word-0)))
+  (("M-s" . avy-goto-char-2)))
 
 (declare-function tsp/better-jumper-set-jump "tsp-completion")
 
@@ -156,7 +156,7 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
 
   ;; better-jumper deliberately leaves the definition of a jump to the user.
   ;; Record the origin of the navigation commands used in this config.
-  (dolist (command '(avy-goto-word-0
+  (dolist (command '(avy-goto-char-2
                      consult-line
                      consult-goto-line
                      consult-imenu
@@ -171,8 +171,6 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
   :bind
   (("C-S-s" . consult-line)
    ("C-y" . tsp/yank-from-kill-ring)
-   ("C-S-y" . tsp/yank-from-system-clipboard)
-   ("C-Y" . tsp/yank-from-system-clipboard)
    ("C-x b" . consult-buffer)
    ("C-c h" . consult-history)
    ("C-c m" . consult-mode-command)
@@ -200,20 +198,23 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
   "Run fff grep, initially searching for the text at point.
 With prefix argument EMPTY, start with an empty query."
   (interactive "P")
-  (require 'fff)
-  (fff--ensure-instance)
-  (fff--pick-grep 'plain (unless empty (tsp/fff-query-at-point))))
+  (let ((initial (unless empty (tsp/fff-query-at-point))))
+    (if (project-current nil default-directory)
+        (progn
+          (require 'fff)
+          (fff--ensure-instance)
+          (fff--pick-grep 'plain initial))
+      (consult-ripgrep default-directory initial))))
 
 (declare-function tsp/fff-highlight-match "tsp-completion")
 (declare-function tsp/fff-preview-state "tsp-completion")
+(declare-function tsp/fff-with-popup "tsp-completion")
 (declare-function tsp/fff-pick-file-with-preview "tsp-completion")
 (declare-function tsp/fff-pick-grep-with-preview "tsp-completion")
 
 (use-package fff
   :ensure nil
   :commands (fff-find-file fff-grep fff-grep-fuzzy)
-  :bind (("C-c f" . fff-find-file)
-         ("C-c g" . tsp/fff-grep-dwim))
   :init
   (setq fff-max-results 200
         fff-smart-case t
@@ -222,6 +223,83 @@ With prefix argument EMPTY, start with an empty query."
         fff-history-db-path
         (expand-file-name "fff/history" tsp/emacs-state-directory))
   :config
+  (require 'vertico-buffer)
+
+  (defvar tsp/fff--candidate-window nil
+    "Window used to display fff candidates in the popup frame.")
+
+  (defun tsp/fff--display-candidates (buffer _alist)
+    "Display BUFFER in the fff candidate window."
+    (when (window-live-p tsp/fff--candidate-window)
+      (set-window-buffer tsp/fff--candidate-window buffer)
+      tsp/fff--candidate-window))
+
+  (defun tsp/fff-with-popup (function)
+    "Call FUNCTION in a centered, two-pane child frame when possible."
+    (if (not (display-graphic-p))
+        (funcall function nil)
+      (let* ((parent (selected-frame))
+             (origin (selected-window))
+             (width (max 80 (min 150 (floor (* 0.85 (frame-width parent))))))
+             (height (max 24 (min 45 (floor (* 0.78 (frame-height parent))))))
+             (wide-layout-p (>= (frame-pixel-width parent) 1600))
+             (border-color (or (face-background 'mode-line parent t)
+                               (face-foreground 'default parent t)))
+             (popup (make-frame
+                     `((parent-frame . ,parent)
+                       (minibuffer . t)
+                       (width . ,width)
+                       (height . ,height)
+                       (undecorated . t)
+                       (no-accept-focus . nil)
+                       (no-other-frame . t)
+                       (skip-taskbar . t)
+                       (border-color . ,border-color)
+                       (internal-border-width . 3)
+                       (child-frame-border-width . 3)
+                       (left-fringe . 8)
+                       (right-fringe . 8)
+                       (vertical-scroll-bars . nil)
+                       (horizontal-scroll-bars . nil))))
+             preview-window)
+        (unwind-protect
+            (progn
+              (set-face-attribute 'child-frame-border popup
+                                  :background border-color)
+              (set-frame-position
+               popup
+               (max 0 (/ (- (frame-pixel-width parent)
+                            (frame-pixel-width popup)) 2))
+               (max 0 (/ (- (frame-pixel-height parent)
+                            (frame-pixel-height popup)) 2)))
+              (select-frame-set-input-focus popup)
+              (setq tsp/fff--candidate-window (frame-root-window popup)
+                    preview-window
+                    (split-window tsp/fff--candidate-window nil
+                                  (if wide-layout-p 'right 'above)))
+              (set-window-buffer
+               preview-window
+               (get-buffer-create " *fff-preview*"))
+              (with-current-buffer (window-buffer preview-window)
+                (setq-local mode-line-format '(" Preview"))
+                (let ((inhibit-read-only t))
+                  (erase-buffer)
+                  (insert "Select a result to preview it.")))
+              (select-window tsp/fff--candidate-window)
+              (let ((vertico-buffer-mode t)
+                    (vertico-buffer-hide-prompt t)
+                    (vertico-buffer-display-action
+                     '(tsp/fff--display-candidates))
+                    (minibuffer-setup-hook
+                     (cons (lambda () (setq-local cursor-type 'bar))
+                           minibuffer-setup-hook)))
+                (funcall function preview-window)))
+          (when (frame-live-p popup)
+            (delete-frame popup))
+          (when (window-live-p origin)
+            (select-frame-set-input-focus parent)
+            (select-window origin))))))
+
   (defun tsp/fff-highlight-match (string query mode)
     "Return STRING with QUERY matches highlighted according to MODE."
     (let ((result (copy-sequence string))
@@ -245,10 +323,10 @@ With prefix argument EMPTY, start with an empty query."
               (setq position (max (1+ (match-beginning 0)) (match-end 0)))))))
       result))
 
-  (defun tsp/fff-preview-state (&optional mode)
+  (defun tsp/fff-preview-state (&optional mode preview-window)
     "Return a Consult state function which previews fff result plists."
     (let ((open (consult--temporary-files))
-          (preview (consult--buffer-preview))
+          (preview (unless preview-window (consult--buffer-preview)))
           overlays)
       (lambda (action candidate)
         (mapc #'delete-overlay overlays)
@@ -259,8 +337,14 @@ With prefix argument EMPTY, start with an empty query."
                            (eq action 'preview)
                            (when-let* ((path (plist-get candidate :path)))
                              (funcall open path)))))
-          (funcall preview action buffer)
-          (when-let* ((window (and buffer (get-buffer-window buffer))))
+          (when (and buffer (window-live-p preview-window))
+            (set-window-buffer preview-window buffer))
+          (when preview
+            (funcall preview action buffer))
+          (when-let* ((window (and buffer
+                                  (or (and (window-live-p preview-window)
+                                           preview-window)
+                                      (get-buffer-window buffer)))))
             (with-selected-window window
               (widen)
               ;; File results have no line information.  In that case, leave
@@ -292,44 +376,53 @@ With prefix argument EMPTY, start with an empty query."
   ;; Upstream fff.el currently omits Consult's preview state.  Keep its native
   ;; candidate generation, but add file/line preview to both picker variants.
   (defun tsp/fff-pick-file-with-preview ()
-    (let ((lookup (make-hash-table :test 'equal)))
-      (when-let* ((choice
-                  (consult--read
-                   (consult--async-dynamic
-                    (lambda (input)
-                      (mapcar (lambda (item)
-                                (let ((display (tsp/fff-highlight-match
-                                                (car item) input 'fuzzy)))
-                                  (puthash display (cdr item) lookup)
-                                  display))
-                              (fff--file-candidates input))))
-                   :prompt "fff › " :sort nil :category 'file
-                   :lookup (lambda (candidate _candidates _input _narrow)
-                             (gethash candidate lookup))
-                   :state (tsp/fff-preview-state))))
+    (let (choice)
+      (tsp/fff-with-popup
+       (lambda (preview-window)
+         (let ((consult-async-split-style 'none)
+               (lookup (make-hash-table :test 'equal)))
+           (setq choice
+                 (consult--read
+                  (consult--async-dynamic
+                   (lambda (input)
+                     (mapcar (lambda (item)
+                               (let ((display (tsp/fff-highlight-match
+                                               (car item) input 'fuzzy)))
+                                 (puthash display (cdr item) lookup)
+                                 display))
+                             (fff--file-candidates input))))
+                  :prompt "fff › " :sort nil :category 'file
+                  :lookup (lambda (candidate _candidates _input _narrow)
+                            (gethash candidate lookup))
+                  :state (tsp/fff-preview-state nil preview-window))))))
+      (when choice
         (fff--open-result choice))))
 
   (defun tsp/fff-pick-grep-with-preview (mode &optional initial)
-    (let ((consult-async-split-style 'none)
-          (lookup (make-hash-table :test 'equal)))
-      (when-let* ((choice
-                  (consult--read
-                   (consult--async-dynamic
-                    (lambda (input)
-                      (mapcar (lambda (item)
-                                (let ((display (tsp/fff-highlight-match
-                                                (car item) input mode)))
-                                  (puthash display (cdr item) lookup)
-                                  display))
-                              (fff--grep-candidates input mode))))
-                   :prompt (if (eq mode 'fuzzy)
-                               "fff grep fuzzy › "
-                             "fff grep › ")
-                   :sort nil
-                   :initial initial
-                   :lookup (lambda (candidate _candidates _input _narrow)
-                             (gethash candidate lookup))
-                   :state (tsp/fff-preview-state mode))))
+    (let (choice)
+      (tsp/fff-with-popup
+       (lambda (preview-window)
+         (let ((consult-async-split-style 'none)
+               (lookup (make-hash-table :test 'equal)))
+           (setq choice
+                 (consult--read
+                  (consult--async-dynamic
+                   (lambda (input)
+                     (mapcar (lambda (item)
+                               (let ((display (tsp/fff-highlight-match
+                                               (car item) input mode)))
+                                 (puthash display (cdr item) lookup)
+                                 display))
+                             (fff--grep-candidates input mode))))
+                  :prompt (if (eq mode 'fuzzy)
+                              "fff grep fuzzy › "
+                            "fff grep › ")
+                  :sort nil
+                  :initial initial
+                  :lookup (lambda (candidate _candidates _input _narrow)
+                            (gethash candidate lookup))
+                  :state (tsp/fff-preview-state mode preview-window))))))
+      (when choice
         (fff--open-result choice))))
 
   (advice-add 'fff--pick-file :override #'tsp/fff-pick-file-with-preview)

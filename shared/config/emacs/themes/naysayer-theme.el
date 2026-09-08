@@ -1,4 +1,4 @@
-;;; naysayer-theme.el --- The naysayer color theme
+;;; naysayer-theme.el --- The naysayer color theme -*- lexical-binding: t; -*-
 
 ;; Author: Nick Aversano <nickav@users.noreply.github.com>
 ;; Package-Version: 20250406.2017

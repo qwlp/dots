@@ -66,7 +66,7 @@
 
 (setq-default bidi-display-reordering t
               bidi-paragraph-direction nil
-              cursor-in-non-selected-windows nil
+              cursor-in-non-selected-windows t
               cursor-type 'box
               indent-tabs-mode nil
               tab-width 4)
@@ -405,6 +405,95 @@ selection while point stays where it was."
 (tsp/prioritize-navigation-keys)
 (with-eval-after-load 'ghostel
   (tsp/prioritize-navigation-keys))
+
+;; Meow uses a private leader map so Space shortcuts do not overwrite C-c.
+(defvar tsp/meow-space-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map (keymap-lookup global-map "C-c"))
+    (keymap-set map "f" #'fff-find-file)
+    (keymap-set map "g" #'tsp/fff-grep-dwim)
+    (keymap-set map "e" #'dired)
+    (keymap-set map "j" "H-j")
+    (keymap-set map "k" "H-k")
+    (dolist (digit '("0" "1" "2" "3" "4" "5" "6" "7" "8" "9"))
+      (keymap-set map digit #'meow-digit-argument))
+    (keymap-set map "/" #'meow-keypad-describe-key)
+    (keymap-set map "?" #'meow-cheatsheet)
+    map)
+  "Leader map used from Meow Normal state.")
+
+;; Clean up FFF bindings installed by older versions when reloading in place.
+(keymap-global-unset "C-c f")
+(keymap-global-unset "C-c g")
+
+(defvar tsp/meow-kill-ring nil
+  "Kill ring used exclusively by Meow editing commands.")
+
+(defun tsp/meow-with-private-kill-ring (command &rest arguments)
+  "Call COMMAND with ARGUMENTS without consulting the system clipboard."
+  (let ((select-enable-clipboard nil)
+        (select-enable-primary nil)
+        (interprogram-cut-function nil)
+        (interprogram-paste-function nil)
+        (kill-ring tsp/meow-kill-ring)
+        (kill-ring-yank-pointer tsp/meow-kill-ring))
+    (unwind-protect
+        (apply command arguments)
+      (setq tsp/meow-kill-ring kill-ring))))
+
+(defun tsp/meow-insert-state ()
+  "Enter Meow Insert state in terminal-like buffers."
+  (meow-insert-mode 1))
+
+(use-package meow
+  :ensure t
+  :demand t
+  :bind (("C-c t m" . meow-global-mode))
+  :init
+  (setq meow-use-clipboard nil
+        meow-use-cursor-position-hack t
+        meow-goto-line-function #'consult-goto-line
+        meow-keypad-ctrl-meta-prefix ?G
+        ;; Keep Meow's normal SPC keypad entry point, but dispatch its first
+        ;; key through our isolated map rather than the actual C-c map.
+        meow-keypad-leader-dispatch tsp/meow-space-map)
+  :config
+  (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
+  (meow-motion-overwrite-define-key
+   '("j" . meow-next) '("k" . meow-prev) '("<escape>" . ignore))
+  (meow-normal-define-key
+   '("0" . meow-expand-0) '("1" . meow-expand-1) '("2" . meow-expand-2)
+   '("3" . meow-expand-3) '("4" . meow-expand-4) '("5" . meow-expand-5)
+   '("6" . meow-expand-6) '("7" . meow-expand-7) '("8" . meow-expand-8)
+   '("9" . meow-expand-9) '("-" . negative-argument)
+   '(";" . meow-reverse) '("," . meow-inner-of-thing) '("." . meow-bounds-of-thing)
+   '("[" . meow-beginning-of-thing) '("]" . meow-end-of-thing)
+   '("a" . meow-append) '("A" . meow-open-below) '("b" . meow-back-word)
+   '("B" . meow-back-symbol) '("c" . meow-change) '("d" . meow-delete)
+   '("D" . meow-backward-delete) '("e" . meow-next-word) '("E" . meow-next-symbol)
+   '("f" . meow-find) '("g" . meow-cancel-selection) '("G" . meow-grab)
+   '("h" . meow-left) '("H" . meow-left-expand) '("i" . meow-insert)
+   '("I" . meow-open-above) '("j" . meow-next) '("J" . meow-next-expand)
+   '("k" . meow-prev) '("K" . meow-prev-expand) '("l" . meow-right)
+   '("L" . meow-right-expand) '("m" . meow-join) '("n" . meow-search)
+   '("o" . meow-block) '("O" . meow-to-block) '("p" . meow-yank)
+   '("q" . meow-quit) '("Q" . meow-goto-line) '("r" . meow-replace)
+   '("R" . meow-swap-grab) '("s" . meow-kill) '("t" . meow-till)
+   '("u" . meow-undo) '("U" . meow-undo-in-selection) '("v" . meow-visit)
+   '("w" . meow-mark-word) '("W" . meow-mark-symbol) '("x" . meow-line)
+   '("X" . meow-goto-line) '("y" . meow-save) '("Y" . meow-sync-grab)
+   '("z" . meow-pop-selection) '("'" . repeat)
+   '("<escape>" . ignore))
+  (dolist (command '(meow-save meow-kill meow-yank meow-change meow-replace))
+    (advice-add command :around #'tsp/meow-with-private-kill-ring))
+  (dolist (hook '(eshell-mode-hook ghostel-mode-hook shell-mode-hook
+                  term-mode-hook vterm-mode-hook))
+    (add-hook hook #'tsp/meow-insert-state))
+  ;; Remove the verbose indicator left behind by an earlier configuration.
+  (setq-default mode-line-format
+                (delete '(:eval (meow-indicator))
+                        (default-value 'mode-line-format)))
+  (meow-global-mode 1))
 
 ;; Match Kitty's pane-management keys.
 (keymap-global-set "M-V" #'split-window-right)

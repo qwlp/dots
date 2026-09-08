@@ -73,7 +73,8 @@
   (dolist (command '(tsp/scroll-up-and-center
                      tsp/scroll-down-and-center
                      better-jumper-jump-backward
-                     better-jumper-jump-forward))
+                     better-jumper-jump-forward
+                     avy-goto-char-2))
     (add-to-list 'pulsar-pulse-functions command))
   (pulsar-global-mode 1))
 

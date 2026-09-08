@@ -68,6 +68,12 @@
     (let ((fill-forward-paragraph-function #'forward-paragraph))
       (do-auto-fill))))
 
+(defconst tsp/markdown-auto-source-languages '("go" "java" "lox" "py")
+  "Fenced code block names expanded immediately after they are typed.")
+
+(defconst tsp/markdown-source-content-indentation 2
+  "Spaces inserted before the first line of a fenced code block.")
+
 (defun tsp/markdown-expand-source-block ()
   "Expand an indented `,LANGUAGE' at point into a fenced code block."
   (when (and (not (tsp/markdown-in-unfillable-block-p))
@@ -83,7 +89,8 @@
                          short-name)))
       (delete-region (line-beginning-position) (point))
       (insert indent "```" language "\n"
-              indent "\n"
+              indent (make-string tsp/markdown-source-content-indentation ?\s)
+              "\n"
               indent "```")
       (forward-line -1)
       (end-of-line)
@@ -95,7 +102,7 @@
              (memq (char-syntax last-command-event) '(?w ?_))
              (looking-back
               (concat "^\\([[:blank:]]*\\),\\("
-                      (regexp-opt tsp/org-auto-source-languages)
+                      (regexp-opt tsp/markdown-auto-source-languages)
                       "\\)")
               (line-beginning-position)))
     (tsp/markdown-expand-source-block)))
@@ -150,11 +157,83 @@
     (insert (format "![](./assets/%s)" (file-name-nondirectory file)))
     (message "Saved clipboard image to %s" file)))
 
+(defvar-local tsp/markdown-image-overlays nil
+  "Image overlays created by `show-images-markdown'.")
+
+(defun tsp/markdown--image-destination-at-point ()
+  "Parse an inline image link at point and return its destination."
+  (when (looking-at "!\\[[^]\n]*]\\s-*(")
+    (goto-char (match-end 0))
+    (skip-chars-forward " \t")
+    (let ((start (point)))
+      (if (eq (char-after) ?<)
+          (when (search-forward ">" (line-end-position) t)
+            (let ((destination
+                   (buffer-substring-no-properties (1+ start) (1- (point)))))
+              (skip-chars-forward " \t")
+              (when (eq (char-after) ?\))
+                (forward-char)
+                destination)))
+        (let ((depth 0) done)
+          (while (and (not done) (not (eolp)))
+            (pcase (char-after)
+              (?\\ (forward-char (min 2 (- (point-max) (point)))))
+              (?\( (setq depth (1+ depth)) (forward-char))
+              (?\) (if (> depth 0)
+                      (progn (setq depth (1- depth)) (forward-char))
+                    (setq done t)))
+              (_ (forward-char))))
+          (when done
+            (prog1 (string-trim
+                    (buffer-substring-no-properties start (point)))
+              (forward-char))))))))
+
+(defun show-images-markdown ()
+  "Replace inline Markdown image links with scaled local image overlays."
+  (interactive)
+  (mapc #'delete-overlay tsp/markdown-image-overlays)
+  (setq tsp/markdown-image-overlays nil)
+  (let ((base (and buffer-file-name (file-name-directory buffer-file-name)))
+        (maximum-width (floor (* 0.9 (window-pixel-width (selected-window)))))
+        (displayed 0)
+        (skipped 0))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "!\\[" nil t)
+        (goto-char (match-beginning 0))
+        (let ((beginning (point))
+              (destination (tsp/markdown--image-destination-at-point)))
+          (if (not destination)
+              (progn (setq skipped (1+ skipped)) (forward-char))
+            (let* ((decoded (url-unhex-string destination))
+                   (path (cond
+                          ((string-match "\\`file://\\(?:localhost\\)?\\(.*\\)\\'"
+                                         decoded)
+                           (match-string 1 decoded))
+                          ((string-match-p "\\`[[:alpha:]][[:alnum:]+.-]*:" decoded)
+                           nil)
+                          ((file-name-absolute-p decoded) decoded)
+                          (base (expand-file-name decoded base))))
+                   (image (and path (not (file-remote-p path))
+                               (file-readable-p path)
+                               (ignore-errors
+                                 (create-image path nil nil :max-width maximum-width)))))
+              (if (not image)
+                  (setq skipped (1+ skipped))
+                (let ((overlay (make-overlay beginning (point))))
+                  (overlay-put overlay 'display image)
+                  (overlay-put overlay 'tsp/markdown-image t)
+                  (push overlay tsp/markdown-image-overlays)
+                  (setq displayed (1+ displayed)))))))))
+    (message "Displayed %d Markdown image%s; skipped %d"
+             displayed (if (= displayed 1) "" "s") skipped)))
+
 (use-package markdown-ts-mode
   :ensure nil
   :mode ("\\.md\\'" "\\.markdown\\'")
   :bind (:map markdown-ts-mode-map
-              ("C-c C-v" . tsp/markdown-paste-clipboard-image))
+              ("C-c C-v" . tsp/markdown-paste-clipboard-image)
+              ("C-c C-i" . show-images-markdown))
   :hook (markdown-ts-mode . tsp/markdown-setup-buffer)
   :config
   (dolist (face-height '((markdown-ts-heading-1 . 1.40)
@@ -166,6 +245,9 @@
     (set-face-attribute (car face-height) nil
                         :height (cdr face-height)
                         :weight 'bold)))
+
+(with-eval-after-load 'markdown-mode
+  (keymap-set markdown-mode-map "C-c C-i" #'show-images-markdown))
 
 (defun tsp/treesit-grand-parent-bol (_node parent &rest _)
   "Return the first non-whitespace position on PARENT's parent line."

@@ -168,7 +168,7 @@
 
 (setq-default bidi-display-reordering t
               bidi-paragraph-direction nil
-              cursor-in-non-selected-windows nil
+              cursor-in-non-selected-windows t
               cursor-type 'box
               indent-tabs-mode nil
               tab-width 4)
@@ -508,6 +508,95 @@ selection while point stays where it was."
 (with-eval-after-load 'ghostel
   (tsp/prioritize-navigation-keys))
 
+;; Meow uses a private leader map so Space shortcuts do not overwrite C-c.
+(defvar tsp/meow-space-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map (keymap-lookup global-map "C-c"))
+    (keymap-set map "f" #'fff-find-file)
+    (keymap-set map "g" #'tsp/fff-grep-dwim)
+    (keymap-set map "e" #'dired)
+    (keymap-set map "j" "H-j")
+    (keymap-set map "k" "H-k")
+    (dolist (digit '("0" "1" "2" "3" "4" "5" "6" "7" "8" "9"))
+      (keymap-set map digit #'meow-digit-argument))
+    (keymap-set map "/" #'meow-keypad-describe-key)
+    (keymap-set map "?" #'meow-cheatsheet)
+    map)
+  "Leader map used from Meow Normal state.")
+
+;; Clean up FFF bindings installed by older versions when reloading in place.
+(keymap-global-unset "C-c f")
+(keymap-global-unset "C-c g")
+
+(defvar tsp/meow-kill-ring nil
+  "Kill ring used exclusively by Meow editing commands.")
+
+(defun tsp/meow-with-private-kill-ring (command &rest arguments)
+  "Call COMMAND with ARGUMENTS without consulting the system clipboard."
+  (let ((select-enable-clipboard nil)
+        (select-enable-primary nil)
+        (interprogram-cut-function nil)
+        (interprogram-paste-function nil)
+        (kill-ring tsp/meow-kill-ring)
+        (kill-ring-yank-pointer tsp/meow-kill-ring))
+    (unwind-protect
+        (apply command arguments)
+      (setq tsp/meow-kill-ring kill-ring))))
+
+(defun tsp/meow-insert-state ()
+  "Enter Meow Insert state in terminal-like buffers."
+  (meow-insert-mode 1))
+
+(use-package meow
+  :ensure t
+  :demand t
+  :bind (("C-c t m" . meow-global-mode))
+  :init
+  (setq meow-use-clipboard nil
+        meow-use-cursor-position-hack t
+        meow-goto-line-function #'consult-goto-line
+        meow-keypad-ctrl-meta-prefix ?G
+        ;; Keep Meow's normal SPC keypad entry point, but dispatch its first
+        ;; key through our isolated map rather than the actual C-c map.
+        meow-keypad-leader-dispatch tsp/meow-space-map)
+  :config
+  (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
+  (meow-motion-overwrite-define-key
+   '("j" . meow-next) '("k" . meow-prev) '("<escape>" . ignore))
+  (meow-normal-define-key
+   '("0" . meow-expand-0) '("1" . meow-expand-1) '("2" . meow-expand-2)
+   '("3" . meow-expand-3) '("4" . meow-expand-4) '("5" . meow-expand-5)
+   '("6" . meow-expand-6) '("7" . meow-expand-7) '("8" . meow-expand-8)
+   '("9" . meow-expand-9) '("-" . negative-argument)
+   '(";" . meow-reverse) '("," . meow-inner-of-thing) '("." . meow-bounds-of-thing)
+   '("[" . meow-beginning-of-thing) '("]" . meow-end-of-thing)
+   '("a" . meow-append) '("A" . meow-open-below) '("b" . meow-back-word)
+   '("B" . meow-back-symbol) '("c" . meow-change) '("d" . meow-delete)
+   '("D" . meow-backward-delete) '("e" . meow-next-word) '("E" . meow-next-symbol)
+   '("f" . meow-find) '("g" . meow-cancel-selection) '("G" . meow-grab)
+   '("h" . meow-left) '("H" . meow-left-expand) '("i" . meow-insert)
+   '("I" . meow-open-above) '("j" . meow-next) '("J" . meow-next-expand)
+   '("k" . meow-prev) '("K" . meow-prev-expand) '("l" . meow-right)
+   '("L" . meow-right-expand) '("m" . meow-join) '("n" . meow-search)
+   '("o" . meow-block) '("O" . meow-to-block) '("p" . meow-yank)
+   '("q" . meow-quit) '("Q" . meow-goto-line) '("r" . meow-replace)
+   '("R" . meow-swap-grab) '("s" . meow-kill) '("t" . meow-till)
+   '("u" . meow-undo) '("U" . meow-undo-in-selection) '("v" . meow-visit)
+   '("w" . meow-mark-word) '("W" . meow-mark-symbol) '("x" . meow-line)
+   '("X" . meow-goto-line) '("y" . meow-save) '("Y" . meow-sync-grab)
+   '("z" . meow-pop-selection) '("'" . repeat)
+   '("<escape>" . ignore))
+  (dolist (command '(meow-save meow-kill meow-yank meow-change meow-replace))
+    (advice-add command :around #'tsp/meow-with-private-kill-ring))
+  (dolist (hook '(eshell-mode-hook ghostel-mode-hook shell-mode-hook
+                  term-mode-hook vterm-mode-hook))
+    (add-hook hook #'tsp/meow-insert-state))
+  ;; Remove the verbose indicator left behind by an earlier configuration.
+  (setq-default mode-line-format
+                (delete '(:eval (meow-indicator))
+                        (default-value 'mode-line-format)))
+  (meow-global-mode 1))
+
 ;; Match Kitty's pane-management keys.
 (keymap-global-set "M-V" #'split-window-right)
 (keymap-global-set "M-M" #'split-window-below)
@@ -635,7 +724,8 @@ selection while point stays where it was."
   (dolist (command '(tsp/scroll-up-and-center
                      tsp/scroll-down-and-center
                      better-jumper-jump-backward
-                     better-jumper-jump-forward))
+                     better-jumper-jump-forward
+                     avy-goto-char-2))
     (add-to-list 'pulsar-pulse-functions command))
   (pulsar-global-mode 1))
 
@@ -688,7 +778,7 @@ The upstream theme uses =nil= for face foregrounds, which recent Emacs
 versions reject.  Keep the corrected theme here so tangling reproduces it.
 
 #+begin_src emacs-lisp :tangle themes/naysayer-theme.el
-;;; naysayer-theme.el --- The naysayer color theme
+;;; naysayer-theme.el --- The naysayer color theme -*- lexical-binding: t; -*-
 
 ;; Author: Nick Aversano <nickav@users.noreply.github.com>
 ;; Package-Version: 20250406.2017
@@ -1022,7 +1112,7 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
   (avy-style 'at-full)
   (avy-keys '(?a ?s ?d ?f ?j ?k ?l ?\; ?g ?h))
   :bind
-  (("M-s" . avy-goto-word-0)))
+  (("M-s" . avy-goto-char-2)))
 
 (declare-function tsp/better-jumper-set-jump "tsp-completion")
 
@@ -1047,7 +1137,7 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
 
   ;; better-jumper deliberately leaves the definition of a jump to the user.
   ;; Record the origin of the navigation commands used in this config.
-  (dolist (command '(avy-goto-word-0
+  (dolist (command '(avy-goto-char-2
                      consult-line
                      consult-goto-line
                      consult-imenu
@@ -1062,8 +1152,6 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
   :bind
   (("C-S-s" . consult-line)
    ("C-y" . tsp/yank-from-kill-ring)
-   ("C-S-y" . tsp/yank-from-system-clipboard)
-   ("C-Y" . tsp/yank-from-system-clipboard)
    ("C-x b" . consult-buffer)
    ("C-c h" . consult-history)
    ("C-c m" . consult-mode-command)
@@ -1091,20 +1179,23 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
   "Run fff grep, initially searching for the text at point.
 With prefix argument EMPTY, start with an empty query."
   (interactive "P")
-  (require 'fff)
-  (fff--ensure-instance)
-  (fff--pick-grep 'plain (unless empty (tsp/fff-query-at-point))))
+  (let ((initial (unless empty (tsp/fff-query-at-point))))
+    (if (project-current nil default-directory)
+        (progn
+          (require 'fff)
+          (fff--ensure-instance)
+          (fff--pick-grep 'plain initial))
+      (consult-ripgrep default-directory initial))))
 
 (declare-function tsp/fff-highlight-match "tsp-completion")
 (declare-function tsp/fff-preview-state "tsp-completion")
+(declare-function tsp/fff-with-popup "tsp-completion")
 (declare-function tsp/fff-pick-file-with-preview "tsp-completion")
 (declare-function tsp/fff-pick-grep-with-preview "tsp-completion")
 
 (use-package fff
   :ensure nil
   :commands (fff-find-file fff-grep fff-grep-fuzzy)
-  :bind (("C-c f" . fff-find-file)
-         ("C-c g" . tsp/fff-grep-dwim))
   :init
   (setq fff-max-results 200
         fff-smart-case t
@@ -1113,6 +1204,83 @@ With prefix argument EMPTY, start with an empty query."
         fff-history-db-path
         (expand-file-name "fff/history" tsp/emacs-state-directory))
   :config
+  (require 'vertico-buffer)
+
+  (defvar tsp/fff--candidate-window nil
+    "Window used to display fff candidates in the popup frame.")
+
+  (defun tsp/fff--display-candidates (buffer _alist)
+    "Display BUFFER in the fff candidate window."
+    (when (window-live-p tsp/fff--candidate-window)
+      (set-window-buffer tsp/fff--candidate-window buffer)
+      tsp/fff--candidate-window))
+
+  (defun tsp/fff-with-popup (function)
+    "Call FUNCTION in a centered, two-pane child frame when possible."
+    (if (not (display-graphic-p))
+        (funcall function nil)
+      (let* ((parent (selected-frame))
+             (origin (selected-window))
+             (width (max 80 (min 150 (floor (* 0.85 (frame-width parent))))))
+             (height (max 24 (min 45 (floor (* 0.78 (frame-height parent))))))
+             (wide-layout-p (>= (frame-pixel-width parent) 1600))
+             (border-color (or (face-background 'mode-line parent t)
+                               (face-foreground 'default parent t)))
+             (popup (make-frame
+                     `((parent-frame . ,parent)
+                       (minibuffer . t)
+                       (width . ,width)
+                       (height . ,height)
+                       (undecorated . t)
+                       (no-accept-focus . nil)
+                       (no-other-frame . t)
+                       (skip-taskbar . t)
+                       (border-color . ,border-color)
+                       (internal-border-width . 3)
+                       (child-frame-border-width . 3)
+                       (left-fringe . 8)
+                       (right-fringe . 8)
+                       (vertical-scroll-bars . nil)
+                       (horizontal-scroll-bars . nil))))
+             preview-window)
+        (unwind-protect
+            (progn
+              (set-face-attribute 'child-frame-border popup
+                                  :background border-color)
+              (set-frame-position
+               popup
+               (max 0 (/ (- (frame-pixel-width parent)
+                            (frame-pixel-width popup)) 2))
+               (max 0 (/ (- (frame-pixel-height parent)
+                            (frame-pixel-height popup)) 2)))
+              (select-frame-set-input-focus popup)
+              (setq tsp/fff--candidate-window (frame-root-window popup)
+                    preview-window
+                    (split-window tsp/fff--candidate-window nil
+                                  (if wide-layout-p 'right 'above)))
+              (set-window-buffer
+               preview-window
+               (get-buffer-create " *fff-preview*"))
+              (with-current-buffer (window-buffer preview-window)
+                (setq-local mode-line-format '(" Preview"))
+                (let ((inhibit-read-only t))
+                  (erase-buffer)
+                  (insert "Select a result to preview it.")))
+              (select-window tsp/fff--candidate-window)
+              (let ((vertico-buffer-mode t)
+                    (vertico-buffer-hide-prompt t)
+                    (vertico-buffer-display-action
+                     '(tsp/fff--display-candidates))
+                    (minibuffer-setup-hook
+                     (cons (lambda () (setq-local cursor-type 'bar))
+                           minibuffer-setup-hook)))
+                (funcall function preview-window)))
+          (when (frame-live-p popup)
+            (delete-frame popup))
+          (when (window-live-p origin)
+            (select-frame-set-input-focus parent)
+            (select-window origin))))))
+
   (defun tsp/fff-highlight-match (string query mode)
     "Return STRING with QUERY matches highlighted according to MODE."
     (let ((result (copy-sequence string))
@@ -1136,10 +1304,10 @@ With prefix argument EMPTY, start with an empty query."
               (setq position (max (1+ (match-beginning 0)) (match-end 0)))))))
       result))
 
-  (defun tsp/fff-preview-state (&optional mode)
+  (defun tsp/fff-preview-state (&optional mode preview-window)
     "Return a Consult state function which previews fff result plists."
     (let ((open (consult--temporary-files))
-          (preview (consult--buffer-preview))
+          (preview (unless preview-window (consult--buffer-preview)))
           overlays)
       (lambda (action candidate)
         (mapc #'delete-overlay overlays)
@@ -1150,8 +1318,14 @@ With prefix argument EMPTY, start with an empty query."
                            (eq action 'preview)
                            (when-let* ((path (plist-get candidate :path)))
                              (funcall open path)))))
-          (funcall preview action buffer)
-          (when-let* ((window (and buffer (get-buffer-window buffer))))
+          (when (and buffer (window-live-p preview-window))
+            (set-window-buffer preview-window buffer))
+          (when preview
+            (funcall preview action buffer))
+          (when-let* ((window (and buffer
+                                  (or (and (window-live-p preview-window)
+                                           preview-window)
+                                      (get-buffer-window buffer)))))
             (with-selected-window window
               (widen)
               ;; File results have no line information.  In that case, leave
@@ -1183,44 +1357,53 @@ With prefix argument EMPTY, start with an empty query."
   ;; Upstream fff.el currently omits Consult's preview state.  Keep its native
   ;; candidate generation, but add file/line preview to both picker variants.
   (defun tsp/fff-pick-file-with-preview ()
-    (let ((lookup (make-hash-table :test 'equal)))
-      (when-let* ((choice
-                  (consult--read
-                   (consult--async-dynamic
-                    (lambda (input)
-                      (mapcar (lambda (item)
-                                (let ((display (tsp/fff-highlight-match
-                                                (car item) input 'fuzzy)))
-                                  (puthash display (cdr item) lookup)
-                                  display))
-                              (fff--file-candidates input))))
-                   :prompt "fff › " :sort nil :category 'file
-                   :lookup (lambda (candidate _candidates _input _narrow)
-                             (gethash candidate lookup))
-                   :state (tsp/fff-preview-state))))
+    (let (choice)
+      (tsp/fff-with-popup
+       (lambda (preview-window)
+         (let ((consult-async-split-style 'none)
+               (lookup (make-hash-table :test 'equal)))
+           (setq choice
+                 (consult--read
+                  (consult--async-dynamic
+                   (lambda (input)
+                     (mapcar (lambda (item)
+                               (let ((display (tsp/fff-highlight-match
+                                               (car item) input 'fuzzy)))
+                                 (puthash display (cdr item) lookup)
+                                 display))
+                             (fff--file-candidates input))))
+                  :prompt "fff › " :sort nil :category 'file
+                  :lookup (lambda (candidate _candidates _input _narrow)
+                            (gethash candidate lookup))
+                  :state (tsp/fff-preview-state nil preview-window))))))
+      (when choice
         (fff--open-result choice))))
 
   (defun tsp/fff-pick-grep-with-preview (mode &optional initial)
-    (let ((consult-async-split-style 'none)
-          (lookup (make-hash-table :test 'equal)))
-      (when-let* ((choice
-                  (consult--read
-                   (consult--async-dynamic
-                    (lambda (input)
-                      (mapcar (lambda (item)
-                                (let ((display (tsp/fff-highlight-match
-                                                (car item) input mode)))
-                                  (puthash display (cdr item) lookup)
-                                  display))
-                              (fff--grep-candidates input mode))))
-                   :prompt (if (eq mode 'fuzzy)
-                               "fff grep fuzzy › "
-                             "fff grep › ")
-                   :sort nil
-                   :initial initial
-                   :lookup (lambda (candidate _candidates _input _narrow)
-                             (gethash candidate lookup))
-                   :state (tsp/fff-preview-state mode))))
+    (let (choice)
+      (tsp/fff-with-popup
+       (lambda (preview-window)
+         (let ((consult-async-split-style 'none)
+               (lookup (make-hash-table :test 'equal)))
+           (setq choice
+                 (consult--read
+                  (consult--async-dynamic
+                   (lambda (input)
+                     (mapcar (lambda (item)
+                               (let ((display (tsp/fff-highlight-match
+                                               (car item) input mode)))
+                                 (puthash display (cdr item) lookup)
+                                 display))
+                             (fff--grep-candidates input mode))))
+                  :prompt (if (eq mode 'fuzzy)
+                              "fff grep fuzzy › "
+                            "fff grep › ")
+                  :sort nil
+                  :initial initial
+                  :lookup (lambda (candidate _candidates _input _narrow)
+                            (gethash candidate lookup))
+                  :state (tsp/fff-preview-state mode preview-window))))))
+      (when choice
         (fff--open-result choice))))
 
   (advice-add 'fff--pick-file :override #'tsp/fff-pick-file-with-preview)
@@ -2609,7 +2792,21 @@ break them."
 (use-package multiple-cursors
   :ensure t
   :init
-  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el"))
+  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el")
+        ;; Run newly encountered commands at every cursor without asking for
+        ;; y/n confirmation.  Commands explicitly listed to run once still do.
+        mc/always-run-for-all t)
+  ;; Older versions generated this state file without the cookie now required
+  ;; by Emacs 31.  Upgrade it before `mc/load-lists' reads it.
+  (when (file-readable-p mc/list-file)
+    (with-temp-buffer
+      (insert-file-contents mc/list-file)
+      (unless (save-excursion
+                (goto-char (point-min))
+                (search-forward "lexical-binding:" (line-end-position 2) t))
+        (goto-char (point-min))
+        (insert ";;; -*- lexical-binding: t; -*-\n")
+        (write-region (point-min) (point-max) mc/list-file nil 'silent))))
   (with-eval-after-load 'org
     ;; Org's local map shadows the global multiple-cursors bindings.
     ;; Keep the displaced Org commands available on nearby keys.
@@ -2914,6 +3111,12 @@ playlist buffers removed."
     (let ((fill-forward-paragraph-function #'forward-paragraph))
       (do-auto-fill))))
 
+(defconst tsp/markdown-auto-source-languages '("go" "java" "lox" "py")
+  "Fenced code block names expanded immediately after they are typed.")
+
+(defconst tsp/markdown-source-content-indentation 2
+  "Spaces inserted before the first line of a fenced code block.")
+
 (defun tsp/markdown-expand-source-block ()
   "Expand an indented `,LANGUAGE' at point into a fenced code block."
   (when (and (not (tsp/markdown-in-unfillable-block-p))
@@ -2929,7 +3132,8 @@ playlist buffers removed."
                          short-name)))
       (delete-region (line-beginning-position) (point))
       (insert indent "```" language "\n"
-              indent "\n"
+              indent (make-string tsp/markdown-source-content-indentation ?\s)
+              "\n"
               indent "```")
       (forward-line -1)
       (end-of-line)
@@ -2941,7 +3145,7 @@ playlist buffers removed."
              (memq (char-syntax last-command-event) '(?w ?_))
              (looking-back
               (concat "^\\([[:blank:]]*\\),\\("
-                      (regexp-opt tsp/org-auto-source-languages)
+                      (regexp-opt tsp/markdown-auto-source-languages)
                       "\\)")
               (line-beginning-position)))
     (tsp/markdown-expand-source-block)))
@@ -2996,11 +3200,83 @@ playlist buffers removed."
     (insert (format "![](./assets/%s)" (file-name-nondirectory file)))
     (message "Saved clipboard image to %s" file)))
 
+(defvar-local tsp/markdown-image-overlays nil
+  "Image overlays created by `show-images-markdown'.")
+
+(defun tsp/markdown--image-destination-at-point ()
+  "Parse an inline image link at point and return its destination."
+  (when (looking-at "!\\[[^]\n]*]\\s-*(")
+    (goto-char (match-end 0))
+    (skip-chars-forward " \t")
+    (let ((start (point)))
+      (if (eq (char-after) ?<)
+          (when (search-forward ">" (line-end-position) t)
+            (let ((destination
+                   (buffer-substring-no-properties (1+ start) (1- (point)))))
+              (skip-chars-forward " \t")
+              (when (eq (char-after) ?\))
+                (forward-char)
+                destination)))
+        (let ((depth 0) done)
+          (while (and (not done) (not (eolp)))
+            (pcase (char-after)
+              (?\\ (forward-char (min 2 (- (point-max) (point)))))
+              (?\( (setq depth (1+ depth)) (forward-char))
+              (?\) (if (> depth 0)
+                      (progn (setq depth (1- depth)) (forward-char))
+                    (setq done t)))
+              (_ (forward-char))))
+          (when done
+            (prog1 (string-trim
+                    (buffer-substring-no-properties start (point)))
+              (forward-char))))))))
+
+(defun show-images-markdown ()
+  "Replace inline Markdown image links with scaled local image overlays."
+  (interactive)
+  (mapc #'delete-overlay tsp/markdown-image-overlays)
+  (setq tsp/markdown-image-overlays nil)
+  (let ((base (and buffer-file-name (file-name-directory buffer-file-name)))
+        (maximum-width (floor (* 0.9 (window-pixel-width (selected-window)))))
+        (displayed 0)
+        (skipped 0))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "!\\[" nil t)
+        (goto-char (match-beginning 0))
+        (let ((beginning (point))
+              (destination (tsp/markdown--image-destination-at-point)))
+          (if (not destination)
+              (progn (setq skipped (1+ skipped)) (forward-char))
+            (let* ((decoded (url-unhex-string destination))
+                   (path (cond
+                          ((string-match "\\`file://\\(?:localhost\\)?\\(.*\\)\\'"
+                                         decoded)
+                           (match-string 1 decoded))
+                          ((string-match-p "\\`[[:alpha:]][[:alnum:]+.-]*:" decoded)
+                           nil)
+                          ((file-name-absolute-p decoded) decoded)
+                          (base (expand-file-name decoded base))))
+                   (image (and path (not (file-remote-p path))
+                               (file-readable-p path)
+                               (ignore-errors
+                                 (create-image path nil nil :max-width maximum-width)))))
+              (if (not image)
+                  (setq skipped (1+ skipped))
+                (let ((overlay (make-overlay beginning (point))))
+                  (overlay-put overlay 'display image)
+                  (overlay-put overlay 'tsp/markdown-image t)
+                  (push overlay tsp/markdown-image-overlays)
+                  (setq displayed (1+ displayed)))))))))
+    (message "Displayed %d Markdown image%s; skipped %d"
+             displayed (if (= displayed 1) "" "s") skipped)))
+
 (use-package markdown-ts-mode
   :ensure nil
   :mode ("\\.md\\'" "\\.markdown\\'")
   :bind (:map markdown-ts-mode-map
-              ("C-c C-v" . tsp/markdown-paste-clipboard-image))
+              ("C-c C-v" . tsp/markdown-paste-clipboard-image)
+              ("C-c C-i" . show-images-markdown))
   :hook (markdown-ts-mode . tsp/markdown-setup-buffer)
   :config
   (dolist (face-height '((markdown-ts-heading-1 . 1.40)
@@ -3012,6 +3288,9 @@ playlist buffers removed."
     (set-face-attribute (car face-height) nil
                         :height (cdr face-height)
                         :weight 'bold)))
+
+(with-eval-after-load 'markdown-mode
+  (keymap-set markdown-mode-map "C-c C-i" #'show-images-markdown))
 
 (defun tsp/treesit-grand-parent-bol (_node parent &rest _)
   "Return the first non-whitespace position on PARENT's parent line."
