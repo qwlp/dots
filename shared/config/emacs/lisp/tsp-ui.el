@@ -8,7 +8,12 @@
 (scroll-bar-mode -1)
 (tooltip-mode -1)
 
-(setq inhibit-startup-screen t)
+(defun tsp/initial-temp-buffer ()
+  "Return the temporary buffer displayed at startup."
+  (get-buffer-create "*temp*"))
+
+(setq inhibit-startup-screen t
+      initial-buffer-choice #'tsp/initial-temp-buffer)
 (setq-default truncate-lines t)
 
 (display-time-mode -1)

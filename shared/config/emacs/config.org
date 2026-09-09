@@ -754,7 +754,12 @@ only meaningful while the Emacs process is starting."
 (scroll-bar-mode -1)
 (tooltip-mode -1)
 
-(setq inhibit-startup-screen t)
+(defun tsp/initial-temp-buffer ()
+  "Return the temporary buffer displayed at startup."
+  (get-buffer-create "*temp*"))
+
+(setq inhibit-startup-screen t
+      initial-buffer-choice #'tsp/initial-temp-buffer)
 (setq-default truncate-lines t)
 
 (display-time-mode -1)
@@ -2849,7 +2854,8 @@ starts in the current buffer's `default-directory'."
 (use-package multiple-cursors
   :ensure t
   :init
-  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el"))
+  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el")
+        mc/always-run-for-all t)
   (with-eval-after-load 'org
     ;; Org's local map shadows the global multiple-cursors bindings.
     ;; Keep the displaced Org commands available on nearby keys.

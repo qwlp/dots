@@ -107,7 +107,8 @@ starts in the current buffer's `default-directory'."
 (use-package multiple-cursors
   :ensure t
   :init
-  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el"))
+  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el")
+        mc/always-run-for-all t)
   (with-eval-after-load 'org
     ;; Org's local map shadows the global multiple-cursors bindings.
     ;; Keep the displaced Org commands available on nearby keys.
