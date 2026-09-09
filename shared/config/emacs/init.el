@@ -50,4 +50,69 @@
 (load "tsp-apps")
 (load "tsp-prog")
 
+;; The desktop follows Omarchy; the laptop follows its Quickshell theme state.
+;; Detect the integration rather than a hostname so this config remains
+;; portable after reinstalls or machine renames.
+(defconst tsp/omarchy-available-p
+  (file-readable-p "/usr/share/omarchy-emacs/config/omarchy.el"))
+
+(add-to-list 'custom-theme-load-path
+             (expand-file-name "themes/" user-emacs-directory))
+
+(if tsp/omarchy-available-p
+    (progn
+      (load (expand-file-name "omarchy" user-emacs-directory))
+
+      ;; Naysayer has a deliberately sparse Emacs-specific mapping, so prefer
+      ;; its native theme whenever Omarchy selects the matching desktop theme.
+      (defun tsp/apply-naysayer-theme-for-omarchy (&rest _)
+        "Use the native Naysayer Emacs theme when Omarchy selects Naysayer."
+        (when (and (file-readable-p omarchy-theme-name-file)
+                   (string= (string-trim
+                             (with-temp-buffer
+                               (insert-file-contents omarchy-theme-name-file)
+                               (buffer-string)))
+                            "naysayer"))
+          (mapc #'disable-theme custom-enabled-themes)
+          (load-theme 'naysayer t)))
+
+      (advice-add 'omarchy-apply-theme :after
+                  #'tsp/apply-naysayer-theme-for-omarchy)
+      (tsp/apply-naysayer-theme-for-omarchy))
+  (let* ((state-file (expand-file-name "~/.local/state/tsp-theme/name"))
+         (laptop-theme
+          (when (file-readable-p state-file)
+            (intern (string-trim
+                     (with-temp-buffer
+                       (insert-file-contents state-file)
+                       (buffer-string)))))))
+    (load-theme (if (memq laptop-theme
+                          '(naysayer aamis gruber-tsoding ginger-bill))
+                    laptop-theme
+                  'naysayer)
+                t)))
+
+;; Keep each machine's preferred font across newly created frames.
+(defconst tsp/default-font
+  (if tsp/omarchy-available-p
+      "LythMono Nerd Font 12"
+    "IosevkaTerm Nerd Font 13"))
+
+(defun tsp/apply-default-font (&optional frame)
+  "Apply `tsp/default-font' to FRAME, or to every graphical frame."
+  (if frame
+      (when (display-graphic-p frame)
+        (set-frame-font tsp/default-font nil (list frame)))
+    (set-face-attribute 'default nil :font tsp/default-font)
+    (dolist (live-frame (frame-list))
+      (when (display-graphic-p live-frame)
+        (set-frame-font tsp/default-font nil (list live-frame)))))
+  (setf (alist-get 'font default-frame-alist) tsp/default-font))
+
+(when tsp/omarchy-available-p
+  (advice-add 'omarchy-apply-font :after
+              (lambda (&rest _) (tsp/apply-default-font))))
+(add-hook 'after-make-frame-functions #'tsp/apply-default-font)
+(tsp/apply-default-font)
+
 ;;; init.el ends here

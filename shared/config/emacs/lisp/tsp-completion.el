@@ -196,10 +196,11 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
 
 (defun tsp/fff-grep-dwim (&optional empty)
   "Run fff grep, initially searching for the text at point.
+Outside a recognized project, use `consult-ripgrep' in the current directory.
 With prefix argument EMPTY, start with an empty query."
   (interactive "P")
   (let ((initial (unless empty (tsp/fff-query-at-point))))
-    (if (project-current nil default-directory)
+    (if (project-current nil)
         (progn
           (require 'fff)
           (fff--ensure-instance)

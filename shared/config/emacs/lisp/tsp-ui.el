@@ -10,7 +10,6 @@
 
 (setq inhibit-startup-screen t)
 (setq-default truncate-lines t)
-(set-face-attribute 'default nil :font "IosevkaTerm Nerd Font 13")
 
 (display-time-mode -1)
 (display-battery-mode -1)
@@ -72,14 +71,15 @@
   :config
   (dolist (command '(tsp/scroll-up-and-center
                      tsp/scroll-down-and-center
+                     avy-goto-char-2
                      better-jumper-jump-backward
-                     better-jumper-jump-forward
-                     avy-goto-char-2))
+                     better-jumper-jump-forward))
     (add-to-list 'pulsar-pulse-functions command))
   (pulsar-global-mode 1))
 
 (defconst tsp/script-fonts
-  '((khmer . "Noto Sans Khmer")
+  '((emoji . "Noto Color Emoji")
+    (khmer . "Noto Sans Khmer")
     (thai . "Noto Sans Thai")
     (lao . "Noto Sans Lao")
     (burmese . "Noto Sans Myanmar")
@@ -103,19 +103,6 @@
 
 (tsp/configure-script-fonts)
 (add-hook 'after-make-frame-functions #'tsp/configure-script-fonts)
-
-(add-to-list 'custom-theme-load-path
-             (expand-file-name "themes/" user-emacs-directory))
-(let* ((state-file (expand-file-name "~/.local/state/tsp-theme/name"))
-       (desktop-theme (when (file-readable-p state-file)
-                        (intern (string-trim
-                                 (with-temp-buffer
-                                   (insert-file-contents state-file)
-                                   (buffer-string)))))))
-  (load-theme (if (memq desktop-theme '(naysayer aamis gruber-tsoding ginger-bill))
-                  desktop-theme
-                'naysayer)
-              t))
 
 (provide 'tsp-ui)
 ;;; tsp-ui.el ends here

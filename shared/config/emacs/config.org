@@ -95,6 +95,71 @@
 (load "tsp-apps")
 (load "tsp-prog")
 
+;; The desktop follows Omarchy; the laptop follows its Quickshell theme state.
+;; Detect the integration rather than a hostname so this config remains
+;; portable after reinstalls or machine renames.
+(defconst tsp/omarchy-available-p
+  (file-readable-p "/usr/share/omarchy-emacs/config/omarchy.el"))
+
+(add-to-list 'custom-theme-load-path
+             (expand-file-name "themes/" user-emacs-directory))
+
+(if tsp/omarchy-available-p
+    (progn
+      (load (expand-file-name "omarchy" user-emacs-directory))
+
+      ;; Naysayer has a deliberately sparse Emacs-specific mapping, so prefer
+      ;; its native theme whenever Omarchy selects the matching desktop theme.
+      (defun tsp/apply-naysayer-theme-for-omarchy (&rest _)
+        "Use the native Naysayer Emacs theme when Omarchy selects Naysayer."
+        (when (and (file-readable-p omarchy-theme-name-file)
+                   (string= (string-trim
+                             (with-temp-buffer
+                               (insert-file-contents omarchy-theme-name-file)
+                               (buffer-string)))
+                            "naysayer"))
+          (mapc #'disable-theme custom-enabled-themes)
+          (load-theme 'naysayer t)))
+
+      (advice-add 'omarchy-apply-theme :after
+                  #'tsp/apply-naysayer-theme-for-omarchy)
+      (tsp/apply-naysayer-theme-for-omarchy))
+  (let* ((state-file (expand-file-name "~/.local/state/tsp-theme/name"))
+         (laptop-theme
+          (when (file-readable-p state-file)
+            (intern (string-trim
+                     (with-temp-buffer
+                       (insert-file-contents state-file)
+                       (buffer-string)))))))
+    (load-theme (if (memq laptop-theme
+                          '(naysayer aamis gruber-tsoding ginger-bill))
+                    laptop-theme
+                  'naysayer)
+                t)))
+
+;; Keep each machine's preferred font across newly created frames.
+(defconst tsp/default-font
+  (if tsp/omarchy-available-p
+      "LythMono Nerd Font 12"
+    "IosevkaTerm Nerd Font 13"))
+
+(defun tsp/apply-default-font (&optional frame)
+  "Apply `tsp/default-font' to FRAME, or to every graphical frame."
+  (if frame
+      (when (display-graphic-p frame)
+        (set-frame-font tsp/default-font nil (list frame)))
+    (set-face-attribute 'default nil :font tsp/default-font)
+    (dolist (live-frame (frame-list))
+      (when (display-graphic-p live-frame)
+        (set-frame-font tsp/default-font nil (list live-frame)))))
+  (setf (alist-get 'font default-frame-alist) tsp/default-font))
+
+(when tsp/omarchy-available-p
+  (advice-add 'omarchy-apply-font :after
+              (lambda (&rest _) (tsp/apply-default-font))))
+(add-hook 'after-make-frame-functions #'tsp/apply-default-font)
+(tsp/apply-default-font)
+
 ;;; init.el ends here
 #+end_src
 
@@ -224,6 +289,18 @@ Move to the beginning of the buffer if scrolling makes no progress."
 
 (keymap-global-set "C-v" #'tsp/scroll-up-and-center)
 (keymap-global-set "M-v" #'tsp/scroll-down-and-center)
+
+(defun tsp/mark-word-repeat ()
+  "Mark the next word and let subsequent `w' keys extend the region."
+  (interactive)
+  (call-interactively #'mark-word)
+  (set-transient-map tsp/mark-word-repeat-map t))
+
+(defvar-keymap tsp/mark-word-repeat-map
+  :doc "Transient keymap for marking additional words."
+  "w" #'tsp/mark-word-repeat)
+
+(keymap-global-set "C-c w" #'tsp/mark-word-repeat)
 
 (defun tsp/line-bounds ()
   "Return the bounds and line count of the current line or active region.
@@ -447,28 +524,6 @@ only meaningful while the Emacs process is starting."
 (keymap-global-set "C-c i E" #'emoji-list)
 (keymap-global-set "C-c i r" #'emoji-recent)
 
-(defvar tsp/mark-next-word-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "w" #'tsp/mark-next-word)
-    map)
-  "Transient map used to repeat `tsp/mark-next-word' with `w'.")
-
-(defun tsp/mark-next-word ()
-  "Select one more word ahead without moving point.
-After invoking this command with `C-c w', further `w' keys extend the
-selection while point stays where it was."
-  (interactive)
-  (let ((end (if (use-region-p) (mark) (point))))
-    (set-mark
-     (save-excursion
-       (goto-char end)
-       (forward-word 1)
-       (point)))
-    (activate-mark)
-    (set-transient-map tsp/mark-next-word-map t)))
-
-(keymap-global-set "C-c w" #'tsp/mark-next-word)
-
 ;; Window layout history, project tabs, and temporary popups.
 (winner-mode 1)
 (setq tab-bar-show nil)
@@ -508,95 +563,6 @@ selection while point stays where it was."
 (with-eval-after-load 'ghostel
   (tsp/prioritize-navigation-keys))
 
-;; Meow uses a private leader map so Space shortcuts do not overwrite C-c.
-(defvar tsp/meow-space-map
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map (keymap-lookup global-map "C-c"))
-    (keymap-set map "f" #'fff-find-file)
-    (keymap-set map "g" #'tsp/fff-grep-dwim)
-    (keymap-set map "e" #'dired)
-    (keymap-set map "j" "H-j")
-    (keymap-set map "k" "H-k")
-    (dolist (digit '("0" "1" "2" "3" "4" "5" "6" "7" "8" "9"))
-      (keymap-set map digit #'meow-digit-argument))
-    (keymap-set map "/" #'meow-keypad-describe-key)
-    (keymap-set map "?" #'meow-cheatsheet)
-    map)
-  "Leader map used from Meow Normal state.")
-
-;; Clean up FFF bindings installed by older versions when reloading in place.
-(keymap-global-unset "C-c f")
-(keymap-global-unset "C-c g")
-
-(defvar tsp/meow-kill-ring nil
-  "Kill ring used exclusively by Meow editing commands.")
-
-(defun tsp/meow-with-private-kill-ring (command &rest arguments)
-  "Call COMMAND with ARGUMENTS without consulting the system clipboard."
-  (let ((select-enable-clipboard nil)
-        (select-enable-primary nil)
-        (interprogram-cut-function nil)
-        (interprogram-paste-function nil)
-        (kill-ring tsp/meow-kill-ring)
-        (kill-ring-yank-pointer tsp/meow-kill-ring))
-    (unwind-protect
-        (apply command arguments)
-      (setq tsp/meow-kill-ring kill-ring))))
-
-(defun tsp/meow-insert-state ()
-  "Enter Meow Insert state in terminal-like buffers."
-  (meow-insert-mode 1))
-
-(use-package meow
-  :ensure t
-  :demand t
-  :bind (("C-c t m" . meow-global-mode))
-  :init
-  (setq meow-use-clipboard nil
-        meow-use-cursor-position-hack t
-        meow-goto-line-function #'consult-goto-line
-        meow-keypad-ctrl-meta-prefix ?G
-        ;; Keep Meow's normal SPC keypad entry point, but dispatch its first
-        ;; key through our isolated map rather than the actual C-c map.
-        meow-keypad-leader-dispatch tsp/meow-space-map)
-  :config
-  (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
-  (meow-motion-overwrite-define-key
-   '("j" . meow-next) '("k" . meow-prev) '("<escape>" . ignore))
-  (meow-normal-define-key
-   '("0" . meow-expand-0) '("1" . meow-expand-1) '("2" . meow-expand-2)
-   '("3" . meow-expand-3) '("4" . meow-expand-4) '("5" . meow-expand-5)
-   '("6" . meow-expand-6) '("7" . meow-expand-7) '("8" . meow-expand-8)
-   '("9" . meow-expand-9) '("-" . negative-argument)
-   '(";" . meow-reverse) '("," . meow-inner-of-thing) '("." . meow-bounds-of-thing)
-   '("[" . meow-beginning-of-thing) '("]" . meow-end-of-thing)
-   '("a" . meow-append) '("A" . meow-open-below) '("b" . meow-back-word)
-   '("B" . meow-back-symbol) '("c" . meow-change) '("d" . meow-delete)
-   '("D" . meow-backward-delete) '("e" . meow-next-word) '("E" . meow-next-symbol)
-   '("f" . meow-find) '("g" . meow-cancel-selection) '("G" . meow-grab)
-   '("h" . meow-left) '("H" . meow-left-expand) '("i" . meow-insert)
-   '("I" . meow-open-above) '("j" . meow-next) '("J" . meow-next-expand)
-   '("k" . meow-prev) '("K" . meow-prev-expand) '("l" . meow-right)
-   '("L" . meow-right-expand) '("m" . meow-join) '("n" . meow-search)
-   '("o" . meow-block) '("O" . meow-to-block) '("p" . meow-yank)
-   '("q" . meow-quit) '("Q" . meow-goto-line) '("r" . meow-replace)
-   '("R" . meow-swap-grab) '("s" . meow-kill) '("t" . meow-till)
-   '("u" . meow-undo) '("U" . meow-undo-in-selection) '("v" . meow-visit)
-   '("w" . meow-mark-word) '("W" . meow-mark-symbol) '("x" . meow-line)
-   '("X" . meow-goto-line) '("y" . meow-save) '("Y" . meow-sync-grab)
-   '("z" . meow-pop-selection) '("'" . repeat)
-   '("<escape>" . ignore))
-  (dolist (command '(meow-save meow-kill meow-yank meow-change meow-replace))
-    (advice-add command :around #'tsp/meow-with-private-kill-ring))
-  (dolist (hook '(eshell-mode-hook ghostel-mode-hook shell-mode-hook
-                  term-mode-hook vterm-mode-hook))
-    (add-hook hook #'tsp/meow-insert-state))
-  ;; Remove the verbose indicator left behind by an earlier configuration.
-  (setq-default mode-line-format
-                (delete '(:eval (meow-indicator))
-                        (default-value 'mode-line-format)))
-  (meow-global-mode 1))
-
 ;; Match Kitty's pane-management keys.
 (keymap-global-set "M-V" #'split-window-right)
 (keymap-global-set "M-M" #'split-window-below)
@@ -620,6 +586,135 @@ selection while point stays where it was."
   (keymap-global-set key #'tsp/window-layout-one-column))
 (dolist (key '("M-S-2" "M-@"))
   (keymap-global-set key #'tsp/window-layout-two-columns))
+
+(defvar tsp/meow-space-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map mode-specific-map)
+    map)
+  "Leader map used by Meow's Space keypad.")
+
+(defun tsp/meow-cancel-selection-and-multicursor ()
+  "Cancel the Meow selection and exit Multiple Cursors."
+  (interactive)
+  (when (bound-and-true-p multiple-cursors-mode)
+    (multiple-cursors-mode 0))
+  (meow-cancel-selection))
+
+(defun tsp/meow-setup ()
+  "Install Meow's recommended QWERTY bindings."
+  (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty
+        ;; `g' is a leader command, so keep it from starting Meow's C-M-
+        ;; keypad translation instead.
+        meow-keypad-ctrl-meta-prefix ?G
+        meow-keypad-leader-dispatch tsp/meow-space-map)
+  (keymap-set tsp/meow-space-map "e" #'dired)
+  (keymap-set tsp/meow-space-map "f" #'fff-find-file)
+  (keymap-set tsp/meow-space-map "g" #'tsp/fff-grep-dwim)
+  (meow-motion-define-key
+   '("j" . meow-next)
+   '("k" . meow-prev)
+   '("<escape>" . ignore))
+  (meow-leader-define-key
+   '("1" . meow-digit-argument)
+   '("2" . meow-digit-argument)
+   '("3" . meow-digit-argument)
+   '("4" . meow-digit-argument)
+   '("5" . meow-digit-argument)
+   '("6" . meow-digit-argument)
+   '("7" . meow-digit-argument)
+   '("8" . meow-digit-argument)
+   '("9" . meow-digit-argument)
+   '("0" . meow-digit-argument)
+   '("/" . meow-keypad-describe-key)
+   '("?" . meow-cheatsheet))
+  (meow-normal-define-key
+   '("0" . meow-expand-0) '("9" . meow-expand-9)
+   '("8" . meow-expand-8) '("7" . meow-expand-7)
+   '("6" . meow-expand-6) '("5" . meow-expand-5)
+   '("4" . meow-expand-4) '("3" . meow-expand-3)
+   '("2" . meow-expand-2) '("1" . meow-expand-1)
+   '("-" . negative-argument)
+   '(";" . meow-reverse)
+   '("," . meow-inner-of-thing)
+   '("." . meow-bounds-of-thing)
+   '("[" . meow-beginning-of-thing)
+   '("]" . meow-end-of-thing)
+   '("a" . meow-append) '("A" . meow-open-below)
+   '("b" . meow-back-word) '("B" . meow-back-symbol)
+   '("c" . meow-change)
+   '("d" . meow-delete) '("D" . meow-backward-delete)
+   '("e" . meow-next-word) '("E" . meow-next-symbol)
+   '("f" . meow-find)
+   '("g" . tsp/meow-cancel-selection-and-multicursor) '("G" . meow-grab)
+   '("h" . meow-left) '("H" . meow-left-expand)
+   '("i" . meow-insert) '("I" . meow-open-above)
+   '("j" . meow-next) '("J" . meow-next-expand)
+   '("k" . meow-prev) '("K" . meow-prev-expand)
+   '("l" . meow-right) '("L" . meow-right-expand)
+   '("m" . meow-join)
+   '("n" . meow-search)
+   '("o" . meow-block) '("O" . meow-to-block)
+   '("p" . meow-yank)
+   '("q" . meow-quit) '("Q" . meow-goto-line)
+   '("r" . meow-replace) '("R" . meow-swap-grab)
+   '("s" . meow-kill)
+   '("t" . meow-till)
+   '("u" . meow-undo) '("U" . meow-undo-in-selection)
+   '("v" . meow-visit)
+   '("w" . meow-mark-word) '("W" . meow-mark-symbol)
+   '("x" . meow-line) '("X" . meow-goto-line)
+   '("y" . meow-save) '("Y" . meow-sync-grab)
+   '("z" . meow-pop-selection)
+   '("'" . repeat)
+   '("<escape>" . ignore)))
+
+(defvar tsp/meow-kill-ring nil
+  "Private kill ring used only by Meow commands.")
+
+(defun tsp/meow-use-internal-kill-ring (function &rest arguments)
+  "Call FUNCTION with ARGUMENTS using Meow's private kill ring."
+  (let ((select-enable-clipboard nil)
+        (select-enable-primary nil)
+        (interprogram-cut-function nil)
+        (interprogram-paste-function nil)
+        (kill-ring tsp/meow-kill-ring)
+        (kill-ring-yank-pointer tsp/meow-kill-ring))
+    (unwind-protect
+        (apply function arguments)
+      (setq tsp/meow-kill-ring kill-ring))))
+
+(use-package meow
+  :ensure t
+  :demand t
+  :bind (("C-c t m" . meow-global-mode))
+  :custom
+  (meow-use-clipboard nil)
+  (meow-use-cursor-position-hack t)
+  (meow-goto-line-function #'consult-goto-line)
+  :config
+  (dolist (mode '(eshell-mode ghostel-mode shell-mode term-mode vterm-mode))
+    (add-to-list 'meow-mode-state-list (cons mode 'insert)))
+  (dolist (command '(meow-kill
+                     meow-kill-append
+                     meow-save
+                     meow-save-append
+                     meow-save-char
+                     meow-save-empty
+                     meow-yank
+                     meow-yank-pop
+                     meow-change-save
+                     meow-replace
+                     meow-replace-char
+                     meow-replace-pop
+                     meow-replace-save))
+    (advice-add command :around #'tsp/meow-use-internal-kill-ring))
+  (tsp/meow-setup)
+  ;; Keep Meow's compact minor-mode lighter; remove the redundant full-state
+  ;; indicator previously installed at the left edge of the mode line.
+  (setq-default mode-line-format
+                (delete '(:eval (meow-indicator))
+                        (default-value 'mode-line-format)))
+  (meow-global-mode 1))
 
 (use-package popper
   :ensure t
@@ -661,7 +756,6 @@ selection while point stays where it was."
 
 (setq inhibit-startup-screen t)
 (setq-default truncate-lines t)
-(set-face-attribute 'default nil :font "IosevkaTerm Nerd Font 13")
 
 (display-time-mode -1)
 (display-battery-mode -1)
@@ -723,14 +817,15 @@ selection while point stays where it was."
   :config
   (dolist (command '(tsp/scroll-up-and-center
                      tsp/scroll-down-and-center
+                     avy-goto-char-2
                      better-jumper-jump-backward
-                     better-jumper-jump-forward
-                     avy-goto-char-2))
+                     better-jumper-jump-forward))
     (add-to-list 'pulsar-pulse-functions command))
   (pulsar-global-mode 1))
 
 (defconst tsp/script-fonts
-  '((khmer . "Noto Sans Khmer")
+  '((emoji . "Noto Color Emoji")
+    (khmer . "Noto Sans Khmer")
     (thai . "Noto Sans Thai")
     (lao . "Noto Sans Lao")
     (burmese . "Noto Sans Myanmar")
@@ -754,19 +849,6 @@ selection while point stays where it was."
 
 (tsp/configure-script-fonts)
 (add-hook 'after-make-frame-functions #'tsp/configure-script-fonts)
-
-(add-to-list 'custom-theme-load-path
-             (expand-file-name "themes/" user-emacs-directory))
-(let* ((state-file (expand-file-name "~/.local/state/tsp-theme/name"))
-       (desktop-theme (when (file-readable-p state-file)
-                        (intern (string-trim
-                                 (with-temp-buffer
-                                   (insert-file-contents state-file)
-                                   (buffer-string)))))))
-  (load-theme (if (memq desktop-theme '(naysayer aamis gruber-tsoding ginger-bill))
-                  desktop-theme
-                'naysayer)
-              t))
 
 (provide 'tsp-ui)
 ;;; tsp-ui.el ends here
@@ -1177,10 +1259,11 @@ directory in Dired and the second starts a fresh Ghostel terminal there."
 
 (defun tsp/fff-grep-dwim (&optional empty)
   "Run fff grep, initially searching for the text at point.
+Outside a recognized project, use `consult-ripgrep' in the current directory.
 With prefix argument EMPTY, start with an empty query."
   (interactive "P")
   (let ((initial (unless empty (tsp/fff-query-at-point))))
-    (if (project-current nil default-directory)
+    (if (project-current nil)
         (progn
           (require 'fff)
           (fff--ensure-instance)
@@ -1987,13 +2070,34 @@ For safety, only image files inside `tsp/org-assets-directory' are removed."
         (message "Moved %s to trash and removed its link"
                  (file-name-nondirectory file))))))
 
+(defun tsp/org--socket-p (file)
+  "Return non-nil when FILE names a Unix-domain socket."
+  (when-let* ((attributes (file-attributes file 'string))
+              (modes (file-attribute-modes attributes)))
+    (eq (aref modes 0) ?s)))
+
+(defun tsp/org--ensure-wayland-display ()
+  "Recover `WAYLAND_DISPLAY' when a daemon started before the compositor."
+  (unless (getenv "WAYLAND_DISPLAY")
+    (let ((runtime-directory (getenv "XDG_RUNTIME_DIR")))
+      (when (and runtime-directory (file-directory-p runtime-directory))
+        (when-let* ((socket
+                     (seq-find
+                      #'tsp/org--socket-p
+                      (directory-files runtime-directory t
+                                       "\\`wayland-[[:digit:]]+\\'"))))
+          (setenv "WAYLAND_DISPLAY" (file-name-nondirectory socket)))))))
+
 (defun tsp/org--clipboard-image-spec ()
   "Return a clipboard image command and extension, or signal a user error."
+  (tsp/org--ensure-wayland-display)
   (cond
    ((executable-find "wl-paste")
     (let ((types (with-temp-buffer
                    (when (zerop (call-process "wl-paste" nil t nil "--list-types"))
                      (buffer-string)))))
+      (unless (stringp types)
+        (user-error "Could not query the Wayland clipboard; check that Emacs can access the Wayland session"))
       (cond
        ((string-match-p "image/png" types)
         '("png" "wl-paste" "--no-newline" "--type" "image/png"))
@@ -2063,13 +2167,6 @@ For safety, only image files inside `tsp/org-assets-directory' are removed."
   "Open the main Org agenda dashboard."
   (interactive)
   (org-agenda nil "d"))
-
-(defun tsp/org-open-dashboard-on-startup ()
-  "Open the Org agenda dashboard after interactive startup."
-  (when (and (not noninteractive) (not (daemonp)))
-    (tsp/org-open-dashboard)))
-
-(add-hook 'emacs-startup-hook #'tsp/org-open-dashboard-on-startup 99)
 
 (defun tsp/org-clock-out-if-done ()
   "Clock out when the current clocked task enters a done state."
@@ -2653,74 +2750,34 @@ break them."
   :commands (ghostel ghostel-create)
   :init
   (setq ghostel-module-auto-install 'download)
-  (setq-default ghostel-glyph-scale-floor 1.0)
+  (setq-default ghostel-glyph-scale-floor 1.0))
 
-  (defun ghostel-new ()
-    "Open a fresh Ghostel terminal in the current window."
-    (interactive)
-    (switch-to-buffer (ghostel-create)))
+(defun ghostel-new ()
+  "Open a fresh Ghostel terminal in the selected window.
 
-  (defun ghostel-new-right ()
-    "Open a fresh Ghostel terminal in a new window on the right."
-    (interactive)
-    (select-window (split-window-right))
-    (ghostel-new))
+Unlike `ghostel', this never reuses an existing terminal.  The new shell
+starts in the current buffer's `default-directory'."
+  (interactive)
+  (ghostel-create nil display-buffer--same-window-action))
 
-  (defun ghostel-new-below ()
-    "Open a fresh Ghostel terminal in a new window below."
-    (interactive)
-    (select-window (split-window-below))
-    (ghostel-new))
+(defun ghostel-new-right ()
+  "Split the selected window to the right and open a fresh Ghostel there."
+  (interactive)
+  (select-window (split-window-right))
+  (ghostel-new))
 
-  (defun ghostel-new-tab ()
-    "Open a fresh Ghostel terminal in a new tab."
-    (interactive)
-    (tab-bar-new-tab)
-    (ghostel-new))
-  :config
-  (defun tsp/desktop-theme-palette ()
-    "Read the canonical palette published by the Quickshell theme switcher."
-    (let ((file (expand-file-name "~/.config/tsp-theme/current/colors.toml"))
-          palette)
-      (when (file-readable-p file)
-        (with-temp-buffer
-          (insert-file-contents file)
-          (goto-char (point-min))
-          (while (re-search-forward
-                  "^\\([a-z0-9_]+\\)[[:space:]]*=[[:space:]]*\"\\(#[0-9A-Fa-f]\\{6\\}\\)\""
-                  nil t)
-            (push (cons (intern (match-string 1)) (match-string 2)) palette))))
-      palette))
+(defun ghostel-new-below ()
+  "Split the selected window below and open a fresh Ghostel there."
+  (interactive)
+  (select-window (split-window-below))
+  (ghostel-new))
 
-  (defun tsp/ghostel-apply-desktop-theme (&rest _)
-    "Apply Quickshell's active 16-color palette to every Ghostel terminal."
-    (let* ((palette (tsp/desktop-theme-palette))
-           (foreground (alist-get 'foreground palette))
-           (background (alist-get 'background palette))
-           (faces [ghostel-color-black ghostel-color-red
-                   ghostel-color-green ghostel-color-yellow
-                   ghostel-color-blue ghostel-color-magenta
-                   ghostel-color-cyan ghostel-color-white
-                   ghostel-color-bright-black ghostel-color-bright-red
-                   ghostel-color-bright-green ghostel-color-bright-yellow
-                   ghostel-color-bright-blue ghostel-color-bright-magenta
-                   ghostel-color-bright-cyan ghostel-color-bright-white])
-           (colors (mapcar (lambda (number)
-                             (alist-get (intern (format "color%d" number))
-                                        palette))
-                           (number-sequence 0 15))))
-      (when (and foreground background (not (memq nil colors)))
-        (set-face-attribute 'ghostel-default nil
-                            :foreground foreground :background background)
-        (cl-mapc (lambda (face color)
-                   (set-face-attribute face nil :foreground color))
-                 (append faces nil) colors)
-        (ghostel-sync-theme))))
-
-  ;; This hook is added after Ghostel's own hook, so its default prepend
-  ;; behavior makes the palette update happen before Ghostel redraws buffers.
-  (add-hook 'enable-theme-functions #'tsp/ghostel-apply-desktop-theme)
-  (tsp/ghostel-apply-desktop-theme))
+(defun ghostel-new-tab ()
+  "Create a new tab and open a fresh Ghostel terminal in it."
+  (interactive)
+  (tab-bar-new-tab)
+  (tab-bar-rename-tab "terminal")
+  (ghostel-new))
 
 (defun tsp/change-inner-word ()
   "Kill the symbol or word at point, like Vim's `ciw'."
@@ -2792,21 +2849,7 @@ break them."
 (use-package multiple-cursors
   :ensure t
   :init
-  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el")
-        ;; Run newly encountered commands at every cursor without asking for
-        ;; y/n confirmation.  Commands explicitly listed to run once still do.
-        mc/always-run-for-all t)
-  ;; Older versions generated this state file without the cookie now required
-  ;; by Emacs 31.  Upgrade it before `mc/load-lists' reads it.
-  (when (file-readable-p mc/list-file)
-    (with-temp-buffer
-      (insert-file-contents mc/list-file)
-      (unless (save-excursion
-                (goto-char (point-min))
-                (search-forward "lexical-binding:" (line-end-position 2) t))
-        (goto-char (point-min))
-        (insert ";;; -*- lexical-binding: t; -*-\n")
-        (write-region (point-min) (point-max) mc/list-file nil 'silent))))
+  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el"))
   (with-eval-after-load 'org
     ;; Org's local map shadows the global multiple-cursors bindings.
     ;; Keep the displaced Org commands available on nearby keys.
@@ -3076,10 +3119,15 @@ playlist buffers removed."
     (gomod "https://github.com/camdencheek/tree-sitter-go-mod")
     (jai "https://github.com/constantitus/tree-sitter-jai")
     (java "https://github.com/tree-sitter/tree-sitter-java")
+    (javascript "https://github.com/tree-sitter/tree-sitter-javascript")
     (markdown "https://github.com/tree-sitter-grammars/tree-sitter-markdown"
               :source-dir "tree-sitter-markdown/src")
     (markdown-inline "https://github.com/tree-sitter-grammars/tree-sitter-markdown"
                      :source-dir "tree-sitter-markdown-inline/src")
+    (typescript "https://github.com/tree-sitter/tree-sitter-typescript"
+                :source-dir "typescript/src")
+    (tsx "https://github.com/tree-sitter/tree-sitter-typescript"
+         :source-dir "tsx/src")
     (typst "https://github.com/uben0/tree-sitter-typst"))
   "Tree-sitter grammars managed by this config.")
 
@@ -3090,7 +3138,10 @@ playlist buffers removed."
 (customize-set-variable
  'treesit-enabled-modes
  '(c-ts-mode c++-ts-mode go-ts-mode go-mod-ts-mode java-ts-mode
-   markdown-ts-mode))
+   js-ts-mode markdown-ts-mode typescript-ts-mode tsx-ts-mode))
+
+(add-to-list 'auto-mode-alist '("\\.jsx\\'" . js-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.tsx\\'" . tsx-ts-mode))
 
 (defun tsp/markdown-in-unfillable-block-p ()
   "Return non-nil when point is in Markdown code or a pipe table."
@@ -3111,12 +3162,6 @@ playlist buffers removed."
     (let ((fill-forward-paragraph-function #'forward-paragraph))
       (do-auto-fill))))
 
-(defconst tsp/markdown-auto-source-languages '("go" "java" "lox" "py")
-  "Fenced code block names expanded immediately after they are typed.")
-
-(defconst tsp/markdown-source-content-indentation 2
-  "Spaces inserted before the first line of a fenced code block.")
-
 (defun tsp/markdown-expand-source-block ()
   "Expand an indented `,LANGUAGE' at point into a fenced code block."
   (when (and (not (tsp/markdown-in-unfillable-block-p))
@@ -3132,8 +3177,7 @@ playlist buffers removed."
                          short-name)))
       (delete-region (line-beginning-position) (point))
       (insert indent "```" language "\n"
-              indent (make-string tsp/markdown-source-content-indentation ?\s)
-              "\n"
+              indent "\n"
               indent "```")
       (forward-line -1)
       (end-of-line)
@@ -3145,7 +3189,7 @@ playlist buffers removed."
              (memq (char-syntax last-command-event) '(?w ?_))
              (looking-back
               (concat "^\\([[:blank:]]*\\),\\("
-                      (regexp-opt tsp/markdown-auto-source-languages)
+                      (regexp-opt tsp/org-auto-source-languages)
                       "\\)")
               (line-beginning-position)))
     (tsp/markdown-expand-source-block)))
@@ -3172,6 +3216,72 @@ playlist buffers removed."
                 (max next-number (1+ (string-to-number (match-string 1 name))))))))
     (expand-file-name (format "%s%d.%s" stem next-number extension)
                       assets-directory)))
+
+(defvar-local tsp/markdown-image-overlays nil
+  "Overlays used to display images inline in the current Markdown buffer.")
+
+(defun tsp/markdown--image-destination (begin end)
+  "Return the image destination between BEGIN and END, without a title."
+  (let ((text (string-trim
+               (buffer-substring-no-properties begin end))))
+    (cond
+     ((string-prefix-p "<" text)
+      (when (string-match "\\`<\\([^>]+\\)>" text)
+        (match-string 1 text)))
+     ((string-match "\\`\\(?:\\\\.\\|[^[:space:]]\\)+" text)
+      (replace-regexp-in-string "\\\\\\([() ]\\)" "\\1"
+                                (match-string 0 text))))))
+
+(defun show-images-markdown ()
+  "Display every local inline Markdown image in the current buffer."
+  (interactive)
+  (unless (derived-mode-p 'markdown-ts-mode 'markdown-mode)
+    (user-error "This command only works in a Markdown buffer"))
+  (mapc #'delete-overlay tsp/markdown-image-overlays)
+  (setq tsp/markdown-image-overlays nil)
+  (let ((base-directory (if buffer-file-name
+                            (file-name-directory buffer-file-name)
+                          default-directory))
+        (shown 0)
+        (missing 0))
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "!\\[[^]\n]*\\](" nil t)
+        (let* ((link-beginning (match-beginning 0))
+               (opening-paren (1- (point)))
+               (link-end (ignore-errors (scan-sexps opening-paren 1))))
+          (when link-end
+            (let* ((destination
+                    (tsp/markdown--image-destination (point) (1- link-end)))
+                   (decoded (and destination
+                                 (url-unhex-string destination)))
+                   (file (cond
+                          ((not decoded) nil)
+                          ((string-prefix-p "file://" decoded)
+                           (substring decoded 7))
+                          ((string-match-p "\\`[[:alpha:]][[:alnum:]+.-]*:"
+                                           decoded)
+                           nil)
+                          (t (expand-file-name decoded base-directory)))))
+              (if (and file (file-readable-p file))
+                  (condition-case nil
+                      (let ((overlay (make-overlay link-beginning link-end)))
+                        (overlay-put overlay 'display
+                                     (create-image file nil nil
+                                                   :max-width
+                                                   (floor (* 0.9
+                                                             (window-pixel-width)))))
+                        (overlay-put overlay 'evaporate t)
+                        (push overlay tsp/markdown-image-overlays)
+                        (setq shown (1+ shown)))
+                    (error (setq missing (1+ missing))))
+                (setq missing (1+ missing)))
+            (goto-char link-end))))))
+    (message "Displayed %d Markdown image%s%s"
+             shown (if (= shown 1) "" "s")
+             (if (> missing 0)
+                 (format "; skipped %d unavailable or unsupported" missing)
+               ""))))
 
 (defun tsp/markdown-paste-clipboard-image ()
   "Save the clipboard image beside this Markdown file and insert its link."
@@ -3200,83 +3310,11 @@ playlist buffers removed."
     (insert (format "![](./assets/%s)" (file-name-nondirectory file)))
     (message "Saved clipboard image to %s" file)))
 
-(defvar-local tsp/markdown-image-overlays nil
-  "Image overlays created by `show-images-markdown'.")
-
-(defun tsp/markdown--image-destination-at-point ()
-  "Parse an inline image link at point and return its destination."
-  (when (looking-at "!\\[[^]\n]*]\\s-*(")
-    (goto-char (match-end 0))
-    (skip-chars-forward " \t")
-    (let ((start (point)))
-      (if (eq (char-after) ?<)
-          (when (search-forward ">" (line-end-position) t)
-            (let ((destination
-                   (buffer-substring-no-properties (1+ start) (1- (point)))))
-              (skip-chars-forward " \t")
-              (when (eq (char-after) ?\))
-                (forward-char)
-                destination)))
-        (let ((depth 0) done)
-          (while (and (not done) (not (eolp)))
-            (pcase (char-after)
-              (?\\ (forward-char (min 2 (- (point-max) (point)))))
-              (?\( (setq depth (1+ depth)) (forward-char))
-              (?\) (if (> depth 0)
-                      (progn (setq depth (1- depth)) (forward-char))
-                    (setq done t)))
-              (_ (forward-char))))
-          (when done
-            (prog1 (string-trim
-                    (buffer-substring-no-properties start (point)))
-              (forward-char))))))))
-
-(defun show-images-markdown ()
-  "Replace inline Markdown image links with scaled local image overlays."
-  (interactive)
-  (mapc #'delete-overlay tsp/markdown-image-overlays)
-  (setq tsp/markdown-image-overlays nil)
-  (let ((base (and buffer-file-name (file-name-directory buffer-file-name)))
-        (maximum-width (floor (* 0.9 (window-pixel-width (selected-window)))))
-        (displayed 0)
-        (skipped 0))
-    (save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward "!\\[" nil t)
-        (goto-char (match-beginning 0))
-        (let ((beginning (point))
-              (destination (tsp/markdown--image-destination-at-point)))
-          (if (not destination)
-              (progn (setq skipped (1+ skipped)) (forward-char))
-            (let* ((decoded (url-unhex-string destination))
-                   (path (cond
-                          ((string-match "\\`file://\\(?:localhost\\)?\\(.*\\)\\'"
-                                         decoded)
-                           (match-string 1 decoded))
-                          ((string-match-p "\\`[[:alpha:]][[:alnum:]+.-]*:" decoded)
-                           nil)
-                          ((file-name-absolute-p decoded) decoded)
-                          (base (expand-file-name decoded base))))
-                   (image (and path (not (file-remote-p path))
-                               (file-readable-p path)
-                               (ignore-errors
-                                 (create-image path nil nil :max-width maximum-width)))))
-              (if (not image)
-                  (setq skipped (1+ skipped))
-                (let ((overlay (make-overlay beginning (point))))
-                  (overlay-put overlay 'display image)
-                  (overlay-put overlay 'tsp/markdown-image t)
-                  (push overlay tsp/markdown-image-overlays)
-                  (setq displayed (1+ displayed)))))))))
-    (message "Displayed %d Markdown image%s; skipped %d"
-             displayed (if (= displayed 1) "" "s") skipped)))
-
 (use-package markdown-ts-mode
   :ensure nil
   :mode ("\\.md\\'" "\\.markdown\\'")
   :bind (:map markdown-ts-mode-map
-              ("C-c C-v" . tsp/markdown-paste-clipboard-image)
-              ("C-c C-i" . show-images-markdown))
+              ("C-c C-v" . tsp/markdown-paste-clipboard-image))
   :hook (markdown-ts-mode . tsp/markdown-setup-buffer)
   :config
   (dolist (face-height '((markdown-ts-heading-1 . 1.40)
@@ -3288,9 +3326,6 @@ playlist buffers removed."
     (set-face-attribute (car face-height) nil
                         :height (cdr face-height)
                         :weight 'bold)))
-
-(with-eval-after-load 'markdown-mode
-  (keymap-set markdown-mode-map "C-c C-i" #'show-images-markdown))
 
 (defun tsp/treesit-grand-parent-bol (_node parent &rest _)
   "Return the first non-whitespace position on PARENT's parent line."

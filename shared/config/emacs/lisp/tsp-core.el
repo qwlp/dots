@@ -123,6 +123,18 @@ Move to the beginning of the buffer if scrolling makes no progress."
 (keymap-global-set "C-v" #'tsp/scroll-up-and-center)
 (keymap-global-set "M-v" #'tsp/scroll-down-and-center)
 
+(defun tsp/mark-word-repeat ()
+  "Mark the next word and let subsequent `w' keys extend the region."
+  (interactive)
+  (call-interactively #'mark-word)
+  (set-transient-map tsp/mark-word-repeat-map t))
+
+(defvar-keymap tsp/mark-word-repeat-map
+  :doc "Transient keymap for marking additional words."
+  "w" #'tsp/mark-word-repeat)
+
+(keymap-global-set "C-c w" #'tsp/mark-word-repeat)
+
 (defun tsp/line-bounds ()
   "Return the bounds and line count of the current line or active region.
 
@@ -345,28 +357,6 @@ only meaningful while the Emacs process is starting."
 (keymap-global-set "C-c i E" #'emoji-list)
 (keymap-global-set "C-c i r" #'emoji-recent)
 
-(defvar tsp/mark-next-word-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map "w" #'tsp/mark-next-word)
-    map)
-  "Transient map used to repeat `tsp/mark-next-word' with `w'.")
-
-(defun tsp/mark-next-word ()
-  "Select one more word ahead without moving point.
-After invoking this command with `C-c w', further `w' keys extend the
-selection while point stays where it was."
-  (interactive)
-  (let ((end (if (use-region-p) (mark) (point))))
-    (set-mark
-     (save-excursion
-       (goto-char end)
-       (forward-word 1)
-       (point)))
-    (activate-mark)
-    (set-transient-map tsp/mark-next-word-map t)))
-
-(keymap-global-set "C-c w" #'tsp/mark-next-word)
-
 ;; Window layout history, project tabs, and temporary popups.
 (winner-mode 1)
 (setq tab-bar-show nil)
@@ -406,95 +396,6 @@ selection while point stays where it was."
 (with-eval-after-load 'ghostel
   (tsp/prioritize-navigation-keys))
 
-;; Meow uses a private leader map so Space shortcuts do not overwrite C-c.
-(defvar tsp/meow-space-map
-  (let ((map (make-sparse-keymap)))
-    (set-keymap-parent map (keymap-lookup global-map "C-c"))
-    (keymap-set map "f" #'fff-find-file)
-    (keymap-set map "g" #'tsp/fff-grep-dwim)
-    (keymap-set map "e" #'dired)
-    (keymap-set map "j" "H-j")
-    (keymap-set map "k" "H-k")
-    (dolist (digit '("0" "1" "2" "3" "4" "5" "6" "7" "8" "9"))
-      (keymap-set map digit #'meow-digit-argument))
-    (keymap-set map "/" #'meow-keypad-describe-key)
-    (keymap-set map "?" #'meow-cheatsheet)
-    map)
-  "Leader map used from Meow Normal state.")
-
-;; Clean up FFF bindings installed by older versions when reloading in place.
-(keymap-global-unset "C-c f")
-(keymap-global-unset "C-c g")
-
-(defvar tsp/meow-kill-ring nil
-  "Kill ring used exclusively by Meow editing commands.")
-
-(defun tsp/meow-with-private-kill-ring (command &rest arguments)
-  "Call COMMAND with ARGUMENTS without consulting the system clipboard."
-  (let ((select-enable-clipboard nil)
-        (select-enable-primary nil)
-        (interprogram-cut-function nil)
-        (interprogram-paste-function nil)
-        (kill-ring tsp/meow-kill-ring)
-        (kill-ring-yank-pointer tsp/meow-kill-ring))
-    (unwind-protect
-        (apply command arguments)
-      (setq tsp/meow-kill-ring kill-ring))))
-
-(defun tsp/meow-insert-state ()
-  "Enter Meow Insert state in terminal-like buffers."
-  (meow-insert-mode 1))
-
-(use-package meow
-  :ensure t
-  :demand t
-  :bind (("C-c t m" . meow-global-mode))
-  :init
-  (setq meow-use-clipboard nil
-        meow-use-cursor-position-hack t
-        meow-goto-line-function #'consult-goto-line
-        meow-keypad-ctrl-meta-prefix ?G
-        ;; Keep Meow's normal SPC keypad entry point, but dispatch its first
-        ;; key through our isolated map rather than the actual C-c map.
-        meow-keypad-leader-dispatch tsp/meow-space-map)
-  :config
-  (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty)
-  (meow-motion-overwrite-define-key
-   '("j" . meow-next) '("k" . meow-prev) '("<escape>" . ignore))
-  (meow-normal-define-key
-   '("0" . meow-expand-0) '("1" . meow-expand-1) '("2" . meow-expand-2)
-   '("3" . meow-expand-3) '("4" . meow-expand-4) '("5" . meow-expand-5)
-   '("6" . meow-expand-6) '("7" . meow-expand-7) '("8" . meow-expand-8)
-   '("9" . meow-expand-9) '("-" . negative-argument)
-   '(";" . meow-reverse) '("," . meow-inner-of-thing) '("." . meow-bounds-of-thing)
-   '("[" . meow-beginning-of-thing) '("]" . meow-end-of-thing)
-   '("a" . meow-append) '("A" . meow-open-below) '("b" . meow-back-word)
-   '("B" . meow-back-symbol) '("c" . meow-change) '("d" . meow-delete)
-   '("D" . meow-backward-delete) '("e" . meow-next-word) '("E" . meow-next-symbol)
-   '("f" . meow-find) '("g" . meow-cancel-selection) '("G" . meow-grab)
-   '("h" . meow-left) '("H" . meow-left-expand) '("i" . meow-insert)
-   '("I" . meow-open-above) '("j" . meow-next) '("J" . meow-next-expand)
-   '("k" . meow-prev) '("K" . meow-prev-expand) '("l" . meow-right)
-   '("L" . meow-right-expand) '("m" . meow-join) '("n" . meow-search)
-   '("o" . meow-block) '("O" . meow-to-block) '("p" . meow-yank)
-   '("q" . meow-quit) '("Q" . meow-goto-line) '("r" . meow-replace)
-   '("R" . meow-swap-grab) '("s" . meow-kill) '("t" . meow-till)
-   '("u" . meow-undo) '("U" . meow-undo-in-selection) '("v" . meow-visit)
-   '("w" . meow-mark-word) '("W" . meow-mark-symbol) '("x" . meow-line)
-   '("X" . meow-goto-line) '("y" . meow-save) '("Y" . meow-sync-grab)
-   '("z" . meow-pop-selection) '("'" . repeat)
-   '("<escape>" . ignore))
-  (dolist (command '(meow-save meow-kill meow-yank meow-change meow-replace))
-    (advice-add command :around #'tsp/meow-with-private-kill-ring))
-  (dolist (hook '(eshell-mode-hook ghostel-mode-hook shell-mode-hook
-                  term-mode-hook vterm-mode-hook))
-    (add-hook hook #'tsp/meow-insert-state))
-  ;; Remove the verbose indicator left behind by an earlier configuration.
-  (setq-default mode-line-format
-                (delete '(:eval (meow-indicator))
-                        (default-value 'mode-line-format)))
-  (meow-global-mode 1))
-
 ;; Match Kitty's pane-management keys.
 (keymap-global-set "M-V" #'split-window-right)
 (keymap-global-set "M-M" #'split-window-below)
@@ -518,6 +419,135 @@ selection while point stays where it was."
   (keymap-global-set key #'tsp/window-layout-one-column))
 (dolist (key '("M-S-2" "M-@"))
   (keymap-global-set key #'tsp/window-layout-two-columns))
+
+(defvar tsp/meow-space-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map mode-specific-map)
+    map)
+  "Leader map used by Meow's Space keypad.")
+
+(defun tsp/meow-cancel-selection-and-multicursor ()
+  "Cancel the Meow selection and exit Multiple Cursors."
+  (interactive)
+  (when (bound-and-true-p multiple-cursors-mode)
+    (multiple-cursors-mode 0))
+  (meow-cancel-selection))
+
+(defun tsp/meow-setup ()
+  "Install Meow's recommended QWERTY bindings."
+  (setq meow-cheatsheet-layout meow-cheatsheet-layout-qwerty
+        ;; `g' is a leader command, so keep it from starting Meow's C-M-
+        ;; keypad translation instead.
+        meow-keypad-ctrl-meta-prefix ?G
+        meow-keypad-leader-dispatch tsp/meow-space-map)
+  (keymap-set tsp/meow-space-map "e" #'dired)
+  (keymap-set tsp/meow-space-map "f" #'fff-find-file)
+  (keymap-set tsp/meow-space-map "g" #'tsp/fff-grep-dwim)
+  (meow-motion-define-key
+   '("j" . meow-next)
+   '("k" . meow-prev)
+   '("<escape>" . ignore))
+  (meow-leader-define-key
+   '("1" . meow-digit-argument)
+   '("2" . meow-digit-argument)
+   '("3" . meow-digit-argument)
+   '("4" . meow-digit-argument)
+   '("5" . meow-digit-argument)
+   '("6" . meow-digit-argument)
+   '("7" . meow-digit-argument)
+   '("8" . meow-digit-argument)
+   '("9" . meow-digit-argument)
+   '("0" . meow-digit-argument)
+   '("/" . meow-keypad-describe-key)
+   '("?" . meow-cheatsheet))
+  (meow-normal-define-key
+   '("0" . meow-expand-0) '("9" . meow-expand-9)
+   '("8" . meow-expand-8) '("7" . meow-expand-7)
+   '("6" . meow-expand-6) '("5" . meow-expand-5)
+   '("4" . meow-expand-4) '("3" . meow-expand-3)
+   '("2" . meow-expand-2) '("1" . meow-expand-1)
+   '("-" . negative-argument)
+   '(";" . meow-reverse)
+   '("," . meow-inner-of-thing)
+   '("." . meow-bounds-of-thing)
+   '("[" . meow-beginning-of-thing)
+   '("]" . meow-end-of-thing)
+   '("a" . meow-append) '("A" . meow-open-below)
+   '("b" . meow-back-word) '("B" . meow-back-symbol)
+   '("c" . meow-change)
+   '("d" . meow-delete) '("D" . meow-backward-delete)
+   '("e" . meow-next-word) '("E" . meow-next-symbol)
+   '("f" . meow-find)
+   '("g" . tsp/meow-cancel-selection-and-multicursor) '("G" . meow-grab)
+   '("h" . meow-left) '("H" . meow-left-expand)
+   '("i" . meow-insert) '("I" . meow-open-above)
+   '("j" . meow-next) '("J" . meow-next-expand)
+   '("k" . meow-prev) '("K" . meow-prev-expand)
+   '("l" . meow-right) '("L" . meow-right-expand)
+   '("m" . meow-join)
+   '("n" . meow-search)
+   '("o" . meow-block) '("O" . meow-to-block)
+   '("p" . meow-yank)
+   '("q" . meow-quit) '("Q" . meow-goto-line)
+   '("r" . meow-replace) '("R" . meow-swap-grab)
+   '("s" . meow-kill)
+   '("t" . meow-till)
+   '("u" . meow-undo) '("U" . meow-undo-in-selection)
+   '("v" . meow-visit)
+   '("w" . meow-mark-word) '("W" . meow-mark-symbol)
+   '("x" . meow-line) '("X" . meow-goto-line)
+   '("y" . meow-save) '("Y" . meow-sync-grab)
+   '("z" . meow-pop-selection)
+   '("'" . repeat)
+   '("<escape>" . ignore)))
+
+(defvar tsp/meow-kill-ring nil
+  "Private kill ring used only by Meow commands.")
+
+(defun tsp/meow-use-internal-kill-ring (function &rest arguments)
+  "Call FUNCTION with ARGUMENTS using Meow's private kill ring."
+  (let ((select-enable-clipboard nil)
+        (select-enable-primary nil)
+        (interprogram-cut-function nil)
+        (interprogram-paste-function nil)
+        (kill-ring tsp/meow-kill-ring)
+        (kill-ring-yank-pointer tsp/meow-kill-ring))
+    (unwind-protect
+        (apply function arguments)
+      (setq tsp/meow-kill-ring kill-ring))))
+
+(use-package meow
+  :ensure t
+  :demand t
+  :bind (("C-c t m" . meow-global-mode))
+  :custom
+  (meow-use-clipboard nil)
+  (meow-use-cursor-position-hack t)
+  (meow-goto-line-function #'consult-goto-line)
+  :config
+  (dolist (mode '(eshell-mode ghostel-mode shell-mode term-mode vterm-mode))
+    (add-to-list 'meow-mode-state-list (cons mode 'insert)))
+  (dolist (command '(meow-kill
+                     meow-kill-append
+                     meow-save
+                     meow-save-append
+                     meow-save-char
+                     meow-save-empty
+                     meow-yank
+                     meow-yank-pop
+                     meow-change-save
+                     meow-replace
+                     meow-replace-char
+                     meow-replace-pop
+                     meow-replace-save))
+    (advice-add command :around #'tsp/meow-use-internal-kill-ring))
+  (tsp/meow-setup)
+  ;; Keep Meow's compact minor-mode lighter; remove the redundant full-state
+  ;; indicator previously installed at the left edge of the mode line.
+  (setq-default mode-line-format
+                (delete '(:eval (meow-indicator))
+                        (default-value 'mode-line-format)))
+  (meow-global-mode 1))
 
 (use-package popper
   :ensure t

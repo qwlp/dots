@@ -238,13 +238,34 @@ For safety, only image files inside `tsp/org-assets-directory' are removed."
         (message "Moved %s to trash and removed its link"
                  (file-name-nondirectory file))))))
 
+(defun tsp/org--socket-p (file)
+  "Return non-nil when FILE names a Unix-domain socket."
+  (when-let* ((attributes (file-attributes file 'string))
+              (modes (file-attribute-modes attributes)))
+    (eq (aref modes 0) ?s)))
+
+(defun tsp/org--ensure-wayland-display ()
+  "Recover `WAYLAND_DISPLAY' when a daemon started before the compositor."
+  (unless (getenv "WAYLAND_DISPLAY")
+    (let ((runtime-directory (getenv "XDG_RUNTIME_DIR")))
+      (when (and runtime-directory (file-directory-p runtime-directory))
+        (when-let* ((socket
+                     (seq-find
+                      #'tsp/org--socket-p
+                      (directory-files runtime-directory t
+                                       "\\`wayland-[[:digit:]]+\\'"))))
+          (setenv "WAYLAND_DISPLAY" (file-name-nondirectory socket)))))))
+
 (defun tsp/org--clipboard-image-spec ()
   "Return a clipboard image command and extension, or signal a user error."
+  (tsp/org--ensure-wayland-display)
   (cond
    ((executable-find "wl-paste")
     (let ((types (with-temp-buffer
                    (when (zerop (call-process "wl-paste" nil t nil "--list-types"))
                      (buffer-string)))))
+      (unless (stringp types)
+        (user-error "Could not query the Wayland clipboard; check that Emacs can access the Wayland session"))
       (cond
        ((string-match-p "image/png" types)
         '("png" "wl-paste" "--no-newline" "--type" "image/png"))
@@ -314,13 +335,6 @@ For safety, only image files inside `tsp/org-assets-directory' are removed."
   "Open the main Org agenda dashboard."
   (interactive)
   (org-agenda nil "d"))
-
-(defun tsp/org-open-dashboard-on-startup ()
-  "Open the Org agenda dashboard after interactive startup."
-  (when (and (not noninteractive) (not (daemonp)))
-    (tsp/org-open-dashboard)))
-
-(add-hook 'emacs-startup-hook #'tsp/org-open-dashboard-on-startup 99)
 
 (defun tsp/org-clock-out-if-done ()
   "Clock out when the current clocked task enters a done state."

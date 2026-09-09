@@ -8,74 +8,34 @@
   :commands (ghostel ghostel-create)
   :init
   (setq ghostel-module-auto-install 'download)
-  (setq-default ghostel-glyph-scale-floor 1.0)
+  (setq-default ghostel-glyph-scale-floor 1.0))
 
-  (defun ghostel-new ()
-    "Open a fresh Ghostel terminal in the current window."
-    (interactive)
-    (switch-to-buffer (ghostel-create)))
+(defun ghostel-new ()
+  "Open a fresh Ghostel terminal in the selected window.
 
-  (defun ghostel-new-right ()
-    "Open a fresh Ghostel terminal in a new window on the right."
-    (interactive)
-    (select-window (split-window-right))
-    (ghostel-new))
+Unlike `ghostel', this never reuses an existing terminal.  The new shell
+starts in the current buffer's `default-directory'."
+  (interactive)
+  (ghostel-create nil display-buffer--same-window-action))
 
-  (defun ghostel-new-below ()
-    "Open a fresh Ghostel terminal in a new window below."
-    (interactive)
-    (select-window (split-window-below))
-    (ghostel-new))
+(defun ghostel-new-right ()
+  "Split the selected window to the right and open a fresh Ghostel there."
+  (interactive)
+  (select-window (split-window-right))
+  (ghostel-new))
 
-  (defun ghostel-new-tab ()
-    "Open a fresh Ghostel terminal in a new tab."
-    (interactive)
-    (tab-bar-new-tab)
-    (ghostel-new))
-  :config
-  (defun tsp/desktop-theme-palette ()
-    "Read the canonical palette published by the Quickshell theme switcher."
-    (let ((file (expand-file-name "~/.config/tsp-theme/current/colors.toml"))
-          palette)
-      (when (file-readable-p file)
-        (with-temp-buffer
-          (insert-file-contents file)
-          (goto-char (point-min))
-          (while (re-search-forward
-                  "^\\([a-z0-9_]+\\)[[:space:]]*=[[:space:]]*\"\\(#[0-9A-Fa-f]\\{6\\}\\)\""
-                  nil t)
-            (push (cons (intern (match-string 1)) (match-string 2)) palette))))
-      palette))
+(defun ghostel-new-below ()
+  "Split the selected window below and open a fresh Ghostel there."
+  (interactive)
+  (select-window (split-window-below))
+  (ghostel-new))
 
-  (defun tsp/ghostel-apply-desktop-theme (&rest _)
-    "Apply Quickshell's active 16-color palette to every Ghostel terminal."
-    (let* ((palette (tsp/desktop-theme-palette))
-           (foreground (alist-get 'foreground palette))
-           (background (alist-get 'background palette))
-           (faces [ghostel-color-black ghostel-color-red
-                   ghostel-color-green ghostel-color-yellow
-                   ghostel-color-blue ghostel-color-magenta
-                   ghostel-color-cyan ghostel-color-white
-                   ghostel-color-bright-black ghostel-color-bright-red
-                   ghostel-color-bright-green ghostel-color-bright-yellow
-                   ghostel-color-bright-blue ghostel-color-bright-magenta
-                   ghostel-color-bright-cyan ghostel-color-bright-white])
-           (colors (mapcar (lambda (number)
-                             (alist-get (intern (format "color%d" number))
-                                        palette))
-                           (number-sequence 0 15))))
-      (when (and foreground background (not (memq nil colors)))
-        (set-face-attribute 'ghostel-default nil
-                            :foreground foreground :background background)
-        (cl-mapc (lambda (face color)
-                   (set-face-attribute face nil :foreground color))
-                 (append faces nil) colors)
-        (ghostel-sync-theme))))
-
-  ;; This hook is added after Ghostel's own hook, so its default prepend
-  ;; behavior makes the palette update happen before Ghostel redraws buffers.
-  (add-hook 'enable-theme-functions #'tsp/ghostel-apply-desktop-theme)
-  (tsp/ghostel-apply-desktop-theme))
+(defun ghostel-new-tab ()
+  "Create a new tab and open a fresh Ghostel terminal in it."
+  (interactive)
+  (tab-bar-new-tab)
+  (tab-bar-rename-tab "terminal")
+  (ghostel-new))
 
 (defun tsp/change-inner-word ()
   "Kill the symbol or word at point, like Vim's `ciw'."
@@ -147,21 +107,7 @@
 (use-package multiple-cursors
   :ensure t
   :init
-  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el")
-        ;; Run newly encountered commands at every cursor without asking for
-        ;; y/n confirmation.  Commands explicitly listed to run once still do.
-        mc/always-run-for-all t)
-  ;; Older versions generated this state file without the cookie now required
-  ;; by Emacs 31.  Upgrade it before `mc/load-lists' reads it.
-  (when (file-readable-p mc/list-file)
-    (with-temp-buffer
-      (insert-file-contents mc/list-file)
-      (unless (save-excursion
-                (goto-char (point-min))
-                (search-forward "lexical-binding:" (line-end-position 2) t))
-        (goto-char (point-min))
-        (insert ";;; -*- lexical-binding: t; -*-\n")
-        (write-region (point-min) (point-max) mc/list-file nil 'silent))))
+  (setq mc/list-file (tsp/emacs-state-file ".mc-lists.el"))
   (with-eval-after-load 'org
     ;; Org's local map shadows the global multiple-cursors bindings.
     ;; Keep the displaced Org commands available on nearby keys.
