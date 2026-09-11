@@ -364,6 +364,9 @@ continues to behave like a loop body."
 
 (use-package jai-ts-mode
   :vc (:url "https://github.com/cpoile/jai-ts-mode")
+  :init
+  ;; Jai mode registers compiler errors at load time without requiring compile.
+  (require 'compile)
   :mode "\\.jai\\'")
 
 (provide 'tsp-prog)
